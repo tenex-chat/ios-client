@@ -13,7 +13,7 @@ import Foundation
 /// - Authentication and session management
 /// - Caching layer
 /// - Network/relay management
-public enum TENEXCore {
+public enum Core {
     /// Current version of the TENEXCore module
     public static let version = "0.1.0"
 }

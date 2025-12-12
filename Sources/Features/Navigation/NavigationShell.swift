@@ -6,6 +6,7 @@
 
 import OSLog
 import SwiftUI
+import TENEXCore
 
 // MARK: - NavigationShell
 
@@ -44,14 +45,30 @@ public struct NavigationShell: View {
     // MARK: Private
 
     @Environment(AuthManager.self) private var authManager
+    @Environment(\.ndk) private var ndk
     @State private var router = NavigationRouter()
     @State private var showingSignOutConfirmation = false
     @State private var isSigningOut = false
+    @State private var projects: [Project] = []
 
     // MARK: - Root View
 
     private var rootView: some View {
-        ProjectListPlaceholder()
+        Group {
+            if let ndk, let userPubkey = authManager.currentUser?.pubkey {
+                ProjectListView(
+                    viewModel: ProjectListViewModel(
+                        ndk: ndk,
+                        userPubkey: userPubkey
+                    )
+                )
+            } else {
+                Text("Loading...")
+            }
+        }
+        .task {
+            await loadProjects()
+        }
     }
 
     // MARK: - Sign Out
@@ -88,10 +105,23 @@ public struct NavigationShell: View {
     private func destinationView(for route: AppRoute) -> some View {
         switch route {
         case .projectList:
-            ProjectListPlaceholder()
+            if let ndk, let userPubkey = authManager.currentUser?.pubkey {
+                ProjectListView(
+                    viewModel: ProjectListViewModel(
+                        ndk: ndk,
+                        userPubkey: userPubkey
+                    )
+                )
+            } else {
+                Text("Loading...")
+            }
 
         case let .project(id):
-            ProjectDetailPlaceholder(projectID: id)
+            if let ndk, let project = projects.first(where: { $0.id == id }) {
+                ProjectDetailView(project: project, ndk: ndk)
+            } else {
+                ProjectDetailPlaceholder(projectID: id)
+            }
 
         case let .threadList(projectID):
             ThreadListPlaceholder(projectID: projectID)
@@ -108,6 +138,39 @@ public struct NavigationShell: View {
             try router.handleDeepLink(url)
         } catch {
             Logger().error("Failed to handle deep link: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Project Loading
+
+    private func loadProjects() async {
+        guard let ndk, let userPubkey = authManager.currentUser?.pubkey else {
+            return
+        }
+
+        do {
+            let filter = Project.filter(for: userPubkey)
+            let subscription = ndk.subscribeToEvents(filters: [filter])
+
+            var projectsByID: [String: Project] = [:]
+            var projectOrder: [String] = []
+
+            for try await event in subscription {
+                if let project = Project.from(event: event) {
+                    // Update projects map (handles replaceable events)
+                    if projectsByID[project.id] == nil {
+                        projectOrder.append(project.id)
+                    }
+                    projectsByID[project.id] = project
+
+                    // Update UI immediately as events arrive (maintaining order)
+                    projects = projectOrder.compactMap { projectsByID[$0] }
+                }
+            }
+
+            // Subscription finished (after EOSE)
+        } catch {
+            Logger().error("Failed to load projects: \(error.localizedDescription)")
         }
     }
 
