@@ -6,6 +6,8 @@
 import Foundation
 import SwiftUI
 
+// MARK: - TENEXShared
+
 /// TENEXShared module provides shared utilities and components.
 ///
 /// This module contains:
@@ -14,7 +16,6 @@ import SwiftUI
 /// - Utility functions
 /// - Design system definitions
 public enum TENEXShared {
-
     /// Current version of the TENEXShared module
     public static let version = "0.1.0"
 }
@@ -22,7 +23,6 @@ public enum TENEXShared {
 // MARK: - Design System Colors
 
 public extension Color {
-
     /// Generate a deterministic HSL color from a string (e.g., project name)
     /// - Parameter string: The string to hash
     /// - Returns: A Color with hue based on the string hash
@@ -45,24 +45,26 @@ public enum ConversationPhase: String, CaseIterable {
     case chores
     case reflection
 
+    // MARK: Public
+
     public var color: Color {
         switch self {
         case .chat:
-            return .blue
+            .blue
         case .brainstorm:
-            return .purple
+            .purple
         case .plan:
-            return .purple
+            .purple
         case .execute:
-            return .green
+            .green
         case .verification:
-            return .orange
+            .orange
         case .review:
-            return .yellow
+            .yellow
         case .chores:
-            return .gray
+            .gray
         case .reflection:
-            return .cyan
+            .cyan
         }
     }
 }

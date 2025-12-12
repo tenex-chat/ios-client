@@ -4,15 +4,12 @@
 //
 
 import SwiftUI
-import TENEXCore
-import TENEXFeatures
+
+// MARK: - TENEXApp
 
 @main
 struct TENEXApp: App {
-
-    // MARK: - State
-
-    @State private var appState = AppState()
+    // MARK: Internal
 
     // MARK: - Body
 
@@ -22,25 +19,31 @@ struct TENEXApp: App {
                 .environment(appState)
         }
     }
+
+    // MARK: Private
+
+    // MARK: - State
+
+    @State private var appState = AppState()
 }
 
-// MARK: - App State
+// MARK: - AppState
 
 @Observable
 final class AppState {
-    var isAuthenticated = false
-    var currentUser: User?
-
     struct User {
         let publicKey: String
         let displayName: String?
     }
+
+    var isAuthenticated = false
+    var currentUser: User?
 }
 
-// MARK: - Content View
+// MARK: - ContentView
 
 struct ContentView: View {
-    @Environment(AppState.self) private var appState
+    // MARK: Internal
 
     var body: some View {
         Group {
@@ -51,9 +54,13 @@ struct ContentView: View {
             }
         }
     }
+
+    // MARK: Private
+
+    @Environment(AppState.self) private var appState
 }
 
-// MARK: - Placeholder Views
+// MARK: - MainView
 
 struct MainView: View {
     var body: some View {
@@ -64,6 +71,8 @@ struct MainView: View {
         }
     }
 }
+
+// MARK: - AuthenticationView
 
 struct AuthenticationView: View {
     var body: some View {

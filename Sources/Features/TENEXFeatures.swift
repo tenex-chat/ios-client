@@ -18,7 +18,6 @@ import TENEXShared
 /// - Documents: Document viewing
 /// - Settings: App configuration
 public enum TENEXFeatures {
-
     /// Current version of the TENEXFeatures module
     public static let version = "0.1.0"
 }

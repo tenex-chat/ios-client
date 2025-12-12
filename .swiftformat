@@ -95,7 +95,6 @@
 --enable numberFormatting
 --enable opaqueGenericParameters
 --enable organizeDeclarations
---enable preferDouble
 --enable preferKeyPath
 --enable redundantBackticks
 --enable redundantBreak

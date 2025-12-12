@@ -11,7 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DEVELOPER_DIR: /Applications/Xcode_16.0.app/Contents/Developer
+  # Use latest available Xcode on the runner
+  DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
 
 jobs:
   lint:
@@ -45,7 +46,7 @@ jobs:
     strategy:
       matrix:
         destination:
-          - "platform=iOS Simulator,name=iPhone 16 Pro"
+          - "platform=iOS Simulator,name=iPhone 15 Pro"
           - "platform=macOS"
     steps:
       - uses: actions/checkout@v4
@@ -103,7 +104,7 @@ jobs:
         run: |
           xcodebuild test \
             -scheme TENEX-Tests \
-            -destination "platform=iOS Simulator,name=iPhone 16 Pro" \
+            -destination "platform=iOS Simulator,name=iPhone 15 Pro" \
             -configuration Debug \
             -resultBundlePath TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO
@@ -146,19 +147,19 @@ jobs:
         run: |
           xcodebuild build \
             -scheme TENEX \
-            -destination "platform=iOS Simulator,name=iPhone 16 Pro" \
+            -destination "platform=iOS Simulator,name=iPhone 15 Pro" \
             -configuration Debug \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Boot Simulator
         run: |
-          xcrun simctl boot "iPhone 16 Pro" || true
-          xcrun simctl bootstatus "iPhone 16 Pro" -b
+          xcrun simctl boot "iPhone 15 Pro" || true
+          xcrun simctl bootstatus "iPhone 15 Pro" -b
 
       - name: Install App
         run: |
-          xcrun simctl install "iPhone 16 Pro" \
+          xcrun simctl install "iPhone 15 Pro" \
             build/Build/Products/Debug-iphonesimulator/TENEX.app
 
       - name: Run Maestro Tests

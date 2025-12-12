@@ -12,11 +12,12 @@ excluded:
   - Derived
   - .build
   - vendor
+  - Project.swift  # Tuist DSL doesn't follow standard naming conventions
+  - Tuist.swift
 
 # Enabled rules
 opt_in_rules:
   - array_init
-  - attributes
   - closure_body_length
   - closure_end_indentation
   - closure_spacing
@@ -103,7 +104,6 @@ opt_in_rules:
   - test_case_accessibility
   - toggle_bool
   - trailing_closure
-  - type_contents_order
   - unavailable_function
   - unneeded_parentheses_in_closure_argument
   - unowned_variable_capture
@@ -118,6 +118,10 @@ opt_in_rules:
 disabled_rules:
   - todo # We use expiring_todo instead
   - line_length # Configured below with warning/error thresholds
+  - trailing_comma # SwiftFormat adds trailing commas, so we allow them
+  - prefixed_toplevel_constant # Conflicts with common Swift patterns
+  - type_contents_order # Conflicts with SwiftFormat organizeDeclarations
+  - attributes # Conflicts with SwiftFormat attribute placement
 
 # Rule configurations
 line_length:

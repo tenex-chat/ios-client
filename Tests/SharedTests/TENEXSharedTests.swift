@@ -4,12 +4,11 @@
 //
 
 import SwiftUI
-import Testing
 @testable import TENEXShared
+import Testing
 
 @Suite("TENEXShared Module Tests")
 struct TENEXSharedTests {
-
     @Test("Module version is defined")
     func moduleVersionIsDefined() {
         #expect(TENEXShared.version == "0.1.0")
@@ -37,10 +36,10 @@ struct TENEXSharedTests {
     @Test("Conversation phases have distinct colors")
     func conversationPhasesHaveDistinctColors() {
         let phases = ConversationPhase.allCases
-        let colors = phases.map { $0.color }
+        let colors = phases.map(\.color)
 
         // At least some colors should be different
-        let uniqueColors = Set(colors.map { $0.description })
+        let uniqueColors = Set(colors.map(\.description))
         #expect(uniqueColors.count > 1)
     }
 
@@ -48,7 +47,7 @@ struct TENEXSharedTests {
     func allPhasesHaveColors() {
         for phase in ConversationPhase.allCases {
             // This will fail if any phase throws when accessing color
-            let _ = phase.color
+            _ = phase.color
         }
     }
 }

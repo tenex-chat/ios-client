@@ -16,7 +16,8 @@ TENEX is a professional, production-grade iOS and macOS client for the TENEX dec
 - **Strict concurrency**: Full Swift 6 concurrency checking enabled.
 - **No backwards compatibility hacks**: Clean, modern code only.
 - **Direct NDK usage**: No unnecessary wrappers around NDKSwift.
-- **Offline-first**: Leverage NDKSwift's local-first architecture.
+- **Offline-first**: Leverage NDKSwift's local-first architecture with NostrDB cache.
+- **NostrDB over SQLite**: Use NDKSwiftNostrDB adapter for local caching.
 
 ### Module Structure
 ```
@@ -106,10 +107,12 @@ When working on this codebase (whether human or agent), follow this protocol:
 - [ ] First Maestro smoke test (app launches)
 
 #### 0.5 NDKSwift Integration
-- [ ] NDKSwift package resolved and building
-- [ ] Basic NDK instance creation test
+- [ ] NDKSwift package resolved and building (using NDKSwiftNostrDB adapter)
+- [ ] Basic NDK instance creation test with NostrDB cache
 - [ ] Verify relay connection works
 - [ ] Document NDKSwift patterns we'll use
+
+> **Note:** Use `NDKSwiftNostrDB` adapter (not SQLite) for the local cache. NostrDB is more performant and purpose-built for Nostr events.
 
 ### Tests Required
 ```

@@ -5,19 +5,14 @@ import PackageDescription
 import ProjectDescription
 
 let packageSettings = PackageSettings(
-    productTypes: [
-        "NDKSwift": .framework,
-        "NDKSwiftCore": .framework,
-        "NDKSwiftUI": .framework,
-    ]
+    productTypes: [:]
 )
 #endif
 
+// External dependencies will be added as local packages to work around Tuist limitations
+// with packages that have non-standard source layouts (like CashuSwift).
+// See PLAN.md Milestone 1 for NDKSwift integration.
 let package = Package(
     name: "TENEXDependencies",
-    dependencies: [
-        .package(url: "https://github.com/AgoraLabsAI/NDKSwift.git", branch: "main"),
-        .package(url: "https://github.com/nicklockwood/SwiftFormat", from: "0.54.0"),
-        .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "0.9.0"),
-    ]
+    dependencies: []
 )
