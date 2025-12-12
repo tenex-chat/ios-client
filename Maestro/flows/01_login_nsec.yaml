@@ -1,0 +1,23 @@
+# Maestro Flow: Login with nsec
+# Verifies user can sign in with a Nostr private key
+#
+# Prerequisites: App in logged out state
+# Expected: User sees project list after login
+
+appId: chat.tenex.ios
+---
+- launchApp:
+    clearState: true
+
+- assertVisible:
+    text: "TENEX"
+
+# TODO: Implement when auth UI is ready
+# - tapOn: "Sign In with nsec"
+# - inputText: "${NSEC_TEST_KEY}"
+# - tapOn: "Continue"
+# - assertVisible: "Projects"
+
+- runScript:
+    script: |
+      console.log("Test placeholder - implement when auth UI is ready")

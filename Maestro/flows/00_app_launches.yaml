@@ -1,0 +1,17 @@
+# Maestro Flow: App Launches
+# Verifies the app launches successfully without crashing
+#
+# Prerequisites: None
+# Expected: App shows authentication screen
+
+appId: chat.tenex.ios
+---
+- launchApp:
+    clearState: true
+
+- assertVisible:
+    text: "TENEX"
+    timeout: 5000
+
+- assertVisible:
+    text: "AI Agent Orchestration"
