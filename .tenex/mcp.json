@@ -1,0 +1,44 @@
+{
+  "servers": {
+    "runway-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "runway-api-mcp-server"
+      ],
+      "eventId": "6761a21e56eaacc4c805bd5afde389cb700a75fddaa64af317ed637e53ff8cf0"
+    },
+    "nostr-explore-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "nostr-explore-mcp"
+      ],
+      "eventId": "258e61ff47fbfd774fe716aa50a39cb846d07c37b6d3891390c01ad340e98b77"
+    },
+    "fetch": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-fetch"
+      ],
+      "eventId": "37efc558181013211540f1cb1c229feac385cdd316534a14293cb60e6730dcfe"
+    },
+    "xcode": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "xcodebuildmcp"
+      ],
+      "eventId": "9e15cc30331a3184b543b88ea03692cbb050ebde638cd127a6fc32fd821c5fe5"
+    },
+    "perplexity-ask-mcp-server": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@chatmcp/server-perplexity-ask"
+      ],
+      "eventId": "02abd9b4df4a32faf9e2ab313c8fd1d71c9ea763aac0b751e82d05f3b2a77c86"
+    }
+  },
+  "enabled": true
+}

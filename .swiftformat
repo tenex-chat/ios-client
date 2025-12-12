@@ -2,20 +2,20 @@
 # Matches SwiftLint rules for consistency
 
 # File options
---exclude Tuist,Derived,.build,vendor
+--exclude **/Tuist/**,**/Derived/**,**/.build/**,**/vendor/**,Project.swift
 
 # Format options
 --allman false
 --binarygrouping 4,8
 --commas always
 --comments indent
---decimalgrouping 3,6
+--decimalgrouping 3,5
 --elseposition same-line
 --empty void
 --exponentcase lowercase
 --exponentgrouping disabled
 --fractiongrouping disabled
---header "\n {file}\n TENEX\n"
+--header "//\n// {file}\n// TENEX iOS Client\n// Copyright (c) {year} TENEX Team\n//"
 --hexgrouping 4,8
 --hexliteralcase uppercase
 --ifdef indent
@@ -26,7 +26,7 @@
 --lifecycle
 --linebreaks lf
 --maxwidth 120
---modifierorder acl,setterACL,override,dynamic,mutating,lazy,final,required,convenience,typeMethods,owned
+--modifierorder override,acl,setterACL,dynamic,mutators,lazy,final,required,convenience,typeMethods,owned
 --nospaceoperators
 --nowrapoperators
 --octalgrouping 4,8
@@ -45,7 +45,8 @@
 --trailingclosures
 --trimwhitespace always
 --typeattributes prev-line
---varattributes same-line
+--storedvarattrs same-line
+--computedvarattrs same-line
 --voidtype void
 --wraparguments preserve
 --wrapcollections preserve

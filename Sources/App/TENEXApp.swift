@@ -1,9 +1,12 @@
 //
-//  TENEXApp.swift
-//  TENEX
+// TENEXApp.swift
+// TENEX iOS Client
+// Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwift
 import SwiftUI
+import TENEXFeatures
 
 // MARK: - TENEXApp
 
@@ -16,7 +19,15 @@ struct TENEXApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environment(appState)
+                .environment(authManager)
+                .environment(\.ndk, ndk)
+                .task {
+                    // Restore session on app launch
+                    try? await authManager.restoreSession()
+
+                    // Connect to relays
+                    await ndk.connect()
+                }
         }
     }
 
@@ -24,20 +35,14 @@ struct TENEXApp: App {
 
     // MARK: - State
 
-    @State private var appState = AppState()
-}
-
-// MARK: - AppState
-
-@Observable
-final class AppState {
-    struct User {
-        let publicKey: String
-        let displayName: String?
-    }
-
-    var isAuthenticated = false
-    var currentUser: User?
+    @State private var authManager = AuthManager()
+    @State private var ndk = NDK(
+        relayURLs: [
+            "wss://relay.damus.io",
+            "wss://nos.lol",
+            "wss://relay.nostr.band",
+        ]
+    )
 }
 
 // MARK: - ContentView
@@ -47,46 +52,15 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if appState.isAuthenticated {
-                MainView()
+            if authManager.isAuthenticated {
+                NavigationShell()
             } else {
-                AuthenticationView()
+                LoginView(viewModel: LoginViewModel(authManager: authManager))
             }
         }
     }
 
     // MARK: Private
 
-    @Environment(AppState.self) private var appState
-}
-
-// MARK: - MainView
-
-struct MainView: View {
-    var body: some View {
-        NavigationStack {
-            Text("TENEX")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-        }
-    }
-}
-
-// MARK: - AuthenticationView
-
-struct AuthenticationView: View {
-    var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "bubble.left.and.bubble.right.fill")
-                .font(.system(size: 60))
-                .foregroundStyle(.blue)
-
-            Text("TENEX")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-
-            Text("AI Agent Orchestration")
-                .foregroundStyle(.secondary)
-        }
-    }
+    @Environment(AuthManager.self) private var authManager
 }

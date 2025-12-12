@@ -115,13 +115,15 @@ opt_in_rules:
   - yoda_condition
 
 # Disabled rules
+# Note: This project uses SwiftFormat for code formatting. Some SwiftLint rules
+# are disabled to avoid conflicts with SwiftFormat's formatting decisions.
+# Run SwiftFormat before SwiftLint to ensure consistency.
 disabled_rules:
-  - todo # We use expiring_todo instead
-  - line_length # Configured below with warning/error thresholds
-  - trailing_comma # SwiftFormat adds trailing commas, so we allow them
+  - todo # We use expiring_todo instead which requires expiration dates
+  - trailing_comma # SwiftFormat handles comma placement, we defer to its rules
   - prefixed_toplevel_constant # Conflicts with common Swift patterns
-  - type_contents_order # Conflicts with SwiftFormat organizeDeclarations
-  - attributes # Conflicts with SwiftFormat attribute placement
+  - type_contents_order # SwiftFormat's organizeDeclarations handles member ordering
+  - attributes # SwiftFormat handles attribute placement (same line vs new line)
 
 # Rule configurations
 line_length:
@@ -218,37 +220,20 @@ enum_case_associated_values_count:
 file_header:
   required_pattern: |
                     \/\/
-                    \/\/  .*\.swift
-                    \/\/  TENEX
+                    \/\/ .*\.swift
+                    \/\/ TENEX iOS Client
+                    \/\/ Copyright \(c\) \d{4} TENEX Team
                     \/\/
 
-# Type contents order
-type_contents_order:
-  order:
-    - associated_type
-    - type_alias
-    - case
-    - subtype
-    - type_property
-    - instance_property
-    - ib_inspectable
-    - ib_outlet
-    - initializer
-    - deinitializer
-    - type_method
-    - view_life_cycle_method
-    - ib_action
-    - other_method
-    - subscript
 
 # Modifier order
 modifier_order:
   preferred_modifier_order:
+    - override
     - acl
     - setterACL
-    - override
     - dynamic
-    - mutating
+    - mutators
     - lazy
     - final
     - required
@@ -277,8 +262,10 @@ custom_rules:
 
   no_hardcoded_strings_in_ui:
     name: "No Hardcoded UI Strings"
-    regex: "Text\\(\"[^\"]+\"\\)"
-    message: "Use localized strings for UI text"
+    # Matches Text("...") but excludes verbatim strings and allows bypass via comment
+    # To bypass this rule for debug/placeholder text, add: // swiftlint:disable:next no_hardcoded_strings_in_ui
+    regex: 'Text\s*\(\s*"(?!\\)([^"]+)"\s*\)(?!\s*//.*swiftlint:disable)'
+    message: "Use localized strings for user-facing UI text. For debug/placeholder text, use: // swiftlint:disable:next no_hardcoded_strings_in_ui"
     severity: warning
     match_kinds:
       - identifier

@@ -1,6 +1,7 @@
 //
-//  TENEXCore.swift
-//  TENEX
+// TENEXCore.swift
+// TENEX iOS Client
+// Copyright (c) 2025 TENEX Team
 //
 
 import Foundation

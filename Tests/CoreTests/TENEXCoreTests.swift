@@ -1,6 +1,7 @@
 //
-//  TENEXCoreTests.swift
-//  TENEX
+// TENEXCoreTests.swift
+// TENEX iOS Client
+// Copyright (c) 2025 TENEX Team
 //
 
 @testable import TENEXCore

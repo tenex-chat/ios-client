@@ -11,6 +11,7 @@ This document outlines the development workflow for TENEX iOS, designed for both
 - [Code Standards](#code-standards)
 - [Testing](#testing)
 - [Commit Guidelines](#commit-guidelines)
+- [Branch Protection Rules](#branch-protection-rules)
 
 ---
 
@@ -507,6 +508,25 @@ Closes #123"
 - `.build/` folder
 - API keys or secrets
 - Personal configuration files
+
+---
+
+## Branch Protection Rules
+
+To maintain code quality and stability, the following branches are protected with specific rules:
+
+### `master` Branch
+
+- **Direct pushes are blocked.** All changes must go through a pull request.
+- **Requires Pull Request:** At least one approving review is required to merge.
+- **Requires Status Checks:** All CI checks (build, test, lint) must pass before merging.
+- **Linear History:** Merge commits are disallowed. Branches must be rebased and fast-forwarded.
+
+### `develop` Branch
+
+- **Direct pushes are blocked.** All changes must go through a pull request.
+- **Requires Pull Request:** While reviews are encouraged, they are not strictly required for the `develop` branch to allow for faster iteration.
+- **Requires Status Checks:** All CI checks must pass.
 
 ---
 

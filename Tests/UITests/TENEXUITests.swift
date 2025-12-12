@@ -1,6 +1,7 @@
 //
-//  TENEXUITests.swift
-//  TENEX
+// TENEXUITests.swift
+// TENEX iOS Client
+// Copyright (c) 2025 TENEX Team
 //
 
 import XCTest

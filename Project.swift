@@ -23,7 +23,9 @@ let project = Project(
     settings: .settings(
         base: [
             "SWIFT_STRICT_CONCURRENCY": "complete",
-            "ENABLE_USER_SCRIPT_SANDBOXING": "YES",
+            "ENABLE_USER_SCRIPT_SANDBOXING": "NO",
+            "CODE_SIGN_STYLE": "Automatic",
+            "DEVELOPMENT_TEAM": "456SHKPP26",
         ],
         configurations: [
             .debug(name: "Debug", settings: ["SWIFT_ACTIVE_COMPILATION_CONDITIONS": "DEBUG"]),
@@ -37,7 +39,7 @@ let project = Project(
             name: "TENEX",
             destinations: [.iPhone, .iPad, .mac],
             product: .app,
-            bundleID: "chat.tenex.ios",
+            bundleId: "chat.tenex.ios",
             deploymentTargets: .multiplatform(iOS: "17.0", macOS: "14.0"),
             infoPlist: .extendingDefault(with: [
                 "CFBundleDisplayName": "TENEX",
@@ -48,6 +50,21 @@ let project = Project(
             ]),
             sources: ["Sources/App/**"],
             resources: ["Resources/**"],
+            scripts: [
+                .pre(
+                    script: """
+                    export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+                    if command -v swiftlint >/dev/null 2>&1; then
+                        cd "$SRCROOT" && swiftlint --strict Sources/App
+                    else
+                        echo "error: SwiftLint not installed. Install via 'brew install swiftlint'"
+                        exit 1
+                    fi
+                    """,
+                    name: "SwiftLint",
+                    basedOnDependencyAnalysis: false
+                )
+            ],
             dependencies: [
                 .target(name: "TENEXCore"),
                 .target(name: "TENEXFeatures"),
@@ -61,11 +78,26 @@ let project = Project(
             name: "TENEXCore",
             destinations: [.iPhone, .iPad, .mac],
             product: .framework,
-            bundleID: "chat.tenex.ios.core",
+            bundleId: "chat.tenex.ios.core",
             deploymentTargets: .multiplatform(iOS: "17.0", macOS: "14.0"),
             sources: ["Sources/Core/**"],
+            scripts: [
+                .pre(
+                    script: """
+                    export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+                    if command -v swiftlint >/dev/null 2>&1; then
+                        cd "$SRCROOT" && swiftlint --strict Sources/Core
+                    else
+                        echo "error: SwiftLint not installed. Install via 'brew install swiftlint'"
+                        exit 1
+                    fi
+                    """,
+                    name: "SwiftLint",
+                    basedOnDependencyAnalysis: false
+                )
+            ],
             dependencies: [
-                // NDKSwift will be added as local package in Milestone 1
+                .external(name: "NDKSwift"),
                 .target(name: "TENEXShared"),
             ]
         ),
@@ -76,9 +108,24 @@ let project = Project(
             name: "TENEXFeatures",
             destinations: [.iPhone, .iPad, .mac],
             product: .framework,
-            bundleID: "chat.tenex.ios.features",
+            bundleId: "chat.tenex.ios.features",
             deploymentTargets: .multiplatform(iOS: "17.0", macOS: "14.0"),
             sources: ["Sources/Features/**"],
+            scripts: [
+                .pre(
+                    script: """
+                    export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+                    if command -v swiftlint >/dev/null 2>&1; then
+                        cd "$SRCROOT" && swiftlint --strict Sources/Features
+                    else
+                        echo "error: SwiftLint not installed. Install via 'brew install swiftlint'"
+                        exit 1
+                    fi
+                    """,
+                    name: "SwiftLint",
+                    basedOnDependencyAnalysis: false
+                )
+            ],
             dependencies: [
                 .target(name: "TENEXCore"),
                 .target(name: "TENEXShared"),
@@ -91,9 +138,24 @@ let project = Project(
             name: "TENEXShared",
             destinations: [.iPhone, .iPad, .mac],
             product: .framework,
-            bundleID: "chat.tenex.ios.shared",
+            bundleId: "chat.tenex.ios.shared",
             deploymentTargets: .multiplatform(iOS: "17.0", macOS: "14.0"),
             sources: ["Sources/Shared/**"],
+            scripts: [
+                .pre(
+                    script: """
+                    export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+                    if command -v swiftlint >/dev/null 2>&1; then
+                        cd "$SRCROOT" && swiftlint --strict Sources/Shared
+                    else
+                        echo "error: SwiftLint not installed. Install via 'brew install swiftlint'"
+                        exit 1
+                    fi
+                    """,
+                    name: "SwiftLint",
+                    basedOnDependencyAnalysis: false
+                )
+            ],
             dependencies: []
         ),
 
@@ -103,11 +165,12 @@ let project = Project(
             name: "TENEXCoreTests",
             destinations: [.iPhone, .iPad, .mac],
             product: .unitTests,
-            bundleID: "chat.tenex.ios.core.tests",
+            bundleId: "chat.tenex.ios.core.tests",
             deploymentTargets: .multiplatform(iOS: "17.0", macOS: "14.0"),
             sources: ["Tests/CoreTests/**"],
             dependencies: [
                 .target(name: "TENEXCore"),
+                .external(name: "NDKSwift"),
             ]
         ),
 
@@ -115,9 +178,9 @@ let project = Project(
             name: "TENEXFeaturesTests",
             destinations: [.iPhone, .iPad, .mac],
             product: .unitTests,
-            bundleID: "chat.tenex.ios.features.tests",
+            bundleId: "chat.tenex.ios.features.tests",
             deploymentTargets: .multiplatform(iOS: "17.0", macOS: "14.0"),
-            sources: ["Tests/FeaturesTests/**"],
+            sources: ["Tests/FeaturesTests/**", "Tests/TestHelpers/**"],
             dependencies: [
                 .target(name: "TENEXFeatures"),
                 .target(name: "TENEXCore"),
@@ -128,7 +191,7 @@ let project = Project(
             name: "TENEXSharedTests",
             destinations: [.iPhone, .iPad, .mac],
             product: .unitTests,
-            bundleID: "chat.tenex.ios.shared.tests",
+            bundleId: "chat.tenex.ios.shared.tests",
             deploymentTargets: .multiplatform(iOS: "17.0", macOS: "14.0"),
             sources: ["Tests/SharedTests/**"],
             dependencies: [
@@ -142,7 +205,7 @@ let project = Project(
             name: "TENEXUITests",
             destinations: [.iPhone, .iPad],
             product: .uiTests,
-            bundleID: "chat.tenex.ios.uitests",
+            bundleId: "chat.tenex.ios.uitests",
             deploymentTargets: .iOS("17.0"),
             sources: ["Tests/UITests/**"],
             dependencies: [
@@ -185,5 +248,6 @@ let project = Project(
         "CONTRIBUTING.md",
         "README.md",
         ".swiftlint.yml",
+        ".swiftformat",
     ]
 )

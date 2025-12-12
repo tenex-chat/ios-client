@@ -1,6 +1,7 @@
 //
-//  TENEXSharedTests.swift
-//  TENEX
+// TENEXSharedTests.swift
+// TENEX iOS Client
+// Copyright (c) 2025 TENEX Team
 //
 
 import SwiftUI

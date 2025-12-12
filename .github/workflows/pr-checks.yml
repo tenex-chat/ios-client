@@ -1,0 +1,62 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - master
+      - develop
+
+jobs:
+  lint-and-format:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Tuist
+        run: | # Installs Tuist
+          curl -Ls https://install.tuist.io | bash
+          tuist install
+      - name: Lint
+        run: tuist lint
+      - name: Format
+        run: tuist format --check
+
+  build:
+    runs-on: macos-latest
+    needs: lint-and-format
+    strategy:
+      matrix:
+        platform: [iOS, macOS]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Tuist
+        run: | # Installs Tuist
+          curl -Ls https://install.tuist.io | bash
+          tuist install
+      - name: Build
+        run: tuist build ${{ matrix.platform }}
+
+  test:
+    runs-on: macos-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Tuist
+        run: | # Installs Tuist
+          curl -Ls https://install.tuist.io | bash
+          tuist install
+      - name: Test
+        run: tuist test
+
+  e2e-tests:
+    runs-on: macos-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Tuist
+        run: | # Installs Tuist
+          curl -Ls https://install.tuist.io | bash
+          tuist install
+      - name: Install Maestro
+        run: curl -Ls "https://get.maestro.mobile.dev" | bash
+      - name: Run Maestro Tests
+        run: maestro test .maestro
