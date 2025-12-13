@@ -8,6 +8,7 @@ import Foundation
 import NDKSwiftCore
 import Observation
 import TENEXCore
+import TENEXShared
 
 /// Typealias for TENEXCore.Thread to avoid conflict with Foundation.Thread
 public typealias NostrThread = TENEXCore.Thread
@@ -27,11 +28,6 @@ public final class ThreadListViewModel {
     public init(ndk: any NDKSubscribing, projectID: String) {
         self.ndk = ndk
         self.projectID = projectID
-    }
-
-    deinit {
-        // Clean up subscription when view model is deallocated
-        subscriptionTask?.cancel()
     }
 
     // MARK: Public
@@ -130,7 +126,7 @@ public final class ThreadListViewModel {
         let threadFilter = NostrThread.filter(for: projectID)
         let metadataFilter = NDKFilter(kinds: [513])
         let messagesFilter = NDKFilter(
-            kinds: [1111], // swiftlint:disable:this number_separator
+            kinds: [1111],
             tags: ["a": [projectID]]
         )
         return [threadFilter, metadataFilter, messagesFilter]
@@ -160,7 +156,8 @@ public final class ThreadListViewModel {
                 metadataByThreadID[metadata.threadID] = metadata
             }
 
-        case 1111: // swiftlint:disable:this number_separator
+        case 1111:
+            // Messages reference their thread root via uppercase "E" tag (NIP-22)
             if let threadID = event.tags(withName: "E").first?[safe: 1] {
                 replyCountsByThreadID[threadID, default: 0] += 1
             }
@@ -203,13 +200,5 @@ public final class ThreadListViewModel {
 
         // Sort by creation date (newest first)
         threads = enrichedThreads.sorted { $0.createdAt > $1.createdAt }
-    }
-}
-
-// MARK: - Safe Array Access
-
-private extension Array {
-    subscript(safe index: Int) -> Element? {
-        indices.contains(index) ? self[index] : nil
     }
 }

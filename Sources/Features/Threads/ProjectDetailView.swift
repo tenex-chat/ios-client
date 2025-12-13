@@ -4,6 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftCore
 import SwiftUI
 import TENEXCore
 
@@ -14,12 +15,9 @@ public struct ProjectDetailView: View {
     // MARK: Lifecycle
 
     /// Initialize the project detail view
-    /// - Parameters:
-    ///   - project: The project to display
-    ///   - ndk: The NDK instance for fetching data
-    public init(project: Project, ndk: any NDKSubscribing) {
+    /// - Parameter project: The project to display
+    public init(project: Project) {
         self.project = project
-        self.ndk = ndk
     }
 
     // MARK: Public
@@ -68,10 +66,10 @@ public struct ProjectDetailView: View {
         }
     }
 
+    @Environment(\.ndk) private var ndk
     @State private var selectedTab: Tab = .threads
 
     private let project: Project
-    private let ndk: any NDKSubscribing
 
     private var projectHeader: some View {
         VStack(spacing: 12) {
@@ -140,7 +138,7 @@ public struct ProjectDetailView: View {
     @ViewBuilder private var tabContent: some View {
         switch selectedTab {
         case .threads:
-            ThreadListView(projectID: project.coordinate, ndk: ndk)
+            ThreadListView(projectID: project.coordinate)
         case .docs:
             comingSoonView(for: "Docs")
         case .agents:

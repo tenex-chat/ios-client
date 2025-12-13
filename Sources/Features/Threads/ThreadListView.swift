@@ -4,10 +4,9 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftCore
 import SwiftUI
-
-// Use struct import to avoid conflict with Foundation.Thread
-import struct TENEXCore.Thread
+import TENEXCore
 
 // MARK: - ThreadListView
 
@@ -16,56 +15,29 @@ public struct ThreadListView: View {
     // MARK: Lifecycle
 
     /// Initialize the thread list view
-    /// - Parameters:
-    ///   - projectId: The project identifier
-    ///   - ndk: The NDK instance for fetching threads
-    public init(projectID: String, ndk: any NDKSubscribing) {
-        _viewModel = State(initialValue: ThreadListViewModel(ndk: ndk, projectID: projectID))
+    /// - Parameter projectID: The project identifier
+    public init(projectID: String) {
+        self.projectID = projectID
     }
 
     // MARK: Public
 
     public var body: some View {
         Group {
-            if viewModel.threads.isEmpty {
-                emptyView
+            if let ndk {
+                contentView(ndk: ndk)
             } else {
-                threadList
-            }
-        }
-        .task {
-            await viewModel.loadThreads()
-        }
-        .refreshable {
-            await viewModel.refresh()
-        }
-        .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
-            Button("OK") {
-                // Error message will be cleared on next load
-            }
-        } message: {
-            if let errorMessage = viewModel.errorMessage {
-                Text(errorMessage)
+                Text("NDK not available")
             }
         }
     }
 
     // MARK: Private
 
-    @State private var viewModel: ThreadListViewModel
+    @Environment(\.ndk) private var ndk
+    @State private var viewModel: ThreadListViewModel?
 
-    private var threadList: some View {
-        List {
-            ForEach(viewModel.threads) { thread in
-                ThreadRow(thread: thread)
-            }
-        }
-        #if os(iOS)
-        .listStyle(.plain)
-        #else
-        .listStyle(.inset)
-        #endif
-    }
+    private let projectID: String
 
     private var emptyView: some View {
         VStack(spacing: 20) {
@@ -81,6 +53,50 @@ public struct ThreadListView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    @ViewBuilder
+    private func contentView(ndk: any NDKSubscribing) -> some View {
+        let vm = viewModel ?? ThreadListViewModel(ndk: ndk, projectID: projectID)
+
+        Group {
+            if vm.threads.isEmpty {
+                emptyView
+            } else {
+                threadList(viewModel: vm)
+            }
+        }
+        .task {
+            if viewModel == nil {
+                viewModel = vm
+            }
+            await vm.loadThreads()
+        }
+        .refreshable {
+            await vm.refresh()
+        }
+        .alert("Error", isPresented: .constant(vm.errorMessage != nil)) {
+            Button("OK") {
+                // Error message will be cleared on next load
+            }
+        } message: {
+            if let errorMessage = vm.errorMessage {
+                Text(errorMessage)
+            }
+        }
+    }
+
+    private func threadList(viewModel: ThreadListViewModel) -> some View {
+        List {
+            ForEach(viewModel.threads) { thread in
+                ThreadRow(thread: thread)
+            }
+        }
+        #if os(iOS)
+        .listStyle(.plain)
+        #else
+        .listStyle(.inset)
+        #endif
     }
 }
 
