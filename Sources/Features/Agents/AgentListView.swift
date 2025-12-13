@@ -80,9 +80,7 @@ public struct AgentListView: View {
 
     private var contentView: some View {
         Group {
-            if viewModel.isLoading {
-                ProgressView("Loading agents...")
-            } else if viewModel.agents.isEmpty {
+            if viewModel.agents.isEmpty {
                 ContentUnavailableView(
                     "No Agents",
                     systemImage: "person.slash",

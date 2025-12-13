@@ -23,30 +23,28 @@ public final class MCPToolListViewModel: ObservableObject {
     public let ndk: NDK
 
     @Published public var tools: [MCPTool] = []
-    @Published public var isLoading = false
     @Published public var error: String?
 
     public func fetchTools() {
-        isLoading = true
-
         let filter = NDKFilter(kinds: [4200], limit: 100)
 
         Task {
             do {
                 let subscription = ndk.subscribeToEvents(filters: [filter])
-                var collectedTools: [MCPTool] = []
+                var seenIDs: Set<String> = []
 
                 for try await event in subscription {
+                    // Deduplicate
+                    guard !seenIDs.contains(event.id) else { continue }
+                    seenIDs.insert(event.id)
+
                     if let tool = MCPTool.from(event: event) {
-                        collectedTools.append(tool)
+                        // Update UI immediately as events arrive
+                        tools.append(tool)
                     }
                 }
-
-                self.tools = collectedTools
-                self.isLoading = false
             } catch {
                 self.error = error.localizedDescription
-                self.isLoading = false
             }
         }
     }

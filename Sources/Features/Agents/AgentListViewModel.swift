@@ -23,34 +23,28 @@ public final class AgentListViewModel: ObservableObject {
     public let ndk: NDK
 
     @Published public var agents: [AgentDefinition] = []
-    @Published public var isLoading = false
     @Published public var error: String?
 
     public func fetchAgents() {
-        isLoading = true
-
         let filter = NDKFilter(kinds: [4199], limit: 100)
 
         Task {
             do {
                 let subscription = ndk.subscribeToEvents(filters: [filter])
-                var collectedAgents: [AgentDefinition] = []
+                var seenIDs: Set<String> = []
 
                 for try await event in subscription {
+                    // Deduplicate
+                    guard !seenIDs.contains(event.id) else { continue }
+                    seenIDs.insert(event.id)
+
                     if let agent = AgentDefinition.from(event: event) {
-                        collectedAgents.append(agent)
+                        // Update UI immediately as events arrive
+                        agents.append(agent)
                     }
                 }
-
-                await MainActor.run {
-                    self.agents = collectedAgents
-                    self.isLoading = false
-                }
             } catch {
-                await MainActor.run {
-                    self.error = error.localizedDescription
-                    self.isLoading = false
-                }
+                self.error = error.localizedDescription
             }
         }
     }
