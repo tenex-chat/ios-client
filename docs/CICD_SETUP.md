@@ -1,6 +1,6 @@
 # CI/CD Setup & Credentials
 
-To enable automatic release to TestFlight on merge to `main`, you need to configure the following secrets in your GitHub repository settings.
+To enable automatic release to TestFlight on merge to `master`, you need to configure the following secrets in your GitHub repository settings.
 
 ## Required Secrets
 
@@ -44,4 +44,4 @@ The `Fastfile` is configured to:
 3.  Build the app using the `TENEX` scheme.
 4.  Upload the build to TestFlight.
 
-**Note:** The `Appfile` in `fastlane/Appfile` contains placeholder email and Team ID. You might want to update `apple_id` and `itc_team_id` there, although using the API Key authentication (as configured in the workflow) generally overrides or obviates the need for some of these manual inputs.
+**Note:** The `Appfile` in `fastlane/Appfile` is configured with the correct Team ID. The `apple_id` and `itc_team_id` are not required when using App Store Connect API Key authentication (as configured in the workflow).
