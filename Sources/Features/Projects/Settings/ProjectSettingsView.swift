@@ -73,7 +73,8 @@ public struct ProjectSettingsView: View {
                 SettingsRow(
                     icon: "gear",
                     title: "General",
-                    subtitle: "Name, description, basic info"
+                    subtitle: "Name, description, basic info",
+                    color: .gray
                 )
             }
         }
@@ -87,7 +88,8 @@ public struct ProjectSettingsView: View {
                 SettingsRow(
                     icon: "person.2",
                     title: "Agents",
-                    subtitle: "Manage AI agents"
+                    subtitle: "Manage AI agents",
+                    color: .blue
                 )
             }
 
@@ -97,7 +99,8 @@ public struct ProjectSettingsView: View {
                 SettingsRow(
                     icon: "wrench.and.screwdriver",
                     title: "Tools",
-                    subtitle: "MCP tools configuration"
+                    subtitle: "MCP tools configuration",
+                    color: .orange
                 )
             }
         }
@@ -111,7 +114,8 @@ public struct ProjectSettingsView: View {
                 SettingsRow(
                     icon: "slider.horizontal.3",
                     title: "Advanced",
-                    subtitle: "Relays and advanced settings"
+                    subtitle: "Relays and advanced settings",
+                    color: .purple
                 )
             }
         }
