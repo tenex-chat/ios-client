@@ -10,7 +10,7 @@ import TENEXCore
 struct MCPToolSelectionStep: View {
     // MARK: Internal
 
-    @ObservedObject var viewModel: CreateProjectViewModel
+    @Bindable var viewModel: CreateProjectViewModel
 
     var body: some View {
         VStack {
