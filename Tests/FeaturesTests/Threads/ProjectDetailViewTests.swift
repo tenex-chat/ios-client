@@ -55,6 +55,11 @@ struct ProjectDetailViewTests {
             pubkey: "test-pubkey",
             title: title,
             description: description,
+            picture: nil,
+            repoURL: nil,
+            hashtags: [],
+            agentIDs: [],
+            mcpToolIDs: [],
             createdAt: Date(),
             color: .blue
         )
