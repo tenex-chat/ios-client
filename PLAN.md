@@ -18,6 +18,7 @@ TENEX is a professional, production-grade iOS and macOS client for the TENEX dec
 - **Direct NDK usage**: No unnecessary wrappers around NostrSDK.
 - **Offline-first**: Leverage NostrSDK's local-first architecture with NostrDB cache.
 - **NostrDB over SQLite**: Use NostrDB adapter for local caching (via NostrSDK).
+- **No loading spinners**: Loading indicators are an antipattern in Nostr apps. Either there's cached data to show immediately, or the view is empty. Show data or empty state - never "Loading...". This reflects Nostr's offline-first design: the cache should always have something to display instantly.
 
 ### Module Structure
 ```
@@ -330,28 +331,28 @@ Maestro/flows/
 ### Deliverables
 
 #### 1.1 Authentication
-- [ ] Auth manager with session persistence (Keychain)
-- [ ] Private key (nsec) sign-in flow
+- [x] Auth manager with session persistence (Keychain) ✅ 2025-12-12
+- [x] Private key (nsec) sign-in flow ✅ 2025-12-12
 - [ ] NIP-46 Bunker sign-in flow
-- [ ] Biometric unlock (Face ID / Touch ID)
-- [ ] Sign-out functionality
-- [ ] Session restoration on app launch
+- [x] Biometric unlock (Face ID / Touch ID) ✅ 2025-12-12
+- [x] Sign-out functionality ✅ 2025-12-12
+- [x] Session restoration on app launch ✅ 2025-12-12
 
 #### 1.2 Project List
-- [ ] Project model matching kind:31933 schema
-- [ ] Project subscription with NDKSwift
-- [ ] Project list view (iPhone layout)
-- [ ] Deterministic HSL color generation for projects
+- [x] Project model matching kind:31933 schema ✅ 2025-12-12
+- [x] Project subscription with NDKSwift ✅ 2025-12-12
+- [x] Project list view (iPhone layout) ✅ 2025-12-12
+- [x] Deterministic HSL color generation for projects ✅ 2025-12-12
 - [ ] Unread message badge
 - [ ] Online agent indicator
-- [ ] Pull-to-refresh
-- [ ] Swipe-to-archive gesture
+- [x] Pull-to-refresh ✅ 2025-12-12
+- [x] Swipe-to-archive gesture ✅ 2025-12-13
 
 #### 1.3 Navigation Shell
-- [ ] Navigation stack for iPhone
-- [ ] Tab bar (if needed) or navigation-based
-- [ ] Deep linking foundation
-- [ ] State restoration
+- [x] Navigation stack for iPhone ✅ 2025-12-13
+- [x] NavigationStack-based (not tab-based) ✅ 2025-12-13
+- [x] Deep linking foundation ✅ 2025-12-13
+- [x] State restoration ✅ 2025-12-13
 
 ### Tests Required
 ```
@@ -395,8 +396,54 @@ Reference: `/Users/pablofernandez/10x/tenex-ios-mockups/iphone.html` (Screen 1: 
 
 ### Status Log
 ```
-[YYYY-MM-DD HH:MM] <agent>
-- Status updates go here
+[2025-12-12 23:35] claude-code
+- Completed biometric unlock implementation (Face ID / Touch ID)
+- Created BiometricAuthenticator class with protocol-oriented design for testability
+- Implemented BiometricAuthenticator with BiometricContext protocol and LAContextWrapper
+- Added BiometricType enum (.unavailable, .touchID, .faceID, .opticID)
+- Added BiometricError enum with localized error descriptions
+- Integrated biometric authentication into AuthManager:
+  * enableBiometric() - Enables biometric auth with user consent
+  * disableBiometric() - Disables biometric auth
+  * isBiometricEnabled - Property tracking biometric preference
+  * restoreSession() modified to require biometric auth when enabled
+- Biometric preference stored in Keychain (biometric_enabled key)
+- Comprehensive test coverage:
+  * 6 tests for BiometricAuthenticator (availability, types, authentication flows)
+  * 7 tests for AuthManager biometric integration (enable/disable, restoration, edge cases)
+  * All 91 tests passing
+- Fixed compilation blocking issues:
+  * Renamed TENEXCore enum to Core to avoid module shadowing
+  * Resolved Foundation.Thread vs TENEXCore.Thread naming conflict
+- AuthManager now supports:
+  * Session persistence with Keychain
+  * nsec sign-in flow
+  * Sign-out functionality
+  * Session restoration with optional biometric protection
+- Next: NIP-46 Bunker sign-in flow (remaining auth feature)
+
+[2025-12-13 07:20] claude-code (Navigation Shell verification)
+- Verified Navigation Shell (1.3) is fully implemented and tested
+- NavigationShell.swift provides complete navigation infrastructure:
+  * NavigationStack with path binding to NavigationRouter
+  * Root view (ProjectListView) with proper route handling
+  * Destination routing for all AppRoute cases
+  * Deep link handling via .onOpenURL
+  * Sign-out functionality with confirmation dialog
+- NavigationRouter.swift provides complete routing logic:
+  * Navigation path management (push/pop/root operations)
+  * Deep link parsing for tenex:// scheme
+  * State restoration via encode/decode methods
+  * Support for all routes: projectList, project, threadList, thread
+- AppRoute.swift defines all navigation destinations (Hashable, Codable)
+- Comprehensive test coverage (all passing):
+  * NavigationRouterTests: 17/17 tests passing
+  * NavigationShellTests: 2/2 tests passing
+  * Tests cover: route parsing, navigation stack, deep linking, state restoration
+- Navigation pattern is NavigationStack-based (not tab-based)
+- ProjectDetailView has internal tabs (Threads/Docs/Agents/Feed), not root-level tabs
+- Navigation Shell (1.3): 4/4 items complete ✅
+- Remaining for Milestone 1: NIP-46 Bunker, unread badges, online indicators
 ```
 
 ---
