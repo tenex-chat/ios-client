@@ -6,6 +6,7 @@
 
 import Foundation
 import NDKSwiftCore
+import TENEXShared
 
 // MARK: - Message
 
@@ -68,7 +69,7 @@ public struct Message: Identifiable, Sendable {
     /// - Returns: A Message instance, or nil if the event is invalid
     public static func from(event: NDKEvent) -> Self? {
         // Verify correct kind
-        guard event.kind == 1111 // swiftlint:disable:this number_separator else {
+        guard event.kind == 1111 else {
             return nil
         }
 
@@ -88,7 +89,7 @@ public struct Message: Identifiable, Sendable {
         let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
 
         return Self(
-            id: event.id ?? "",
+            id: event.id,
             pubkey: event.pubkey,
             threadID: threadID,
             content: event.content,
@@ -103,7 +104,7 @@ public struct Message: Identifiable, Sendable {
     /// - Returns: An NDKFilter configured for kind:1111 events
     public static func filter(for threadID: String) -> NDKFilter {
         NDKFilter(
-            kinds: [1111] // swiftlint:disable:this number_separator,
+            kinds: [1111],
             tags: ["a": [threadID]]
         )
     }
@@ -136,13 +137,5 @@ public struct Message: Identifiable, Sendable {
             replyTo: replyTo,
             status: status
         )
-    }
-}
-
-// MARK: - Safe Array Access
-
-private extension Array {
-    subscript(safe index: Int) -> Element? {
-        indices.contains(index) ? self[index] : nil
     }
 }

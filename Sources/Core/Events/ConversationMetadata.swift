@@ -5,7 +5,8 @@
 //
 
 import Foundation
-import NDKSwift
+import NDKSwiftCore
+import TENEXShared
 
 // MARK: - ConversationMetadata
 
@@ -71,13 +72,5 @@ public struct ConversationMetadata: Sendable {
             kinds: [513],
             tags: ["e": [threadID]]
         )
-    }
-}
-
-// MARK: - Safe Array Access
-
-private extension Array {
-    subscript(safe index: Int) -> Element? {
-        indices.contains(index) ? self[index] : nil
     }
 }

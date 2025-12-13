@@ -47,7 +47,7 @@ public struct StreamingDelta: Identifiable, Sendable {
         let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
 
         return Self(
-            id: event.id ?? "",
+            id: event.id,
             pubkey: event.pubkey,
             messageID: messageID,
             delta: event.content,

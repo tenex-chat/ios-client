@@ -55,7 +55,7 @@ public struct TypingIndicator: Identifiable, Sendable {
         let isTyping = true
 
         return Self(
-            id: event.id ?? "",
+            id: event.id,
             pubkey: event.pubkey,
             threadID: threadID,
             isTyping: isTyping,

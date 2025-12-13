@@ -6,6 +6,7 @@
 
 import Foundation
 import NDKSwiftCore
+import TENEXShared
 
 // MARK: - Thread
 
@@ -162,13 +163,5 @@ public struct Thread: Identifiable, Sendable {
             return 0
         }
         return count
-    }
-}
-
-// MARK: - Safe Array Access
-
-private extension Array {
-    subscript(safe index: Int) -> Element? {
-        indices.contains(index) ? self[index] : nil
     }
 }

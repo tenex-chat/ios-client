@@ -1,5 +1,5 @@
 //
-// TENEXCore.swift
+// Core.swift
 // TENEX iOS Client
 // Copyright (c) 2025 TENEX Team
 //
