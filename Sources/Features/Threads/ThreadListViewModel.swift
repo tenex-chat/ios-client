@@ -35,6 +35,9 @@ public final class ThreadListViewModel {
     /// The list of threads
     public private(set) var threads: [NostrThread] = []
 
+    /// Map of thread ID to original NDKEvent (needed for ChatView navigation)
+    public private(set) var threadEvents: [String: NDKEvent] = [:]
+
     /// Whether threads are currently being loaded
     public private(set) var isLoading = false
 
@@ -96,6 +99,7 @@ public final class ThreadListViewModel {
 
         // State for building threads
         var threadsByID: [String: NostrThread] = [:]
+        var threadEventsByID: [String: NDKEvent] = [:]
         var metadataByThreadID: [String: ConversationMetadata] = [:]
         var replyCountsByThreadID: [String: Int] = [:]
 
@@ -113,6 +117,7 @@ public final class ThreadListViewModel {
             processEvent(
                 event,
                 threadsByID: &threadsByID,
+                threadEventsByID: &threadEventsByID,
                 metadataByThreadID: &metadataByThreadID,
                 replyCountsByThreadID: &replyCountsByThreadID
             )
@@ -120,6 +125,7 @@ public final class ThreadListViewModel {
             // Update UI with current state
             updateThreads(
                 threadsByID: threadsByID,
+                threadEventsByID: threadEventsByID,
                 metadataByThreadID: metadataByThreadID,
                 replyCountsByThreadID: replyCountsByThreadID
             )
@@ -141,6 +147,7 @@ public final class ThreadListViewModel {
     private func processEvent(
         _ event: NDKEvent,
         threadsByID: inout [String: NostrThread],
+        threadEventsByID: inout [String: NDKEvent],
         metadataByThreadID: inout [String: ConversationMetadata],
         replyCountsByThreadID: inout [String: Int]
     ) {
@@ -150,6 +157,7 @@ public final class ThreadListViewModel {
             if let thread = NostrThread.from(event: event) {
                 NSLog("[ThreadListVM] Successfully parsed thread: id=\(thread.id) title=\(thread.title)")
                 threadsByID[thread.id] = thread
+                threadEventsByID[thread.id] = event // Store original event for navigation
             } else {
                 NSLog("[ThreadListVM] Failed to parse thread from event: \(event.id)")
             }
@@ -179,6 +187,7 @@ public final class ThreadListViewModel {
     /// Update the threads array by merging data from kind:11, kind:513, and kind:1111
     private func updateThreads(
         threadsByID: [String: NostrThread],
+        threadEventsByID: [String: NDKEvent],
         metadataByThreadID: [String: ConversationMetadata],
         replyCountsByThreadID: [String: Int]
     ) {
@@ -211,6 +220,8 @@ public final class ThreadListViewModel {
 
         // Sort by creation date (newest first)
         threads = enrichedThreads.sorted { $0.createdAt > $1.createdAt }
+        // Store thread events for navigation
+        threadEvents = threadEventsByID
         NSLog("[ThreadListVM] Final threads array count: \(threads.count)")
     }
 }

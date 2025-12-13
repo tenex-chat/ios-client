@@ -5,8 +5,11 @@
 //
 
 import SwiftUI
+import TENEXCore
 
 struct MCPToolSelectionStep: View {
+    // MARK: Internal
+
     @ObservedObject var viewModel: CreateProjectViewModel
 
     var body: some View {
@@ -14,45 +17,63 @@ struct MCPToolSelectionStep: View {
             if viewModel.isLoadingTools {
                 ProgressView("Loading tools...")
             } else if viewModel.availableTools.isEmpty {
-                ContentUnavailableView("No Tools Found", systemImage: "hammer", description: Text("No MCP tools found."))
+                emptyView
             } else {
-                List {
-                    ForEach(viewModel.availableTools) { tool in
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(tool.name)
-                                    .font(.headline)
-                                Text(tool.description)
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                                    .lineLimit(2)
-                            }
-
-                            Spacer()
-
-                            if viewModel.selectedToolIds.contains(tool.id) {
-                                Image(systemName: "checkmark.square.fill")
-                                    .foregroundColor(.accentColor)
-                            } else {
-                                Image(systemName: "square")
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            toggleSelection(for: tool.id)
-                        }
-                    }
-                }
+                toolList
             }
         }
     }
 
+    // MARK: Private
+
+    private var emptyView: some View {
+        ContentUnavailableView(
+            "No Tools Found",
+            systemImage: "hammer",
+            description: Text("No MCP tools found.")
+        )
+    }
+
+    private var toolList: some View {
+        List {
+            ForEach(viewModel.availableTools) { tool in
+                toolRow(for: tool)
+            }
+        }
+    }
+
+    private func toolRow(for tool: MCPTool) -> some View {
+        HStack {
+            VStack(alignment: .leading) {
+                Text(tool.name)
+                    .font(.headline)
+                Text(tool.description)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+            }
+
+            Spacer()
+
+            if viewModel.selectedToolIDs.contains(tool.id) {
+                Image(systemName: "checkmark.square.fill")
+                    .foregroundColor(.accentColor)
+            } else {
+                Image(systemName: "square")
+                    .foregroundColor(.secondary)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            toggleSelection(for: tool.id)
+        }
+    }
+
     private func toggleSelection(for id: String) {
-        if viewModel.selectedToolIds.contains(id) {
-            viewModel.selectedToolIds.remove(id)
+        if viewModel.selectedToolIDs.contains(id) {
+            viewModel.selectedToolIDs.remove(id)
         } else {
-            viewModel.selectedToolIds.insert(id)
+            viewModel.selectedToolIDs.insert(id)
         }
     }
 }

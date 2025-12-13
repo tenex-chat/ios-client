@@ -75,17 +75,14 @@ public struct ProjectListView: View {
         .listStyle(.plain)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button(action: { showingCreateWizard = true }) {
-                    Label("New Project", systemImage: "plus")
-                }
+                Button(
+                    action: { showingCreateWizard = true },
+                    label: { Label("New Project", systemImage: "plus") }
+                )
             }
         }
         .sheet(isPresented: $showingCreateWizard) {
-            if let ndk = viewModel.ndk {
-                CreateProjectWizardView(ndk: ndk)
-            } else {
-                Text("Error: NDK not available")
-            }
+            CreateProjectWizardView(ndk: viewModel.ndk)
         }
     }
 
@@ -110,11 +107,7 @@ public struct ProjectListView: View {
             .padding(.top)
         }
         .sheet(isPresented: $showingCreateWizard) {
-            if let ndk = viewModel.ndk {
-                CreateProjectWizardView(ndk: ndk)
-            } else {
-                Text("Error: NDK not available")
-            }
+            CreateProjectWizardView(ndk: viewModel.ndk)
         }
     }
 }

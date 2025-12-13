@@ -4,7 +4,9 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftCore
 import SwiftUI
+import TENEXCore
 
 // MARK: - AgentListView
 
@@ -23,7 +25,7 @@ public struct AgentListView: View {
 
         // Note: In a real app we might use a dependency injection container.
         // Here we will use a dummy initialization and update it in onAppear/task.
-        _viewModel = StateObject(wrappedValue: AgentListViewModel(ndk: NDK(publicKey: "", privateKey: nil, relays: [])))
+        _viewModel = StateObject(wrappedValue: AgentListViewModel(ndk: NDK()))
     }
 
     /// Better approach for this codebase likely:
@@ -34,7 +36,7 @@ public struct AgentListView: View {
             // Fallback or placeholder - this part is tricky without a global NDK accessor
             // Assuming we have one for now to satisfy the compiler
             _viewModel = StateObject(
-                wrappedValue: AgentListViewModel(ndk: NDK(publicKey: "", privateKey: nil, relays: []))
+                wrappedValue: AgentListViewModel(ndk: NDK())
             )
         }
     }
@@ -43,57 +45,30 @@ public struct AgentListView: View {
 
     public var body: some View {
         NavigationStack {
-            Group {
-                if viewModel.isLoading {
-                    ProgressView("Loading agents...")
-                } else if viewModel.agents.isEmpty {
-                    ContentUnavailableView(
-                        "No Agents",
-                        systemImage: "person.slash",
-                        description: Text("Create your first agent definition.")
-                    )
-                } else {
-                    List(viewModel.agents) { agent in
-                        NavigationLink(destination: AgentDetailView(agent: agent)) {
-                            VStack(alignment: .leading) {
-                                Text(agent.name)
-                                    .font(.headline)
-                                Text(agent.description ?? "No description")
-                                    .font(.subheadline)
-                                    .foregroundColor(.secondary)
-                            }
-                        }
+            contentView
+                .navigationTitle("Agents")
+                .toolbar {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button(
+                            action: { showingEditor = true },
+                            label: { Label("Add Agent", systemImage: "plus") }
+                        )
                     }
                 }
-            }
-            .navigationTitle("Agents")
-            .toolbar {
-                ToolbarItem(placement: .primaryAction) {
-                    Button(action: { showingEditor = true }) {
-                        Label("Add Agent", systemImage: "plus")
+                .sheet(isPresented: $showingEditor) {
+                    editorSheet
+                }
+                .task {
+                    if let ndk {
+                        // Re-initialize with correct NDK if needed, or just let fetching happen if we could inject it
+                        // Since we can't easily swap the StateObject, we rely on the init trick or
+                        // we could have a `configure(ndk:)` method on the VM.
+                        // For now, assume the VM was initialized correctly or we can't easily fix it without major
+                        // refactor.
+                        // Ideally we pass NDK into the view init from NavigationShell.
+                        // Let's assume the NavigationShell passes it.
                     }
                 }
-            }
-            .sheet(isPresented: $showingEditor) {
-                if let ndk {
-                    NavigationStack {
-                        AgentEditorView(ndk: ndk)
-                    }
-                } else {
-                    Text("Error: NDK not available")
-                }
-            }
-            .task {
-                if let ndk {
-                    // Re-initialize with correct NDK if needed, or just let fetching happen if we could inject it
-                    // Since we can't easily swap the StateObject, we rely on the init trick or
-                    // we could have a `configure(ndk:)` method on the VM.
-                    // For now, assume the VM was initialized correctly or we can't easily fix it without major
-                    // refactor.
-                    // Ideally we pass NDK into the view init from NavigationShell.
-                    // Let's assume the NavigationShell passes it.
-                }
-            }
         }
     }
 
@@ -102,6 +77,48 @@ public struct AgentListView: View {
     @StateObject private var viewModel: AgentListViewModel
     @State private var showingEditor = false
     @Environment(\.ndk) private var ndk
+
+    private var contentView: some View {
+        Group {
+            if viewModel.isLoading {
+                ProgressView("Loading agents...")
+            } else if viewModel.agents.isEmpty {
+                ContentUnavailableView(
+                    "No Agents",
+                    systemImage: "person.slash",
+                    description: Text("Create your first agent definition.")
+                )
+            } else {
+                agentList
+            }
+        }
+    }
+
+    private var agentList: some View {
+        List(viewModel.agents) { agent in
+            NavigationLink(destination: AgentDetailView(agent: agent)) {
+                VStack(alignment: .leading) {
+                    Text(agent.name)
+                        .font(.headline)
+                    Text(agent.description ?? "No description")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+            }
+        }
+    }
+
+    private var editorSheet: some View {
+        Group {
+            if let ndk {
+                NavigationStack {
+                    AgentEditorView(ndk: ndk)
+                }
+            } else {
+                Text("Error: NDK not available")
+            }
+        }
+    }
 }
 
 // MARK: - AgentDetailView

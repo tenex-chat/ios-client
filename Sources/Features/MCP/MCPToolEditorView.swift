@@ -79,17 +79,20 @@ public struct MCPToolEditorView: View {
         ]
 
         if let data = parametersJson.data(using: .utf8),
-           (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) != nil
-        {
+           (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) != nil {
             // Valid JSON, add tag
             tags.append(["params", parametersJson])
         }
 
         let content = description
 
-        let event = NDKEvent(kind: 4200, tags: tags, content: content, ndk: ndk)
-
         do {
+            let event = try await NDKEventBuilder(ndk: ndk)
+                .kind(4200)
+                .setTags(tags)
+                .content(content)
+                .build()
+
             try await ndk.publish(event)
             dismiss()
         } catch {

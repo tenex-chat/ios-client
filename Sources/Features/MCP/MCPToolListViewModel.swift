@@ -7,6 +7,7 @@
 import Combine
 import Foundation
 import NDKSwiftCore
+import TENEXCore
 
 @MainActor
 public final class MCPToolListViewModel: ObservableObject {
@@ -32,18 +33,20 @@ public final class MCPToolListViewModel: ObservableObject {
 
         Task {
             do {
-                let events = try await ndk.fetchEvents(filters: [filter])
-                let tools = events.compactMap { MCPTool.from(event: $0) }
+                let subscription = ndk.subscribeToEvents(filters: [filter])
+                var collectedTools: [MCPTool] = []
 
-                await MainActor.run {
-                    self.tools = tools
-                    self.isLoading = false
+                for try await event in subscription {
+                    if let tool = MCPTool.from(event: event) {
+                        collectedTools.append(tool)
+                    }
                 }
+
+                self.tools = collectedTools
+                self.isLoading = false
             } catch {
-                await MainActor.run {
-                    self.error = error.localizedDescription
-                    self.isLoading = false
-                }
+                self.error = error.localizedDescription
+                self.isLoading = false
             }
         }
     }

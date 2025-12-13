@@ -14,14 +14,14 @@ struct ProjectDetailsStep: View {
             Section(header: Text("Project Details")) {
                 TextField("Project Name", text: $viewModel.projectName)
                 TextField("Description", text: $viewModel.projectDescription, axis: .vertical)
-                    .lineLimit(3...6)
+                    .lineLimit(3 ... 6)
             }
 
             Section(header: Text("Optional")) {
                 TextField("Tags (space separated)", text: $viewModel.projectTags)
-                TextField("Image URL", text: $viewModel.projectImageUrl)
+                TextField("Image URL", text: $viewModel.projectImageURL)
                     .keyboardType(.URL)
-                TextField("Repository URL", text: $viewModel.projectRepoUrl)
+                TextField("Repository URL", text: $viewModel.projectRepoURL)
                     .keyboardType(.URL)
             }
         }

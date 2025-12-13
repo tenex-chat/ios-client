@@ -7,6 +7,7 @@
 import Combine
 import Foundation
 import NDKSwiftCore
+import TENEXCore
 
 @MainActor
 public final class AgentListViewModel: ObservableObject {

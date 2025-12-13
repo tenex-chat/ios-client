@@ -92,9 +92,13 @@ public struct AgentEditorView: View {
 
         let content = instructions
 
-        let event = NDKEvent(kind: 4199, tags: tags, content: content, ndk: ndk)
-
         do {
+            let event = try await NDKEventBuilder(ndk: ndk)
+                .kind(4199)
+                .setTags(tags)
+                .content(content)
+                .build()
+
             try await ndk.publish(event)
             dismiss()
         } catch {

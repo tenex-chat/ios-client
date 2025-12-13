@@ -107,9 +107,12 @@ public final class ProjectListViewModel {
         projects = filterArchivedProjects(from: allProjects)
     }
 
+    // MARK: Internal
+
+    let ndk: NDK
+
     // MARK: Private
 
-    private let ndk: NDK
     private let userPubkey: String
     private let archiveStorage: ArchiveStorage
 

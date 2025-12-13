@@ -17,28 +17,28 @@ struct ProjectReviewStep: View {
                 if !viewModel.projectTags.isEmpty {
                     LabeledContent("Tags", value: viewModel.projectTags)
                 }
-                if !viewModel.projectRepoUrl.isEmpty {
-                    LabeledContent("Repo", value: viewModel.projectRepoUrl)
+                if !viewModel.projectRepoURL.isEmpty {
+                    LabeledContent("Repo", value: viewModel.projectRepoURL)
                 }
             }
 
             Section(header: Text("Selected Agents")) {
-                if viewModel.selectedAgentIds.isEmpty {
+                if viewModel.selectedAgentIDs.isEmpty {
                     Text("No agents selected")
                         .foregroundColor(.secondary)
                 } else {
-                    ForEach(viewModel.availableAgents.filter { viewModel.selectedAgentIds.contains($0.id) }) { agent in
+                    ForEach(viewModel.availableAgents.filter { viewModel.selectedAgentIDs.contains($0.id) }) { agent in
                         Text(agent.name)
                     }
                 }
             }
 
             Section(header: Text("Selected Tools")) {
-                if viewModel.selectedToolIds.isEmpty {
+                if viewModel.selectedToolIDs.isEmpty {
                     Text("No tools selected")
                         .foregroundColor(.secondary)
                 } else {
-                    ForEach(viewModel.availableTools.filter { viewModel.selectedToolIds.contains($0.id) }) { tool in
+                    ForEach(viewModel.availableTools.filter { viewModel.selectedToolIDs.contains($0.id) }) { tool in
                         Text(tool.name)
                     }
                 }

@@ -143,10 +143,10 @@
 --enable void
 --enable wrapArguments
 --enable wrapAttributes
---enable wrapConditionalBodies
+--disable wrapConditionalBodies
 --enable wrapEnumCases
 --enable wrapLoopBodies
---enable wrapMultilineStatementBraces
+--disable wrapMultilineStatementBraces
 --enable wrapSingleLineComments
 --enable wrapSwitchCases
 --enable yodaConditions

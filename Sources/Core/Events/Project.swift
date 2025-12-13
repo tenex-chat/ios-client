@@ -29,16 +29,16 @@ public struct Project: Identifiable, Sendable {
     public let picture: String?
 
     /// Optional repository URL
-    public let repoUrl: String?
+    public let repoURL: String?
 
     /// List of hashtags
     public let hashtags: [String]
 
     /// List of agent IDs (kind 4199 event IDs)
-    public let agentIds: [String]
+    public let agentIDs: [String]
 
     /// List of MCP tool IDs (kind 4200 event IDs)
-    public let mcpToolIds: [String]
+    public let mcpToolIDs: [String]
 
     /// When the project was created
     public let createdAt: Date
@@ -83,16 +83,19 @@ public struct Project: Identifiable, Sendable {
         let description = parseDescription(from: event.content) ?? event.content
 
         // Extract other metadata
-        let picture = event.tags(withName: "picture").first?.count ?? 0 > 1 ? event.tags(withName: "picture").first?[1] : nil
-            ?? event.tags(withName: "image").first?.count ?? 0 > 1 ? event.tags(withName: "image").first?[1] : nil
+        let pictureTag = event.tags(withName: "picture").first
+        let imageTag = event.tags(withName: "image").first
+        let picture = (pictureTag?.count ?? 0 > 1 ? pictureTag?[1] : nil)
+            ?? (imageTag?.count ?? 0 > 1 ? imageTag?[1] : nil)
 
-        let repoUrl = event.tags(withName: "repo").first?.count ?? 0 > 1 ? event.tags(withName: "repo").first?[1] : nil
+        let repoTag = event.tags(withName: "repo").first
+        let repoURL = repoTag?.count ?? 0 > 1 ? repoTag?[1] : nil
 
         let hashtags = event.tags.filter { $0.count > 1 && $0[0] == "t" }.map { $0[1] }
 
-        let agentIds = event.tags.filter { $0.count > 1 && $0[0] == "agent" }.map { $0[1] }
+        let agentIDs = event.tags.filter { $0.count > 1 && $0[0] == "agent" }.map { $0[1] }
 
-        let mcpToolIds = event.tags.filter { $0.count > 1 && $0[0] == "mcp" }.map { $0[1] }
+        let mcpToolIDs = event.tags.filter { $0.count > 1 && $0[0] == "mcp" }.map { $0[1] }
 
         // Convert timestamp to Date
         let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
@@ -106,10 +109,10 @@ public struct Project: Identifiable, Sendable {
             title: title,
             description: description,
             picture: picture,
-            repoUrl: repoUrl,
+            repoURL: repoURL,
             hashtags: hashtags,
-            agentIds: agentIds,
-            mcpToolIds: mcpToolIds,
+            agentIDs: agentIDs,
+            mcpToolIDs: mcpToolIDs,
             createdAt: createdAt,
             color: color
         )

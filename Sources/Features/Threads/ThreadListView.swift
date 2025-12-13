@@ -15,9 +15,12 @@ public struct ThreadListView: View {
     // MARK: Lifecycle
 
     /// Initialize the thread list view
-    /// - Parameter projectID: The project identifier
-    public init(projectID: String) {
+    /// - Parameters:
+    ///   - projectID: The project identifier
+    ///   - userPubkey: The current user's pubkey (for chat navigation)
+    public init(projectID: String, userPubkey: String? = nil) {
         self.projectID = projectID
+        self.userPubkey = userPubkey
     }
 
     // MARK: Public
@@ -38,6 +41,7 @@ public struct ThreadListView: View {
     @State private var viewModel: ThreadListViewModel?
 
     private let projectID: String
+    private let userPubkey: String?
 
     private var emptyView: some View {
         VStack(spacing: 20) {
@@ -89,7 +93,20 @@ public struct ThreadListView: View {
     private func threadList(viewModel: ThreadListViewModel) -> some View {
         List {
             ForEach(viewModel.threads) { thread in
-                ThreadRow(thread: thread)
+                if let threadEvent = viewModel.threadEvents[thread.id],
+                   let userPubkey {
+                    NavigationLink {
+                        ChatView(
+                            threadEvent: threadEvent,
+                            projectReference: thread.projectID,
+                            currentUserPubkey: userPubkey
+                        )
+                    } label: {
+                        ThreadRow(thread: thread)
+                    }
+                } else {
+                    ThreadRow(thread: thread)
+                }
             }
         }
         #if os(iOS)

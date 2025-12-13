@@ -8,6 +8,7 @@ import Combine
 import Foundation
 import NDKSwiftCore
 import SwiftUI
+import TENEXCore
 
 @MainActor
 public final class CreateProjectViewModel: ObservableObject {
@@ -122,9 +123,13 @@ public final class CreateProjectViewModel: ObservableObject {
             return false
         }
 
-        let event = NDKEvent(kind: 31_933, tags: tags, content: content, ndk: ndk)
-
         do {
+            let event = try await NDKEventBuilder(ndk: ndk)
+                .kind(31_933)
+                .setTags(tags)
+                .content(content)
+                .build()
+
             try await ndk.publish(event)
             return true
         } catch {
