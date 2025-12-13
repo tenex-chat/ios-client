@@ -101,6 +101,7 @@ public struct ChatInputView: View {
     @State private var viewModel: ChatInputViewModel
     @State private var agentSelectorVM: AgentSelectorViewModel
     @State private var mentionVM: MentionAutocompleteViewModel
+    @State private var showVoiceMode = false
 
     private var inputToolbar: some View {
         HStack(spacing: 16) {
@@ -115,11 +116,14 @@ public struct ChatInputView: View {
 
             // Mic button
             Button {
-                // Placeholder action - will navigate to voice mode
+                showVoiceMode = true
             } label: {
                 Image(systemName: "mic.fill")
                     .font(.system(size: 20))
                     .foregroundStyle(.secondary)
+            }
+            .fullScreenCover(isPresented: $showVoiceMode) {
+                VoiceModeView()
             }
 
             Spacer()
