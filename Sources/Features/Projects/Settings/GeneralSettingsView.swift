@@ -27,8 +27,10 @@ struct GeneralSettingsView: View {
                     .lineLimit(5 ... 10)
 
                 TextField("Repository URL", text: $viewModel.repoURL)
+                #if os(iOS)
                     .keyboardType(.URL)
                     .textInputAutocapitalization(.never)
+                #endif
                     .autocorrectionDisabled()
             }
 
