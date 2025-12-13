@@ -36,6 +36,18 @@ public struct ProjectDetailView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showingSettings = true
+                } label: {
+                    Label("Settings", systemImage: "gear")
+                }
+            }
+        }
+        .sheet(isPresented: $showingSettings) {
+            ProjectSettingsView(project: project)
+        }
     }
 
     // MARK: Private
@@ -68,6 +80,7 @@ public struct ProjectDetailView: View {
 
     @Environment(\.ndk) private var ndk
     @State private var selectedTab: Tab = .threads
+    @State private var showingSettings = false
 
     private let project: Project
 
