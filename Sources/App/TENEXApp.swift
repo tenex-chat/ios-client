@@ -29,6 +29,9 @@ struct TENEXApp: App {
                     await ndk.connect()
                 }
         }
+        .commands {
+            SidebarCommands()
+        }
     }
 
     // MARK: Private

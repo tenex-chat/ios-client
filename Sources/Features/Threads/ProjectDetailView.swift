@@ -16,8 +16,10 @@ public struct ProjectDetailView: View {
 
     /// Initialize the project detail view
     /// - Parameter project: The project to display
-    public init(project: Project) {
+    /// - Parameter selectedThreadID: Binding to the selected thread ID (for split view)
+    public init(project: Project, selectedThreadID: Binding<String?>? = nil) {
         self.project = project
+        self._selectedThreadID = selectedThreadID ?? .constant(nil)
     }
 
     // MARK: Public
@@ -68,6 +70,7 @@ public struct ProjectDetailView: View {
 
     @Environment(\.ndk) private var ndk
     @State private var selectedTab: Tab = .threads
+    @Binding private var selectedThreadID: String?
 
     private let project: Project
 
@@ -138,7 +141,7 @@ public struct ProjectDetailView: View {
     @ViewBuilder private var tabContent: some View {
         switch selectedTab {
         case .threads:
-            ThreadListView(projectID: project.coordinate)
+            ThreadListView(projectID: project.coordinate, selectedThreadID: $selectedThreadID)
         case .docs:
             comingSoonView(for: "Docs")
         case .agents:

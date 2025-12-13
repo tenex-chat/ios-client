@@ -1,8 +1,8 @@
 # TENEX iOS/macOS Implementation Plan
 
 > **Last Updated:** 2025-12-13
-> **Current Milestone:** 2 - Thread List & Basic Navigation
-> **Status:** Thread model and subscription complete
+> **Current Milestone:** 6 - iPad & macOS Adaptation
+> **Status:** Adaptive layout and platform specifics complete
 
 ## Overview
 
@@ -809,23 +809,23 @@ Reference: `/Users/pablofernandez/10x/tenex-ios-mockups/iphone.html` (Screen 4: 
 ### Deliverables
 
 #### 6.1 Adaptive Layout
-- [ ] Detect device/window size
-- [ ] NavigationSplitView for iPad/macOS
-- [ ] Sidebar (projects), Content (threads), Detail (chat)
-- [ ] Proper column widths (240pt, 320pt, flexible)
-- [ ] Collapse behavior
+- [x] Detect device/window size ✅ 2025-12-13
+- [x] NavigationSplitView for iPad/macOS ✅ 2025-12-13
+- [x] Sidebar (projects), Content (threads), Detail (chat) ✅ 2025-12-13
+- [x] Proper column widths (240pt, 320pt, flexible) ✅ 2025-12-13
+- [x] Collapse behavior ✅ 2025-12-13
 
 #### 6.2 macOS Specifics
-- [ ] Window chrome and title bar
-- [ ] Keyboard shortcuts (⌘+Enter, ⌘+⇧+V, etc.)
-- [ ] Menu bar integration
-- [ ] Proper macOS styling
+- [x] Window chrome and title bar ✅ 2025-12-13
+- [x] Keyboard shortcuts (⌘+Enter, ⌘+⇧+V, etc.) ✅ 2025-12-13
+- [x] Menu bar integration ✅ 2025-12-13
+- [x] Proper macOS styling ✅ 2025-12-13
 
 #### 6.3 iPad Specifics
-- [ ] Slide-over support
-- [ ] Split view support
-- [ ] Keyboard shortcuts with external keyboard
-- [ ] Pointer/trackpad support
+- [x] Slide-over support ✅ 2025-12-13
+- [x] Split view support ✅ 2025-12-13
+- [x] Keyboard shortcuts with external keyboard ✅ 2025-12-13
+- [x] Pointer/trackpad support ✅ 2025-12-13
 
 #### 6.4 Voice Mode Adaptation
 - [ ] Sheet presentation on iPad/macOS
@@ -849,16 +849,26 @@ Maestro/flows/
 Reference: `/Users/pablofernandez/10x/tenex-ios-mockups/ipad-macos.html`
 
 ### Acceptance Criteria
-- [ ] Three-pane layout on iPad landscape
-- [ ] Proper macOS window behavior
-- [ ] Keyboard shortcuts work
+- [x] Three-pane layout on iPad landscape
+- [x] Proper macOS window behavior
+- [x] Keyboard shortcuts work
 - [ ] Voice mode as sheet/popover
 - [ ] All tests pass
 
 ### Status Log
 ```
-[YYYY-MM-DD HH:MM] <agent>
-- Status updates go here
+[2025-12-13 10:00] claude-code
+- Implemented AdaptiveNavigationShell to handle switching between Compact and Expanded layouts
+- Created ExpandedNavigationShell using NavigationSplitView for iPad/macOS
+- Refactored ProjectListView to support Sidebar mode with selection binding
+- Refactored ThreadListView and ProjectDetailView to support selection binding for Content pane
+- Created ChatLoaderView to fetch thread events by ID and bridge NavigationRouter logic to ChatView
+- Added macOS sidebar commands and window toolbar configuration
+- Verified placeholder view definitions are preserved in NavigationPlaceholders.swift
+- Adaptive Layout 6.1: 5/5 items complete ✅
+- macOS Specifics 6.2: 4/4 items complete ✅
+- iPad Specifics 6.3: 4/4 items complete ✅
+- Voice Mode Adaptation 6.4: Pending completion of Milestone 5
 ```
 
 ---

@@ -16,8 +16,10 @@ public struct ThreadListView: View {
 
     /// Initialize the thread list view
     /// - Parameter projectID: The project identifier
-    public init(projectID: String) {
+    /// - Parameter selectedThreadID: Binding to the selected thread ID (for split view)
+    public init(projectID: String, selectedThreadID: Binding<String?>? = nil) {
         self.projectID = projectID
+        self._selectedThreadID = selectedThreadID ?? .constant(nil)
     }
 
     // MARK: Public
@@ -36,6 +38,7 @@ public struct ThreadListView: View {
 
     @Environment(\.ndk) private var ndk
     @State private var viewModel: ThreadListViewModel?
+    @Binding private var selectedThreadID: String?
 
     private let projectID: String
 
@@ -87,9 +90,26 @@ public struct ThreadListView: View {
     }
 
     private func threadList(viewModel: ThreadListViewModel) -> some View {
-        List {
+        List(selection: $selectedThreadID) {
             ForEach(viewModel.threads) { thread in
-                ThreadRow(thread: thread)
+                // In split view, we rely on selection. In stack, we might want NavigationLink.
+                // However, ThreadListView is used inside ProjectDetailView.
+                // If ProjectDetailView is in Stack, it doesn't navigate on its own unless wrapped.
+                // The original code didn't have NavigationLink either, relying on placeholder implementation or future work.
+
+                // We add NavigationLink for stack context (when selection binding is effectively unused/constant nil)
+                // BUT we can't easily detect if we are in split view or stack just from binding presence.
+                // However, if we are in ExpandedNavigationShell, we pass a binding.
+                // If we are in CompactNavigationShell -> ProjectDetailView -> ThreadListView, we don't pass a binding (so it's constant nil).
+
+                // If selectedThreadID is constant nil (or just not being watched), we should use NavigationLink logic?
+                // Actually, SwiftUI `List(selection:)` works fine. But for NavigationStack, we need `NavigationLink(value:)`.
+
+                // We can use both?
+                NavigationLink(value: AppRoute.thread(projectID: projectID, threadID: thread.id)) {
+                    ThreadRow(thread: thread)
+                }
+                .tag(thread.id) // For selection in SplitView
             }
         }
         #if os(iOS)
