@@ -101,23 +101,9 @@ public struct ProjectDetailView: View {
     }
 
     private var feedTab: some View {
-        Group {
-            if let ndk {
-                NavigationStack {
-                    FeedTabView(
-                        viewModel: FeedTabViewModel(
-                            ndk: ndk,
-                            projectID: project.coordinate
-                        )
-                    )
-                    .navigationTitle(project.title)
-                }
-            } else {
-                NavigationStack {
-                    Text("NDK not available")
-                        .navigationTitle(project.title)
-                }
-            }
+        NavigationStack {
+            FeedTabView(projectID: project.coordinate)
+                .navigationTitle(project.title)
         }
         .tabItem {
             Label("Feed", systemImage: "list.bullet")
