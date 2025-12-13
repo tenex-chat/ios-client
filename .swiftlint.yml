@@ -211,6 +211,10 @@ closure_body_length:
   warning: 30
   error: 50
 
+# Number separator - only require for 5+ digit numbers
+number_separator:
+  minimum_length: 5
+
 # Enum case associated values
 enum_case_associated_values_count:
   warning: 5
