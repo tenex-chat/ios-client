@@ -77,31 +77,29 @@ public struct Thread: Identifiable, Sendable {
     public static func from(event: NDKEvent) -> Self? {
         // Verify correct kind
         guard event.kind == 11 else {
+            NSLog("[Thread] Wrong kind: \(event.kind), expected 11")
             return nil
         }
 
-        // Extract 'd' tag (required)
-        guard let dTag = event.tags(withName: "d").first,
-              dTag.count > 1,
-              !dTag[1].isEmpty
-        else {
-            return nil
-        }
-        let threadID = dTag[1]
+        // For kind:11, the thread ID is the event ID itself (not a 'd' tag)
+        let threadID = event.id
 
         // Extract project ID from 'a' tag (required)
         guard let aTag = event.tags(withName: "a").first,
               aTag.count > 1,
               !aTag[1].isEmpty
         else {
+            NSLog("[Thread] Missing or invalid 'a' tag in event: \(event.id)")
             return nil
         }
         let projectID = aTag[1]
+        NSLog("[Thread] Event \(event.id) has projectID: \(projectID)")
 
         // Extract title from tags (required)
         guard let titleTag = event.tags(withName: "title").first,
               titleTag.count > 1
         else {
+            NSLog("[Thread] Missing or invalid 'title' tag in event: \(event.id)")
             return nil
         }
         let title = titleTag[1]

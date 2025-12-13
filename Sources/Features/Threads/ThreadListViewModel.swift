@@ -89,7 +89,9 @@ public final class ThreadListViewModel {
 
     /// Subscribe to thread events and process them as they arrive
     private func subscribeAndProcessEvents() async throws {
+        NSLog("[ThreadListVM] ProjectID being queried: '\(projectID)'")
         let filters = createSubscriptionFilters()
+        NSLog("[ThreadListVM] Starting subscription with filters: \(filters)")
         let subscription = ndk.subscribeToEvents(filters: filters)
 
         // State for building threads
@@ -98,8 +100,11 @@ public final class ThreadListViewModel {
         var replyCountsByThreadID: [String: Int] = [:]
 
         for try await event in subscription {
+            NSLog("[ThreadListVM] Received event: kind=\(event.kind) id=\(event.id)")
+
             // Deduplicate events by ID
             guard !seenEventIDs.contains(event.id) else {
+                NSLog("[ThreadListVM] Skipping duplicate event: \(event.id)")
                 continue
             }
             seenEventIDs.insert(event.id)
@@ -141,8 +146,12 @@ public final class ThreadListViewModel {
     ) {
         switch event.kind {
         case 11:
+            NSLog("[ThreadListVM] Processing kind:11 thread event")
             if let thread = NostrThread.from(event: event) {
+                NSLog("[ThreadListVM] Successfully parsed thread: id=\(thread.id) title=\(thread.title)")
                 threadsByID[thread.id] = thread
+            } else {
+                NSLog("[ThreadListVM] Failed to parse thread from event: \(event.id)")
             }
 
         case 513:
@@ -173,6 +182,8 @@ public final class ThreadListViewModel {
         metadataByThreadID: [String: ConversationMetadata],
         replyCountsByThreadID: [String: Int]
     ) {
+        NSLog("[ThreadListVM] updateThreads called with \(threadsByID.count) threads")
+
         // Build enriched threads
         var enrichedThreads: [NostrThread] = []
 
@@ -200,5 +211,6 @@ public final class ThreadListViewModel {
 
         // Sort by creation date (newest first)
         threads = enrichedThreads.sorted { $0.createdAt > $1.createdAt }
+        NSLog("[ThreadListVM] Final threads array count: \(threads.count)")
     }
 }
