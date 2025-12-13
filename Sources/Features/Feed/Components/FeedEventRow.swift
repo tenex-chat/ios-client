@@ -29,7 +29,7 @@ struct FeedEventRow: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color(.systemBackground))
+        .background(.background)
         .overlay(alignment: .bottom) {
             Divider()
                 .padding(.leading, 64)

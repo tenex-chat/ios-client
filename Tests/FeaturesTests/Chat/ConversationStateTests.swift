@@ -196,6 +196,56 @@ struct ConversationStateTests {
         #expect(messages[2].content == "Third")
     }
 
+    // MARK: - Reply Metadata
+
+    @Test("Message with no replies has zero reply count")
+    func messageWithNoRepliesHasZeroCount() {
+        // Given: A conversation state with a message
+        let state = ConversationState()
+        state.addOptimisticMessage(createMessage(id: "msg1", content: "Hello"))
+
+        // Then: Reply count is 0
+        let message = state.displayMessages.first
+        #expect(message?.replyCount == 0)
+        #expect(message?.replyAuthorPubkeys.isEmpty == true)
+    }
+
+    @Test("Message with replies has correct reply count")
+    func messageWithRepliesHasCorrectCount() {
+        // Given: A conversation state with a message
+        let state = ConversationState()
+        state.addOptimisticMessage(createMessage(id: "parent", content: "Parent"))
+
+        // When: Replies are added
+        state.addOptimisticMessage(createMessage(id: "reply1", content: "Reply 1", replyTo: "parent", pubkey: "user1"))
+        state.addOptimisticMessage(createMessage(id: "reply2", content: "Reply 2", replyTo: "parent", pubkey: "user2"))
+        state.addOptimisticMessage(createMessage(id: "reply3", content: "Reply 3", replyTo: "parent", pubkey: "user3"))
+
+        // Then: Parent message has correct reply count
+        let parentMessage = state.displayMessages.first { $0.id == "parent" }
+        #expect(parentMessage?.replyCount == 3)
+        #expect(parentMessage?.replyAuthorPubkeys.count == 3)
+    }
+
+    @Test("Reply author pubkeys are unique and capped at 3")
+    func replyAuthorPubkeysAreCappedAtThree() {
+        // Given: A message with many replies from same and different users
+        let state = ConversationState()
+        state.addOptimisticMessage(createMessage(id: "parent", content: "Parent"))
+
+        // When: Adding 5 replies from 4 unique users (user1 replies twice)
+        state.addOptimisticMessage(createMessage(id: "r1", content: "R1", replyTo: "parent", pubkey: "user1"))
+        state.addOptimisticMessage(createMessage(id: "r2", content: "R2", replyTo: "parent", pubkey: "user2"))
+        state.addOptimisticMessage(createMessage(id: "r3", content: "R3", replyTo: "parent", pubkey: "user1"))
+        state.addOptimisticMessage(createMessage(id: "r4", content: "R4", replyTo: "parent", pubkey: "user3"))
+        state.addOptimisticMessage(createMessage(id: "r5", content: "R5", replyTo: "parent", pubkey: "user4"))
+
+        // Then: Reply count is 5, but unique pubkeys capped at 3
+        let parentMessage = state.displayMessages.first { $0.id == "parent" }
+        #expect(parentMessage?.replyCount == 5)
+        #expect(parentMessage?.replyAuthorPubkeys.count == 3)
+    }
+
     // MARK: Private
 
     // MARK: - Helpers
@@ -242,6 +292,22 @@ struct ConversationStateTests {
             tags: [],
             content: "",
             sig: "test-sig"
+        )
+    }
+
+    private func createMessage(
+        id: String,
+        content: String,
+        replyTo: String? = nil,
+        pubkey: String = "default-user"
+    ) -> Message {
+        Message(
+            id: id,
+            pubkey: pubkey,
+            threadID: "test-thread",
+            content: content,
+            createdAt: Date(),
+            replyTo: replyTo
         )
     }
 }

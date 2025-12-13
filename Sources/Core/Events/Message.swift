@@ -24,6 +24,8 @@ public struct Message: Identifiable, Sendable {
     ///   - replyTo: Optional parent message ID
     ///   - status: The status of the message
     ///   - isStreaming: Whether this is a synthetic streaming message
+    ///   - replyCount: Number of replies to this message
+    ///   - replyAuthorPubkeys: Pubkeys of reply authors (for avatar display, max 3)
     public init(
         id: String,
         pubkey: String,
@@ -32,7 +34,9 @@ public struct Message: Identifiable, Sendable {
         createdAt: Date,
         replyTo: String?,
         status: MessageStatus? = nil,
-        isStreaming: Bool = false
+        isStreaming: Bool = false,
+        replyCount: Int = 0,
+        replyAuthorPubkeys: [String] = []
     ) {
         self.id = id
         self.pubkey = pubkey
@@ -42,6 +46,8 @@ public struct Message: Identifiable, Sendable {
         self.replyTo = replyTo
         self.status = status
         self.isStreaming = isStreaming
+        self.replyCount = replyCount
+        self.replyAuthorPubkeys = replyAuthorPubkeys
     }
 
     // MARK: Public
@@ -69,6 +75,12 @@ public struct Message: Identifiable, Sendable {
 
     /// Whether this is a synthetic streaming message (content still being received)
     public let isStreaming: Bool
+
+    /// Number of replies to this message (computed when building display messages)
+    public let replyCount: Int
+
+    /// Pubkeys of reply authors for avatar display (max 3, computed when building display messages)
+    public let replyAuthorPubkeys: [String]
 
     /// Create a Message from a Nostr event
     /// - Parameter event: The NDKEvent (must be kind:11 or kind:1111)
@@ -144,7 +156,9 @@ public struct Message: Identifiable, Sendable {
             createdAt: createdAt,
             replyTo: replyTo,
             status: status,
-            isStreaming: isStreaming
+            isStreaming: isStreaming,
+            replyCount: replyCount,
+            replyAuthorPubkeys: replyAuthorPubkeys
         )
     }
 
@@ -160,7 +174,29 @@ public struct Message: Identifiable, Sendable {
             createdAt: createdAt,
             replyTo: replyTo,
             status: status,
-            isStreaming: isStreaming
+            isStreaming: isStreaming,
+            replyCount: replyCount,
+            replyAuthorPubkeys: replyAuthorPubkeys
+        )
+    }
+
+    /// Create a copy of this message with reply metadata
+    /// - Parameters:
+    ///   - replyCount: Number of replies
+    ///   - replyAuthorPubkeys: Pubkeys of reply authors (max 3)
+    /// - Returns: A new Message with the reply metadata
+    public func with(replyCount: Int, replyAuthorPubkeys: [String]) -> Self {
+        Self(
+            id: id,
+            pubkey: pubkey,
+            threadID: threadID,
+            content: content,
+            createdAt: createdAt,
+            replyTo: replyTo,
+            status: status,
+            isStreaming: isStreaming,
+            replyCount: replyCount,
+            replyAuthorPubkeys: replyAuthorPubkeys
         )
     }
 }

@@ -36,7 +36,7 @@ struct AuthorFilterMenu: View {
             authorsScrollView
         }
         .frame(width: 200)
-        .background(Color(.systemBackground))
+        .background(.background)
     }
 
     // MARK: Private

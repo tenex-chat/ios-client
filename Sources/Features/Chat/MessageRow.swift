@@ -19,9 +19,15 @@ public struct MessageRow: View {
     /// - Parameters:
     ///   - message: The message to display
     ///   - currentUserPubkey: The current user's pubkey (to differentiate user vs agent)
-    public init(message: Message, currentUserPubkey: String?) {
+    ///   - onReplyTap: Optional action when reply indicator is tapped
+    public init(
+        message: Message,
+        currentUserPubkey: String?,
+        onReplyTap: (() -> Void)? = nil
+    ) {
         self.message = message
         self.currentUserPubkey = currentUserPubkey
+        self.onReplyTap = onReplyTap
         isAgent = currentUserPubkey != nil && message.pubkey != currentUserPubkey
     }
 
@@ -53,6 +59,16 @@ public struct MessageRow: View {
 
                 // Message content with markdown support
                 messageContent
+
+                // Reply indicator (if message has replies)
+                if message.replyCount > 0, let onReplyTap {
+                    ReplyIndicatorView(
+                        replyCount: message.replyCount,
+                        authorPubkeys: message.replyAuthorPubkeys,
+                        onTap: onReplyTap
+                    )
+                    .padding(.top, 4)
+                }
             }
 
             Spacer()
@@ -67,6 +83,7 @@ public struct MessageRow: View {
 
     private let message: Message
     private let currentUserPubkey: String?
+    private let onReplyTap: (() -> Void)?
     private let isAgent: Bool
 
     private var markdownText: AttributedString {

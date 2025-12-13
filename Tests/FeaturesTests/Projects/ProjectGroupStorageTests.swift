@@ -4,6 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import Foundation
 import TENEXCore
 @testable import TENEXFeatures
 import Testing
@@ -102,9 +103,9 @@ struct ProjectGroupStorageTests {
         storage.saveGroup(group1)
 
         let groups = storage.getAllGroups()
-        // Should be sorted by createdAt (group1 created first)
-        #expect(groups.first?.name == "Second")
-        #expect(groups.last?.name == "First")
+        // Sorted ascending by createdAt - oldest first
+        #expect(groups.first?.name == "First")
+        #expect(groups.last?.name == "Second")
     }
 
     // MARK: - UserDefaultsProjectGroupStorage Tests

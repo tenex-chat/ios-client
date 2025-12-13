@@ -37,7 +37,7 @@ struct FeedSearchBar: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(Color(.systemBackground))
+        .background(.background)
         .overlay(alignment: .bottom) {
             Divider()
         }
@@ -67,7 +67,7 @@ struct FeedSearchBar: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
-        .background(Color(.systemGray6))
+        .background(Color.gray.opacity(0.12))
         .cornerRadius(10)
     }
 
@@ -91,7 +91,7 @@ struct FeedSearchBar: View {
             filterButtonContent
         }
         .frame(width: 36, height: 36)
-        .background(selectedAuthor != nil ? Color.clear : Color(.systemGray6))
+        .background(selectedAuthor != nil ? Color.clear : Color.gray.opacity(0.12))
         .cornerRadius(8)
         .popover(isPresented: $showFilterMenu) {
             AuthorFilterMenu(
