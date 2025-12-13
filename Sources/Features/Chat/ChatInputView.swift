@@ -4,6 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftCore
 import SwiftUI
 import TENEXCore
 
@@ -52,7 +53,9 @@ public struct ChatInputView: View {
     /// - Parameters:
     ///   - viewModel: The input view model
     ///   - agents: Online agents for selection and mentions
-    public init(viewModel: ChatInputViewModel, agents: [ProjectAgent]) {
+    ///   - ndk: The NDK instance for profile pictures
+    public init(viewModel: ChatInputViewModel, agents: [ProjectAgent], ndk: NDK) {
+        self.ndk = ndk
         _viewModel = State(initialValue: viewModel)
         _agentSelectorVM = State(initialValue: AgentSelectorViewModel(agents: agents))
         _mentionVM = State(initialValue: MentionAutocompleteViewModel(agents: agents))
@@ -71,7 +74,7 @@ public struct ChatInputView: View {
 
                 // Mention autocomplete popup
                 if mentionVM.isVisible {
-                    MentionAutocompleteView(viewModel: mentionVM) { replacement, pubkey in
+                    MentionAutocompleteView(viewModel: mentionVM, ndk: ndk) { replacement, pubkey in
                         handleMentionSelection(replacement: replacement, pubkey: pubkey)
                     }
                     .padding(.top, -140) // Position above the input
@@ -101,6 +104,8 @@ public struct ChatInputView: View {
     @State private var viewModel: ChatInputViewModel
     @State private var agentSelectorVM: AgentSelectorViewModel
     @State private var mentionVM: MentionAutocompleteViewModel
+
+    private let ndk: NDK
 
     private var inputToolbar: some View {
         HStack(spacing: 16) {

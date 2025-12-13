@@ -22,10 +22,21 @@ public final class AgentsTabViewModel {
 
     /// Initialize the agents tab view model
     /// - Parameters:
-    ///   - ndk: The NDK subscribing instance
+    ///   - ndk: The NDK instance
     ///   - projectID: The project identifier
-    public init(ndk: some NDKSubscribing, projectID: String) {
+    public init(ndk: NDK, projectID: String) {
         self.ndk = ndk
+        subscribing = ndk
+        self.projectID = projectID
+    }
+
+    /// Initialize for testing with a mock subscribing instance
+    /// - Parameters:
+    ///   - ndk: Mock NDK conforming to NDKSubscribing
+    ///   - projectID: The project identifier
+    init(ndk: some NDKSubscribing, projectID: String) {
+        self.ndk = NDK(relayURLs: [])
+        subscribing = ndk
         self.projectID = projectID
     }
 
@@ -56,7 +67,7 @@ public final class AgentsTabViewModel {
 
         do {
             let filter = ProjectStatus.filter(for: projectID)
-            let subscription = ndk.subscribeToEvents(filters: [filter])
+            let subscription = subscribing.subscribeToEvents(filters: [filter])
 
             // Continuously process events - no break, real-time updates
             for try await event in subscription {
@@ -86,8 +97,12 @@ public final class AgentsTabViewModel {
         await subscribe()
     }
 
+    // MARK: Internal
+
+    let ndk: NDK
+
     // MARK: Private
 
-    private let ndk: any NDKSubscribing
+    private let subscribing: any NDKSubscribing
     private let projectID: String
 }

@@ -4,6 +4,8 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftCore
+import NDKSwiftUI
 import SwiftUI
 import TENEXCore
 
@@ -16,12 +18,15 @@ public struct MentionAutocompleteView: View {
     /// Initialize the mention autocomplete view
     /// - Parameters:
     ///   - viewModel: The autocomplete view model
+    ///   - ndk: The NDK instance for profile pictures
     ///   - onSelect: Callback when an agent is selected
     public init(
         viewModel: MentionAutocompleteViewModel,
+        ndk: NDK,
         onSelect: @escaping (String, String) -> Void
     ) {
         self.viewModel = viewModel
+        self.ndk = ndk
         self.onSelect = onSelect
     }
 
@@ -49,12 +54,12 @@ public struct MentionAutocompleteView: View {
     // MARK: Private
 
     @Bindable private var viewModel: MentionAutocompleteViewModel
+    private let ndk: NDK
     private let onSelect: (String, String) -> Void
 
     private func agentRow(_ agent: ProjectAgent, isSelected: Bool) -> some View {
         HStack(spacing: 10) {
-            // Agent avatar (placeholder - will use NDKUIProfilePicture when NDKSwiftUI bug is fixed)
-            agentAvatar(for: agent)
+            NDKUIProfilePicture(ndk: ndk, pubkey: agent.pubkey, size: 28)
 
             // Agent info
             VStack(alignment: .leading, spacing: 2) {
@@ -84,14 +89,5 @@ public struct MentionAutocompleteView: View {
         .padding(.vertical, 8)
         .background(isSelected ? Color.blue.opacity(0.15) : Color.clear)
         .contentShape(Rectangle())
-    }
-
-    private func agentAvatar(for agent: ProjectAgent) -> some View {
-        let initial = agent.name.prefix(1).uppercased()
-        return Text(initial)
-            .font(.system(size: 12, weight: .semibold))
-            .foregroundStyle(.white)
-            .frame(width: 28, height: 28)
-            .background(Color.blue.gradient, in: Circle())
     }
 }
