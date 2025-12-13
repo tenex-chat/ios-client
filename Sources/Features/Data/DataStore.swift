@@ -7,6 +7,7 @@
 import Foundation
 import NDKSwiftCore
 import Observation
+import TENEXCore
 
 /// Centralized data manager for high-level app entities
 /// Owns all NDK subscriptions and provides reactive data access
