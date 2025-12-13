@@ -26,23 +26,17 @@ public struct ProjectDetailView: View {
         TabView {
             threadsTab
 
-            comingSoonView(for: "Docs")
-                .navigationTitle(project.title)
-                .tabItem {
-                    Label("Docs", systemImage: "doc.fill")
-                }
+            NavigationStack {
+                comingSoonView(for: "Docs")
+                    .navigationTitle(project.title)
+            }
+            .tabItem {
+                Label("Docs", systemImage: "doc.fill")
+            }
 
-            comingSoonView(for: "Agents")
-                .navigationTitle(project.title)
-                .tabItem {
-                    Label("Agents", systemImage: "person.2.fill")
-                }
+            agentsTab
 
-            comingSoonView(for: "Feed")
-                .navigationTitle(project.title)
-                .tabItem {
-                    Label("Feed", systemImage: "list.bullet")
-                }
+            feedTab
         }
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -70,13 +64,49 @@ public struct ProjectDetailView: View {
     private let project: Project
 
     private var threadsTab: some View {
-        ThreadListView(
-            projectID: project.coordinate,
-            userPubkey: authManager.currentUser?.pubkey
-        )
-        .navigationTitle(project.title)
+        NavigationStack {
+            ThreadListView(
+                projectID: project.coordinate,
+                userPubkey: authManager.currentUser?.pubkey
+            )
+            .navigationTitle(project.title)
+        }
         .tabItem {
             Label("Threads", systemImage: "message.fill")
+        }
+    }
+
+    private var agentsTab: some View {
+        Group {
+            if let ndk {
+                NavigationStack {
+                    AgentsTabView(
+                        viewModel: AgentsTabViewModel(
+                            ndk: ndk,
+                            projectID: project.coordinate
+                        )
+                    )
+                    .navigationTitle(project.title)
+                }
+            } else {
+                NavigationStack {
+                    Text("NDK not available")
+                        .navigationTitle(project.title)
+                }
+            }
+        }
+        .tabItem {
+            Label("Agents", systemImage: "person.2.fill")
+        }
+    }
+
+    private var feedTab: some View {
+        NavigationStack {
+            FeedTabView(projectID: project.coordinate)
+                .navigationTitle(project.title)
+        }
+        .tabItem {
+            Label("Feed", systemImage: "list.bullet")
         }
     }
 

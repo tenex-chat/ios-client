@@ -35,7 +35,7 @@ struct DeveloperToolsView: View {
     @State private var connectedRelayCount = 0
     @State private var signerPubkey: String?
     @State private var isNetworkLoggingEnabled = false
-    @State private var currentLogLevel: NDKLogLevel = .info
+    @State private var logLevel: NDKLogLevel = .info
 
     private var quickStatsSection: some View {
         Section("Quick Stats") {
@@ -91,7 +91,7 @@ struct DeveloperToolsView: View {
     private var infoSection: some View {
         Section("Info") {
             LabeledContent("NDK Log Level") {
-                Text(currentLogLevel.description)
+                Text(logLevel.description)
                     .foregroundStyle(.secondary)
             }
             LabeledContent("Network Logging") {
@@ -123,9 +123,9 @@ struct DeveloperToolsView: View {
                 Label("Refresh Stats", systemImage: "arrow.clockwise")
             }
             Button { Task { await toggleLogLevel() } } label: {
-                Label("Toggle Log Level (\(currentLogLevel.description))", systemImage: "slider.horizontal.3")
+                Label("Toggle Log Level (\(logLevel.description))", systemImage: "slider.horizontal.3")
             }
-            Button { Task { await toggleNetworkLogging() } } label: {
+            Button { toggleNetworkLogging() } label: {
                 Label(
                     isNetworkLoggingEnabled ? "Disable Network Logging" : "Enable Network Logging",
                     systemImage: isNetworkLoggingEnabled ? "wifi.slash" : "wifi"
@@ -140,7 +140,7 @@ struct DeveloperToolsView: View {
     }
 
     private func initialLoad(ndk: NDK) async {
-        currentLogLevel = await NDKLoggerConfig.shared.logLevel
+        logLevel = await NDKLoggerConfig.shared.logLevel
         isNetworkLoggingEnabled = await NDKLoggerConfig.shared.logNetworkTraffic
         await refreshStats(ndk: ndk)
     }
@@ -168,7 +168,7 @@ struct DeveloperToolsView: View {
     }
 
     private func toggleLogLevel() async {
-        let newLevel: NDKLogLevel = switch currentLogLevel {
+        let newLevel: NDKLogLevel = switch logLevel {
         case .info:
             .debug
         case .debug:
@@ -178,13 +178,15 @@ struct DeveloperToolsView: View {
         default:
             .info
         }
-        await NDKLogger.configure(logLevel: newLevel)
-        currentLogLevel = newLevel
+        await NDKLoggerConfig.shared.setLogLevel(newLevel)
+        logLevel = newLevel
     }
 
-    private func toggleNetworkLogging() async {
+    private func toggleNetworkLogging() {
         isNetworkLoggingEnabled.toggle()
-        await NDKLogger.configure(logNetworkTraffic: isNetworkLoggingEnabled)
+        Task {
+            await NDKLoggerConfig.shared.setLogNetworkTraffic(isNetworkLoggingEnabled)
+        }
     }
 
     private func copyPubkey(_ pubkey: String) {
