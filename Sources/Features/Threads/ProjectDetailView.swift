@@ -26,29 +26,23 @@ public struct ProjectDetailView: View {
         TabView {
             threadsTab
 
-            NavigationStack {
-                comingSoonView(for: "Docs")
-                    .navigationTitle(project.title)
-            }
-            .tabItem {
-                Label("Docs", systemImage: "doc.fill")
-            }
+            comingSoonView(for: "Docs")
+                .navigationTitle(project.title)
+                .tabItem {
+                    Label("Docs", systemImage: "doc.fill")
+                }
 
-            NavigationStack {
-                comingSoonView(for: "Agents")
-                    .navigationTitle(project.title)
-            }
-            .tabItem {
-                Label("Agents", systemImage: "person.2.fill")
-            }
+            comingSoonView(for: "Agents")
+                .navigationTitle(project.title)
+                .tabItem {
+                    Label("Agents", systemImage: "person.2.fill")
+                }
 
-            NavigationStack {
-                comingSoonView(for: "Feed")
-                    .navigationTitle(project.title)
-            }
-            .tabItem {
-                Label("Feed", systemImage: "list.bullet")
-            }
+            comingSoonView(for: "Feed")
+                .navigationTitle(project.title)
+                .tabItem {
+                    Label("Feed", systemImage: "list.bullet")
+                }
         }
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -76,13 +70,11 @@ public struct ProjectDetailView: View {
     private let project: Project
 
     private var threadsTab: some View {
-        NavigationStack {
-            ThreadListView(
-                projectID: project.coordinate,
-                userPubkey: authManager.currentUser?.pubkey
-            )
-            .navigationTitle(project.title)
-        }
+        ThreadListView(
+            projectID: project.coordinate,
+            userPubkey: authManager.currentUser?.pubkey
+        )
+        .navigationTitle(project.title)
         .tabItem {
             Label("Threads", systemImage: "message.fill")
         }
