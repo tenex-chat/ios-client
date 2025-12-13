@@ -4,6 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftCore
 import SwiftUI
 import TENEXCore
 
@@ -15,11 +16,16 @@ public struct ChatView: View {
 
     /// Initialize the chat view
     /// - Parameters:
-    ///   - threadId: The thread identifier
-    ///   - ndk: The NDK instance for fetching and publishing messages
+    ///   - threadEvent: The thread event (kind:11) to display messages for
+    ///   - projectReference: The project reference in format "31933:pubkey:d-tag"
     ///   - currentUserPubkey: The current user's pubkey
-    public init(threadID: String, ndk: any NDKSubscribing & NDKPublishing, currentUserPubkey: String) {
-        _viewModel = State(initialValue: ChatViewModel(ndk: ndk, threadID: threadID, userPubkey: currentUserPubkey))
+    public init(
+        threadEvent: NDKEvent,
+        projectReference: String,
+        currentUserPubkey: String
+    ) {
+        self.threadEvent = threadEvent
+        self.projectReference = projectReference
         self.currentUserPubkey = currentUserPubkey
     }
 
@@ -27,12 +33,74 @@ public struct ChatView: View {
 
     public var body: some View {
         Group {
+            if let ndk {
+                contentView(ndk: ndk)
+            } else {
+                Text("NDK not available")
+            }
+        }
+    }
+
+    // MARK: Private
+
+    @Environment(\.ndk) private var ndk
+    @State private var viewModel: ChatViewModel?
+
+    private let threadEvent: NDKEvent
+    private let projectReference: String
+    private let currentUserPubkey: String
+
+    private var loadingView: some View {
+        VStack(spacing: 20) {
+            ProgressView()
+            Text("Loading messages...")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var emptyView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "bubble.left.fill")
+                .font(.system(size: 60))
+                .foregroundStyle(.blue)
+
+            Text("No Messages Yet")
+                .font(.title)
+                .fontWeight(.semibold)
+
+            Text("Start a conversation in this thread")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private func contentView(ndk: any NDKSubscribing & NDKPublishing) -> some View {
+        let vm = viewModel ?? ChatViewModel(
+            ndk: ndk,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: currentUserPubkey
+        )
+
+        mainContent(viewModel: vm)
+            .task {
+                if viewModel == nil {
+                    viewModel = vm
+                }
+            }
+    }
+
+    @ViewBuilder
+    private func mainContent(viewModel: ChatViewModel) -> some View {
+        Group {
             if viewModel.isLoading, viewModel.messages.isEmpty {
                 loadingView
             } else if viewModel.messages.isEmpty {
                 emptyView
             } else {
-                messageList
+                messageList(viewModel: viewModel)
             }
         }
         .task {
@@ -58,22 +126,7 @@ public struct ChatView: View {
         }
     }
 
-    // MARK: Private
-
-    @State private var viewModel: ChatViewModel
-
-    private let currentUserPubkey: String
-
-    private var typingText: String {
-        let count = viewModel.typingUsers.count
-        if count == 1 {
-            return "Someone is typing..."
-        } else {
-            return "\(count) people are typing..."
-        }
-    }
-
-    private var messageList: some View {
+    private func messageList(viewModel: ChatViewModel) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(viewModel.messages) { message in
@@ -83,7 +136,7 @@ public struct ChatView: View {
 
                 // Typing indicators at bottom
                 if !viewModel.typingUsers.isEmpty {
-                    typingIndicator
+                    typingIndicator(viewModel: viewModel)
                         .padding(.horizontal, 16)
                         .padding(.top, 16)
                 }
@@ -92,41 +145,25 @@ public struct ChatView: View {
         }
     }
 
-    private var typingIndicator: some View {
+    private func typingIndicator(viewModel: ChatViewModel) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "ellipsis.bubble.fill")
                 .font(.system(size: 20))
                 .foregroundStyle(.blue)
                 .symbolEffect(.pulse)
 
-            Text(typingText)
+            Text(typingText(viewModel: viewModel))
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
         }
     }
 
-    private var loadingView: some View {
-        VStack(spacing: 20) {
-            ProgressView()
-            Text("Loading messages...")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private var emptyView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "bubble.left.fill")
-                .font(.system(size: 60))
-                .foregroundStyle(.blue)
-
-            Text("No Messages Yet")
-                .font(.title)
-                .fontWeight(.semibold)
-
-            Text("Start a conversation in this thread")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+    private func typingText(viewModel: ChatViewModel) -> String {
+        let count = viewModel.typingUsers.count
+        if count == 1 {
+            return "Someone is typing..."
+        } else {
+            return "\(count) people are typing..."
         }
     }
 }

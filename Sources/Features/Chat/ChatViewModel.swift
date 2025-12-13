@@ -5,7 +5,7 @@
 //
 
 import Foundation
-import NDKSwiftCoreCore
+import NDKSwiftCore
 import Observation
 import TENEXCore
 
@@ -20,11 +20,18 @@ public final class ChatViewModel {
     /// Initialize the chat view model
     /// - Parameters:
     ///   - ndk: The NDK instance for fetching and publishing messages
-    ///   - threadId: The thread identifier
+    ///   - threadEvent: The thread event (kind:11) to reply to
+    ///   - projectReference: The project reference in format "31933:pubkey:d-tag"
     ///   - userPubkey: The pubkey of the authenticated user
-    public init(ndk: any NDKSubscribing & NDKPublishing, threadID: String, userPubkey: String) {
+    public init(
+        ndk: any NDKSubscribing & NDKPublishing,
+        threadEvent: NDKEvent,
+        projectReference: String,
+        userPubkey: String
+    ) {
         self.ndk = ndk
-        self.threadID = threadID
+        self.threadEvent = threadEvent
+        self.projectReference = projectReference
         self.userPubkey = userPubkey
     }
 
@@ -45,6 +52,11 @@ public final class ChatViewModel {
     /// Set of pubkeys of users who are currently typing
     public private(set) var typingUsers: Set<String> = []
 
+    /// The thread ID derived from the thread event
+    public var threadID: String {
+        threadEvent.id
+    }
+
     /// Load messages from Nostr
     public func loadMessages() async {
         // Clear error
@@ -59,8 +71,8 @@ public final class ChatViewModel {
         }
 
         do {
-            // Create filter for messages in this thread
-            let filter = Message.filter(for: threadID)
+            // Create filter for messages in this thread (uses project reference as the 'a' tag)
+            let filter = Message.filter(for: projectReference)
 
             // Subscribe to messages
             var fetchedMessages: [Message] = []
@@ -86,10 +98,10 @@ public final class ChatViewModel {
     public func subscribeToStreamingDeltas() async {
         do {
             // Subscribe to all streaming deltas for messages in this thread
-            // We need to listen to all messages, so we create a broader filter
+            // Messages reference the project via the 'a' tag
             let filter = NDKFilter(
                 kinds: [21_111],
-                tags: ["a": [threadID]]
+                tags: ["a": [projectReference]]
             )
 
             let subscription = ndk.subscribeToEvents(filters: [filter])
@@ -155,7 +167,7 @@ public final class ChatViewModel {
         let optimisticMessage = Message(
             id: tempID,
             pubkey: userPubkey,
-            threadID: threadID,
+            threadID: projectReference,
             content: trimmedText,
             createdAt: Date(),
             replyTo: replyTo?.id,
@@ -165,32 +177,49 @@ public final class ChatViewModel {
         // Add to messages immediately (optimistic update)
         messages.append(optimisticMessage)
 
-        // Build event tags
-        var tags: [[String]] = [
-            ["a", threadID],
-        ]
-
-        // Add parent reference if replying
-        if let replyTo {
-            tags.append(["e", replyTo.id])
-        }
-
-        // Create the event
-        let event = NDKEvent(
-            pubkey: userPubkey,
-            kind: 1111, // swiftlint:disable:this number_separator
-            tags: tags,
-            content: trimmedText
-        )
+        // Capture values for sendable closure
+        let projectRef = projectReference
+        let replyToMessage = replyTo
 
         do {
-            // Publish the event
-            try await ndk.publish(event)
+            // Publish reply using NDK's reply pattern (matches Svelte implementation)
+            // This creates a NIP-22 compliant reply to the thread event
+            let (event, _) = try await ndk.publishReply(to: threadEvent) { builder in
+                // Filter out auto p-tags (like Svelte: reply.tags.filter(tag => tag[0] !== 'p'))
+                let filteredTags = builder.tags.filter { $0.first != "p" }
+
+                // Start fresh with filtered tags
+                var newBuilder = builder.setTags(filteredTags)
+
+                // Set content
+                newBuilder = newBuilder.content(trimmedText, extractImeta: false)
+
+                // Add project reference as 'a' tag (format: 31933:pubkey:d-tag)
+                newBuilder = newBuilder.tag(["a", projectRef])
+
+                // If replying to a specific message, add e-tag with 'reply' marker
+                if let replyToMessage {
+                    // Check if e-tag doesn't already exist for this message
+                    let hasETag = newBuilder.tags.contains { $0.first == "e" && $0[safe: 1] == replyToMessage.id }
+                    if !hasETag {
+                        newBuilder = newBuilder.tag(["e", replyToMessage.id, "", "reply"])
+                    }
+                    // Add p-tag for the author of the message being replied to
+                    let hasReplyAuthorPTag = newBuilder.tags.contains {
+                        $0.first == "p" && $0[safe: 1] == replyToMessage.pubkey
+                    }
+                    if !hasReplyAuthorPTag {
+                        newBuilder = newBuilder.tag(["p", replyToMessage.pubkey])
+                    }
+                }
+
+                return newBuilder
+            }
 
             // Update message with sent status and event ID
             if let index = messages.firstIndex(where: { $0.id == tempID }) {
                 messages[index] = optimisticMessage
-                    .with(id: event.id ?? tempID)
+                    .with(id: event.id)
                     .with(status: .sent)
             }
         } catch {
@@ -218,6 +247,7 @@ public final class ChatViewModel {
     // MARK: Private
 
     private let ndk: any NDKSubscribing & NDKPublishing
-    private let threadID: String
+    private let threadEvent: NDKEvent
+    private let projectReference: String
     private let userPubkey: String
 }
