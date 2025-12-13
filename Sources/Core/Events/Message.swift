@@ -23,6 +23,7 @@ public struct Message: Identifiable, Sendable {
     ///   - createdAt: When the message was created
     ///   - replyTo: Optional parent message ID
     ///   - status: The status of the message
+    ///   - isStreaming: Whether this is a synthetic streaming message
     public init(
         id: String,
         pubkey: String,
@@ -30,7 +31,8 @@ public struct Message: Identifiable, Sendable {
         content: String,
         createdAt: Date,
         replyTo: String?,
-        status: MessageStatus? = nil
+        status: MessageStatus? = nil,
+        isStreaming: Bool = false
     ) {
         self.id = id
         self.pubkey = pubkey
@@ -39,6 +41,7 @@ public struct Message: Identifiable, Sendable {
         self.createdAt = createdAt
         self.replyTo = replyTo
         self.status = status
+        self.isStreaming = isStreaming
     }
 
     // MARK: Public
@@ -63,6 +66,9 @@ public struct Message: Identifiable, Sendable {
 
     /// The status of the message (for optimistic UI updates)
     public let status: MessageStatus?
+
+    /// Whether this is a synthetic streaming message (content still being received)
+    public let isStreaming: Bool
 
     /// Create a Message from a Nostr event
     /// - Parameter event: The NDKEvent (must be kind:11 or kind:1111)
@@ -137,7 +143,8 @@ public struct Message: Identifiable, Sendable {
             content: content,
             createdAt: createdAt,
             replyTo: replyTo,
-            status: status
+            status: status,
+            isStreaming: isStreaming
         )
     }
 
@@ -152,7 +159,8 @@ public struct Message: Identifiable, Sendable {
             content: content,
             createdAt: createdAt,
             replyTo: replyTo,
-            status: status
+            status: status,
+            isStreaming: isStreaming
         )
     }
 }

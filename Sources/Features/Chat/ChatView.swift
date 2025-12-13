@@ -50,15 +50,6 @@ public struct ChatView: View {
     private let projectReference: String
     private let currentUserPubkey: String
 
-    private var loadingView: some View {
-        VStack(spacing: 20) {
-            ProgressView()
-            Text("Loading messages...")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-    }
-
     private var emptyView: some View {
         VStack(spacing: 20) {
             Image(systemName: "bubble.left.fill")
@@ -95,19 +86,13 @@ public struct ChatView: View {
     @ViewBuilder
     private func mainContent(viewModel: ChatViewModel) -> some View {
         Group {
-            if viewModel.messages.isEmpty {
+            if viewModel.displayMessages.isEmpty {
                 emptyView
             } else {
                 messageList(viewModel: viewModel)
             }
         }
         .navigationTitle(viewModel.threadTitle ?? "Thread")
-        .task {
-            await viewModel.subscribeToStreamingDeltas()
-        }
-        .task {
-            await viewModel.subscribeToTypingIndicators()
-        }
         .task {
             await viewModel.subscribeToThreadMetadata()
         }
@@ -125,7 +110,7 @@ public struct ChatView: View {
     private func messageList(viewModel: ChatViewModel) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(viewModel.messages) { message in
+                ForEach(viewModel.displayMessages) { message in
                     MessageRow(message: message, currentUserPubkey: currentUserPubkey)
                         .padding(.horizontal, 16)
                 }

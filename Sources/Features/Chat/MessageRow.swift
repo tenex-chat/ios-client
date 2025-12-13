@@ -63,6 +63,7 @@ public struct MessageRow: View {
     // MARK: Private
 
     @Environment(\.ndk) private var ndk
+    @State private var cursorVisible = false
 
     private let message: Message
     private let currentUserPubkey: String?
@@ -85,7 +86,10 @@ public struct MessageRow: View {
 
     private var messageContent: some View {
         Group {
-            if message.content.contains("```") {
+            if message.isStreaming {
+                // Streaming message with blinking cursor
+                streamingContent
+            } else if message.content.contains("```") {
                 // Contains code blocks - render with special formatting
                 codeBlockContent
             } else {
@@ -96,6 +100,26 @@ public struct MessageRow: View {
                     .foregroundStyle(.primary)
                     .textSelection(.enabled)
             }
+        }
+    }
+
+    private var streamingContent: some View {
+        HStack(alignment: .bottom, spacing: 2) {
+            Text(markdownText)
+                .font(.system(size: 16))
+                .lineSpacing(1.4)
+                .foregroundStyle(.primary)
+
+            // Blinking cursor
+            Rectangle()
+                .fill(.primary)
+                .frame(width: 2, height: 16)
+                .opacity(cursorVisible ? 1 : 0)
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
+                        cursorVisible = true
+                    }
+                }
         }
     }
 

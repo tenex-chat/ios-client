@@ -32,11 +32,11 @@ struct ChatViewModelTests {
         )
 
         // Then: View model is initialized with thread event as first message
-        #expect(viewModel.messages.count == 1)
-        #expect(viewModel.messages.first?.id == threadEvent.id)
-        #expect(viewModel.messages.first?.content == "Thread content")
+        #expect(viewModel.displayMessages.count == 1)
+        #expect(viewModel.displayMessages.first?.id == threadEvent.id)
+        #expect(viewModel.displayMessages.first?.content == "Thread content")
         #expect(viewModel.errorMessage == nil)
-        #expect(viewModel.streamingContent.isEmpty)
+        #expect(viewModel.conversationState.streamingSessions.isEmpty)
         #expect(viewModel.typingUsers.isEmpty)
         #expect(viewModel.threadID == threadEvent.id)
     }
@@ -57,8 +57,8 @@ struct ChatViewModelTests {
         )
 
         // Then: Only the thread event is present (no relays to fetch replies from)
-        #expect(viewModel.messages.count == 1)
-        #expect(viewModel.messages.first?.id == threadEvent.id)
+        #expect(viewModel.displayMessages.count == 1)
+        #expect(viewModel.displayMessages.first?.id == threadEvent.id)
         #expect(viewModel.errorMessage == nil)
     }
 
@@ -78,8 +78,8 @@ struct ChatViewModelTests {
         )
 
         // Then: Thread event is the first message
-        #expect(viewModel.messages.count == 1)
-        #expect(viewModel.messages.first?.content == "Thread content")
+        #expect(viewModel.displayMessages.count == 1)
+        #expect(viewModel.displayMessages.first?.content == "Thread content")
         #expect(viewModel.errorMessage == nil)
     }
 
@@ -99,7 +99,7 @@ struct ChatViewModelTests {
         )
 
         // Then: Thread event is included as first message
-        #expect(viewModel.messages.count == 1)
-        #expect(viewModel.messages.first?.id == threadEvent.id)
+        #expect(viewModel.displayMessages.count == 1)
+        #expect(viewModel.displayMessages.first?.id == threadEvent.id)
     }
 }
