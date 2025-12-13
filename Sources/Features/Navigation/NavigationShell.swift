@@ -143,6 +143,13 @@ public struct NavigationShell: View {
         case let .thread(projectID, threadID):
             ThreadDetailPlaceholder(projectID: projectID, threadID: threadID)
 
+        case let .agents(projectID):
+            if let ndk {
+                AgentsTabView(viewModel: AgentsTabViewModel(ndk: ndk, projectID: projectID))
+            } else {
+                Text("Loading...")
+            }
+
         case .settings:
             SettingsView()
         }

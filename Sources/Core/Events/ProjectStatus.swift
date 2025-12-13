@@ -8,15 +8,18 @@ import Foundation
 import NDKSwiftCore
 
 /// Represents a TENEX project status (Nostr kind:24_010)
+/// Contains online agents with their models and tools
 public struct ProjectStatus: Sendable {
+    // MARK: Public
+
     /// The project identifier (from 'd' tag)
     public let projectID: String
 
     /// The pubkey of the status author
     public let pubkey: String
 
-    /// Array of online agent pubkeys
-    public let onlineAgents: [String]
+    /// Online agents parsed from agent/model/tool tags
+    public let agents: [ProjectAgent]
 
     /// When the status was created
     public let createdAt: Date
@@ -39,14 +42,8 @@ public struct ProjectStatus: Sendable {
         }
         let projectID = dTag[1]
 
-        // Extract online agents from tags (optional)
-        let onlineAgents = event.tags(withName: "agent")
-            .compactMap { tag -> String? in
-                guard tag.count > 1, !tag[1].isEmpty else {
-                    return nil
-                }
-                return tag[1]
-            }
+        // Parse agents from tags
+        let agents = parseAgents(from: event)
 
         // Convert timestamp to Date
         let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
@@ -54,7 +51,7 @@ public struct ProjectStatus: Sendable {
         return Self(
             projectID: projectID,
             pubkey: event.pubkey,
-            onlineAgents: onlineAgents,
+            agents: agents,
             createdAt: createdAt
         )
     }
@@ -67,5 +64,66 @@ public struct ProjectStatus: Sendable {
             kinds: [24_010],
             tags: ["d": Set([projectID])]
         )
+    }
+
+    // MARK: Private
+
+    /// Parse agents from event tags
+    private static func parseAgents(from event: NDKEvent) -> [ProjectAgent] {
+        var agentsByName = parseAgentTags(from: event)
+        applyModelTags(from: event, to: &agentsByName)
+        applyToolTags(from: event, to: &agentsByName)
+        return Array(agentsByName.values)
+    }
+
+    /// Parse agent tags: ["agent", <pubkey>, <name>, "global"?]
+    private static func parseAgentTags(from event: NDKEvent) -> [String: ProjectAgent] {
+        var agentsByName: [String: ProjectAgent] = [:]
+        for tag in event.tags(withName: "agent") {
+            guard tag.count > 2, !tag[1].isEmpty, !tag[2].isEmpty else {
+                continue
+            }
+            let agent = ProjectAgent(
+                pubkey: tag[1],
+                name: tag[2],
+                isGlobal: tag.count > 3 && tag[3] == "global",
+                model: nil,
+                tools: []
+            )
+            agentsByName[tag[2]] = agent
+        }
+        return agentsByName
+    }
+
+    /// Apply model tags: ["model", <model-slug>, <agent-name>, ...]
+    private static func applyModelTags(from event: NDKEvent, to agentsByName: inout [String: ProjectAgent]) {
+        for tag in event.tags(withName: "model") {
+            guard tag.count > 2, !tag[1].isEmpty else {
+                continue
+            }
+            let modelSlug = tag[1]
+            for agentName in tag.dropFirst(2) {
+                if var agent = agentsByName[agentName] {
+                    agent.model = modelSlug
+                    agentsByName[agentName] = agent
+                }
+            }
+        }
+    }
+
+    /// Apply tool tags: ["tool", <tool-name>, <agent-name>, ...]
+    private static func applyToolTags(from event: NDKEvent, to agentsByName: inout [String: ProjectAgent]) {
+        for tag in event.tags(withName: "tool") {
+            guard tag.count > 2, !tag[1].isEmpty else {
+                continue
+            }
+            let toolName = tag[1]
+            for agentName in tag.dropFirst(2) {
+                if var agent = agentsByName[agentName] {
+                    agent.tools.append(toolName)
+                    agentsByName[agentName] = agent
+                }
+            }
+        }
     }
 }
