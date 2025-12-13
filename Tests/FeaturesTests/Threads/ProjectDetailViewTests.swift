@@ -18,28 +18,26 @@ struct ProjectDetailViewTests {
 
     // MARK: - Initialization Tests
 
-    @Test("ProjectDetailView initializes correctly with project and NDK")
+    @Test("ProjectDetailView initializes correctly with project")
     func initializesCorrectly() async throws {
-        let mockNDK = MockNDK()
         let project = createMockProject(
             id: "test-project",
             title: "Test Project"
         )
 
         // View should be created without crashing
-        _ = ProjectDetailView(project: project, ndk: mockNDK)
+        _ = ProjectDetailView(project: project)
     }
 
     @Test("ProjectDetailView displays project with color")
     func displaysProjectWithColor() async throws {
-        let mockNDK = MockNDK()
         let project = createMockProject(
             id: "test-project",
             title: "Colorful Project"
         )
 
         // View should be created without crashing
-        _ = ProjectDetailView(project: project, ndk: mockNDK)
+        _ = ProjectDetailView(project: project)
     }
 
     // MARK: Private

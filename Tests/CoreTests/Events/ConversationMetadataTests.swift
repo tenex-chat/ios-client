@@ -6,6 +6,7 @@
 
 import Foundation
 import NDKSwiftCore
+import NDKSwiftTesting
 @testable import TENEXCore
 import Testing
 
@@ -13,16 +14,16 @@ import Testing
 struct ConversationMetadataTests {
     @Test("Parse valid kind:513 conversation metadata with title and summary")
     func parseValidMetadataWithTitleAndSummary() throws {
-        let event = NDKEvent(
-            pubkey: "test-pubkey",
-            createdAt: Timestamp(1_234_567_890),
+        let event = NDKEvent.test(
             kind: 513,
+            content: "",
             tags: [
                 ["e", "thread-123"],
                 ["title", "Test Conversation"],
                 ["summary", "This is a test conversation summary"],
             ],
-            content: ""
+            pubkey: "test-pubkey",
+            createdAt: Timestamp(1_234_567_890)
         )
 
         let metadata = try #require(ConversationMetadata.from(event: event))
@@ -35,15 +36,15 @@ struct ConversationMetadataTests {
 
     @Test("Parse valid kind:513 conversation metadata with title only")
     func parseValidMetadataWithTitleOnly() throws {
-        let event = NDKEvent(
-            pubkey: "test-pubkey",
-            createdAt: Timestamp(1_234_567_890),
+        let event = NDKEvent.test(
             kind: 513,
+            content: "",
             tags: [
                 ["e", "thread-456"],
                 ["title", "Another Conversation"],
             ],
-            content: ""
+            pubkey: "test-pubkey",
+            createdAt: Timestamp(1_234_567_890)
         )
 
         let metadata = try #require(ConversationMetadata.from(event: event))
@@ -55,14 +56,14 @@ struct ConversationMetadataTests {
 
     @Test("Reject kind:513 event without 'e' tag")
     func rejectMetadataWithoutETag() {
-        let event = NDKEvent(
-            pubkey: "test-pubkey",
-            createdAt: Timestamp(1_234_567_890),
+        let event = NDKEvent.test(
             kind: 513,
+            content: "",
             tags: [
                 ["title", "Test"],
             ],
-            content: ""
+            pubkey: "test-pubkey",
+            createdAt: Timestamp(1_234_567_890)
         )
 
         let metadata = ConversationMetadata.from(event: event)
@@ -71,15 +72,15 @@ struct ConversationMetadataTests {
 
     @Test("Reject non-513 event")
     func rejectNon513Event() {
-        let event = NDKEvent(
-            pubkey: "test-pubkey",
-            createdAt: Timestamp(1_234_567_890),
+        let event = NDKEvent.test(
             kind: 11, // Wrong kind
+            content: "",
             tags: [
                 ["e", "thread-123"],
                 ["title", "Test"],
             ],
-            content: ""
+            pubkey: "test-pubkey",
+            createdAt: Timestamp(1_234_567_890)
         )
 
         let metadata = ConversationMetadata.from(event: event)

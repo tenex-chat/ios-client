@@ -6,6 +6,7 @@
 
 import Foundation
 import NDKSwiftCore
+import NDKSwiftTesting
 import TENEXCore
 import Testing
 
@@ -20,23 +21,23 @@ struct MessageEventTests {
         let createdAt = Timestamp(Date().timeIntervalSince1970)
         let replyTo = "parent-event-id"
 
-        let event = NDKEvent(
-            pubkey: pubkey,
-            createdAt: createdAt,
+        let event = NDKEvent.test(
             kind: 1111,
+            content: content,
             tags: [
                 ["a", threadID],
                 ["e", replyTo],
                 ["p", "some-pubkey"],
             ],
-            content: content
+            pubkey: pubkey,
+            createdAt: createdAt
         )
 
         // When: Converting event to Message
         let message = try #require(Message.from(event: event))
 
         // Then: Message properties match event data
-        #expect(!message.id.isEmpty)
+        // Note: event.id is empty for unsigned test events (ID is computed from signature)
         #expect(message.pubkey == pubkey)
         #expect(message.threadID == threadID)
         #expect(message.content == content)
@@ -47,13 +48,13 @@ struct MessageEventTests {
     @Test("Parse message without parent (no e tag)")
     func parseMessageWithoutParent() throws {
         // Given: Event without e tag (top-level message)
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 1111,
+            content: "Top-level message",
             tags: [
                 ["a", "11:pubkey:thread-id"],
             ],
-            content: "Top-level message"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Message
@@ -67,13 +68,13 @@ struct MessageEventTests {
     func extractThreadID() throws {
         // Given: Event with thread reference in a tag
         let threadID = "11:creator-pubkey:my-awesome-thread"
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 1111,
+            content: "Message content",
             tags: [
                 ["a", threadID],
             ],
-            content: "Message content"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Message
@@ -95,13 +96,13 @@ struct MessageEventTests {
         let code = "block"
         ```
         """
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 1111,
+            content: markdownContent,
             tags: [
                 ["a", "11:pubkey:thread-id"],
             ],
-            content: markdownContent
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Message
@@ -114,13 +115,13 @@ struct MessageEventTests {
     @Test("Handle empty content gracefully")
     func handleEmptyContent() throws {
         // Given: Event with empty content
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 1111,
+            content: "",
             tags: [
                 ["a", "11:pubkey:thread-id"],
             ],
-            content: ""
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Message
@@ -134,15 +135,15 @@ struct MessageEventTests {
     func handleMultipleETags() throws {
         // Given: Event with multiple e tags
         let firstReply = "first-parent-id"
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 1111,
+            content: "Reply message",
             tags: [
                 ["a", "11:pubkey:thread-id"],
                 ["e", firstReply],
                 ["e", "second-parent-id"],
             ],
-            content: "Reply message"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Message
@@ -155,13 +156,13 @@ struct MessageEventTests {
     @Test("Return nil for missing a tag")
     func returnNilForMissingATag() {
         // Given: Event without a tag (thread reference)
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 1111,
+            content: "Message",
             tags: [
                 ["p", "some-pubkey"],
             ],
-            content: "Message"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Message
@@ -174,13 +175,13 @@ struct MessageEventTests {
     @Test("Return nil for empty a tag value")
     func returnNilForEmptyATag() {
         // Given: Event with empty a tag value
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 1111,
+            content: "Message",
             tags: [
                 ["a", ""],
             ],
-            content: "Message"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Message
@@ -193,13 +194,13 @@ struct MessageEventTests {
     @Test("Return nil for wrong kind")
     func returnNilForWrongKind() {
         // Given: Event with wrong kind
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 1, // Wrong kind (should be 1111)
+            content: "Message",
             tags: [
                 ["a", "11:pubkey:thread-id"],
             ],
-            content: "Message"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Message

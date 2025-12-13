@@ -6,6 +6,7 @@
 
 import Foundation
 import NDKSwiftCore
+import NDKSwiftTesting
 
 // Import Thread struct specifically to override Foundation.Thread
 import struct TENEXCore.Thread
@@ -29,17 +30,17 @@ struct ThreadEventTests {
         let createdAt = Timestamp(Date().timeIntervalSince1970)
         let replyCount = 42
 
-        let event = NDKEvent(
-            pubkey: pubkey,
-            createdAt: createdAt,
+        let event = NDKEvent.test(
             kind: 11,
+            content: "{\"summary\": \"\(summary)\"}",
             tags: [
                 ["d", threadID],
                 ["a", projectID],
                 ["title", title],
                 ["reply_count", String(replyCount)],
             ],
-            content: "{\"summary\": \"\(summary)\"}"
+            pubkey: pubkey,
+            createdAt: createdAt
         )
 
         // When: Converting event to Thread
@@ -59,15 +60,15 @@ struct ThreadEventTests {
     func extractTitleFromTags() throws {
         // Given: Event with title tag
         let title = "Thread Title From Tags"
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 11,
+            content: "{}",
             tags: [
                 ["d", "test-thread"],
                 ["a", "31933:pubkey:project-id"],
                 ["title", title],
             ],
-            content: "{}"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Thread
@@ -81,15 +82,15 @@ struct ThreadEventTests {
     func extractSummaryFromContent() throws {
         // Given: Event with summary in JSON content
         let summary = "This is a detailed summary"
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 11,
+            content: "{\"summary\": \"\(summary)\"}",
             tags: [
                 ["d", "test-thread"],
                 ["a", "31933:pubkey:project-id"],
                 ["title", "Test"],
             ],
-            content: "{\"summary\": \"\(summary)\"}"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Thread
@@ -102,15 +103,15 @@ struct ThreadEventTests {
     @Test("Handle missing summary gracefully")
     func handleMissingSummary() throws {
         // Given: Event without summary
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 11,
+            content: "{}",
             tags: [
                 ["d", "test-thread"],
                 ["a", "31933:pubkey:project-id"],
                 ["title", "Test"],
             ],
-            content: "{}"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Thread
@@ -123,15 +124,15 @@ struct ThreadEventTests {
     @Test("Handle invalid JSON content gracefully")
     func handleInvalidJSON() throws {
         // Given: Event with invalid JSON content
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 11,
+            content: "not valid json",
             tags: [
                 ["d", "test-thread"],
                 ["a", "31933:pubkey:project-id"],
                 ["title", "Test"],
             ],
-            content: "not valid json"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Thread
@@ -144,15 +145,15 @@ struct ThreadEventTests {
     @Test("Handle missing reply count gracefully")
     func handleMissingReplyCount() throws {
         // Given: Event without reply_count tag
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 11,
+            content: "{}",
             tags: [
                 ["d", "test-thread"],
                 ["a", "31933:pubkey:project-id"],
                 ["title", "Test"],
             ],
-            content: "{}"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Thread
@@ -165,15 +166,15 @@ struct ThreadEventTests {
     @Test("Handle missing phase gracefully")
     func handleMissingPhase() throws {
         // Given: Event without phase tag
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 11,
+            content: "{}",
             tags: [
                 ["d", "test-thread"],
                 ["a", "31933:pubkey:project-id"],
                 ["title", "Test"],
             ],
-            content: "{}"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Thread
@@ -187,16 +188,16 @@ struct ThreadEventTests {
     func extractPhaseFromTags() throws {
         // Given: Event with phase tag
         let phase = "development"
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 11,
+            content: "{}",
             tags: [
                 ["d", "test-thread"],
                 ["a", "31933:pubkey:project-id"],
                 ["title", "Test"],
                 ["phase", phase],
             ],
-            content: "{}"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Thread
@@ -209,14 +210,14 @@ struct ThreadEventTests {
     @Test("Return nil for missing d tag")
     func returnNilForMissingDTag() {
         // Given: Event without d tag
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 11,
+            content: "{}",
             tags: [
                 ["a", "31933:pubkey:project-id"],
                 ["title", "Test"],
             ],
-            content: "{}"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Thread
@@ -229,14 +230,14 @@ struct ThreadEventTests {
     @Test("Return nil for missing a tag")
     func returnNilForMissingATag() {
         // Given: Event without a tag (project reference)
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 11,
+            content: "{}",
             tags: [
                 ["d", "test-thread"],
                 ["title", "Test"],
             ],
-            content: "{}"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Thread
@@ -249,14 +250,14 @@ struct ThreadEventTests {
     @Test("Return nil for missing title tag")
     func returnNilForMissingTitleTag() {
         // Given: Event without title tag
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 11,
+            content: "{}",
             tags: [
                 ["d", "test-thread"],
                 ["a", "31933:pubkey:project-id"],
             ],
-            content: "{}"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Thread
@@ -269,15 +270,15 @@ struct ThreadEventTests {
     @Test("Return nil for wrong kind")
     func returnNilForWrongKind() {
         // Given: Event with wrong kind
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 1, // Wrong kind
+            content: "{}",
             tags: [
                 ["d", "test-thread"],
                 ["a", "31933:pubkey:project-id"],
                 ["title", "Test"],
             ],
-            content: "{}"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Thread

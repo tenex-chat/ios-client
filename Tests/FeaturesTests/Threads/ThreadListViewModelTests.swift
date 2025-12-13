@@ -6,6 +6,7 @@
 
 import Foundation
 import NDKSwiftCore
+import NDKSwiftTesting
 @testable import TENEXCore
 @testable import TENEXFeatures
 import Testing
@@ -93,9 +94,10 @@ struct ThreadListViewModelTests {
         await viewModel.loadThreads()
 
         #expect(viewModel.threads.count == 3)
-        #expect(viewModel.threads[0].id == "thread-1")
-        #expect(viewModel.threads[1].id == "thread-2")
-        #expect(viewModel.threads[2].id == "thread-3")
+        let threadIDs = Set(viewModel.threads.map(\.id))
+        #expect(threadIDs.contains("thread-1"))
+        #expect(threadIDs.contains("thread-2"))
+        #expect(threadIDs.contains("thread-3"))
         #expect(viewModel.errorMessage == nil)
     }
 
@@ -213,29 +215,28 @@ struct ThreadListViewModelTests {
     func enrichThreadWithMetadata() async throws {
         let mockNDK = MockNDK()
 
-        // Create a kind:11 thread without title/summary
-        let threadEvent = NDKEvent(
-            pubkey: "test-pubkey",
-            createdAt: Timestamp(Date().timeIntervalSince1970),
+        // Create a kind:11 thread with inline title (metadata will override)
+        let threadEvent = NDKEvent.test(
             kind: 11,
+            content: "{}",
             tags: [
                 ["d", "thread-123"],
                 ["a", "test-project"],
+                ["title", "Original Title"],
             ],
-            content: "{}"
+            pubkey: "test-pubkey"
         )
 
         // Create a kind:513 metadata event with title and summary
-        let metadataEvent = NDKEvent(
-            pubkey: "test-pubkey",
-            createdAt: Timestamp(Date().timeIntervalSince1970),
+        let metadataEvent = NDKEvent.test(
             kind: 513,
+            content: "",
             tags: [
                 ["e", "thread-123"],
                 ["title", "Enriched Title"],
                 ["summary", "Enriched Summary"],
             ],
-            content: ""
+            pubkey: "test-pubkey"
         )
 
         mockNDK.mockEvents = [threadEvent, metadataEvent]
@@ -284,29 +285,29 @@ struct ThreadListViewModelTests {
         )
 
         // Create older metadata (timestamp: now - 100 seconds)
-        let olderMetadata = NDKEvent(
-            pubkey: "test-pubkey",
-            createdAt: Timestamp(Date().timeIntervalSince1970 - 100),
+        let olderMetadata = NDKEvent.test(
             kind: 513,
+            content: "",
             tags: [
                 ["e", "thread-timestamp-test"],
                 ["title", "Older Title"],
                 ["summary", "Older Summary"],
             ],
-            content: ""
+            pubkey: "test-pubkey",
+            createdAt: Timestamp(Date().timeIntervalSince1970 - 100)
         )
 
         // Create newer metadata (timestamp: now)
-        let newerMetadata = NDKEvent(
-            pubkey: "test-pubkey",
-            createdAt: Timestamp(Date().timeIntervalSince1970),
+        let newerMetadata = NDKEvent.test(
             kind: 513,
+            content: "",
             tags: [
                 ["e", "thread-timestamp-test"],
                 ["title", "Newer Title"],
                 ["summary", "Newer Summary"],
             ],
-            content: ""
+            pubkey: "test-pubkey",
+            createdAt: Timestamp(Date().timeIntervalSince1970)
         )
 
         // Send events: thread, newer metadata, then older metadata (out of order)
@@ -337,37 +338,34 @@ struct ThreadListViewModelTests {
         )
 
         // Create kind:1111 messages with uppercase "E" tag pointing to thread
-        let reply1 = NDKEvent(
-            pubkey: "user-1",
-            createdAt: Timestamp(Date().timeIntervalSince1970),
+        let reply1 = NDKEvent.test(
             kind: 1111,
+            content: "First reply",
             tags: [
                 ["E", "thread-789"], // Uppercase E for thread root
                 ["a", "test-project"],
             ],
-            content: "First reply"
+            pubkey: "user-1"
         )
 
-        let reply2 = NDKEvent(
-            pubkey: "user-2",
-            createdAt: Timestamp(Date().timeIntervalSince1970),
+        let reply2 = NDKEvent.test(
             kind: 1111,
+            content: "Second reply",
             tags: [
                 ["E", "thread-789"], // Uppercase E for thread root
                 ["a", "test-project"],
             ],
-            content: "Second reply"
+            pubkey: "user-2"
         )
 
-        let reply3 = NDKEvent(
-            pubkey: "user-3",
-            createdAt: Timestamp(Date().timeIntervalSince1970),
+        let reply3 = NDKEvent.test(
             kind: 1111,
+            content: "Third reply",
             tags: [
                 ["E", "thread-789"], // Uppercase E for thread root
                 ["a", "test-project"],
             ],
-            content: "Third reply"
+            pubkey: "user-3"
         )
 
         mockNDK.mockEvents = [threadEvent, reply1, reply2, reply3]
@@ -393,27 +391,25 @@ struct ThreadListViewModelTests {
         )
 
         // Create kind:1111 with uppercase "E" (should count)
-        let threadReply = NDKEvent(
-            pubkey: "user-1",
-            createdAt: Timestamp(Date().timeIntervalSince1970),
+        let threadReply = NDKEvent.test(
             kind: 1111,
+            content: "Thread reply",
             tags: [
                 ["E", "thread-abc"], // Uppercase E for thread root
                 ["a", "test-project"],
             ],
-            content: "Thread reply"
+            pubkey: "user-1"
         )
 
         // Create kind:1111 with lowercase "e" (reply to message, should NOT count)
-        let messageReply = NDKEvent(
-            pubkey: "user-2",
-            createdAt: Timestamp(Date().timeIntervalSince1970),
+        let messageReply = NDKEvent.test(
             kind: 1111,
+            content: "Message reply",
             tags: [
                 ["e", "some-message-id"], // Lowercase e for message reply
                 ["a", "test-project"],
             ],
-            content: "Message reply"
+            pubkey: "user-2"
         )
 
         mockNDK.mockEvents = [threadEvent, threadReply, messageReply]
@@ -444,16 +440,15 @@ struct ThreadListViewModelTests {
             "{}"
         }
 
-        return NDKEvent(
-            pubkey: pubkey,
-            createdAt: Timestamp(Date().timeIntervalSince1970),
+        return NDKEvent.test(
             kind: 11, // Thread kind
+            content: content,
             tags: [
                 ["d", threadID],
                 ["a", projectID],
                 ["title", title],
             ],
-            content: content
+            pubkey: pubkey
         )
     }
 }

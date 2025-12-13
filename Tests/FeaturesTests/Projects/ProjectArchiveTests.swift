@@ -6,6 +6,7 @@
 
 import Foundation
 import NDKSwiftCore
+import NDKSwiftTesting
 @testable import TENEXCore
 @testable import TENEXFeatures
 import Testing
@@ -187,15 +188,14 @@ struct ProjectArchiveTests {
             "{}"
         }
 
-        return NDKEvent(
-            pubkey: pubkey,
-            createdAt: Timestamp(Date().timeIntervalSince1970),
+        return NDKEvent.test(
             kind: 31_933, // Project kind
+            content: content,
             tags: [
                 ["d", projectID],
                 ["title", title],
             ],
-            content: content
+            pubkey: pubkey
         )
     }
 }

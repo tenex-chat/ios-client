@@ -6,6 +6,7 @@
 
 import Foundation
 import NDKSwiftCore
+import NDKSwiftTesting
 import TENEXCore
 @testable import TENEXFeatures
 import Testing
@@ -13,12 +14,20 @@ import Testing
 @Suite("Message Sending Tests")
 @MainActor
 struct MessageSendingTests {
+    // MARK: - Tests
+
     @Test("Send message creates kind 1111 event")
     func sendMessageCreatesCorrectKind() async {
         // Given: A chat view model with mock NDK
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
 
         // When: Sending a message
         await viewModel.sendMessage(text: "Hello, world!")
@@ -30,35 +39,70 @@ struct MessageSendingTests {
         #expect(event.content == "Hello, world!")
     }
 
-    @Test("Send message adds proper thread reference tag")
-    func sendMessageAddsThreadTag() async {
+    @Test("Send message adds project reference tag")
+    func sendMessageAddsProjectTag() async {
         // Given: A chat view model
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
 
         // When: Sending a message
         await viewModel.sendMessage(text: "Test message")
 
-        // Then: Event has 'a' tag referencing the thread
+        // Then: Event has 'a' tag referencing the PROJECT (not the thread)
         let event = mockNDK.publishedEvents[0]
         let aTags = event.tags(withName: "a")
         #expect(aTags.count == 1)
         #expect(aTags[0].count > 1)
-        #expect(aTags[0][1] == threadID)
+        #expect(aTags[0][1] == projectReference)
     }
 
-    @Test("Send reply adds parent message reference")
+    @Test("Send message adds thread event reference via e-tag")
+    func sendMessageAddsThreadReference() async {
+        // Given: A chat view model
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
+        let mockNDK = MockNDK()
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
+
+        // When: Sending a message
+        await viewModel.sendMessage(text: "Test message")
+
+        // Then: Event has 'e' tag referencing the thread event (added by publishReply)
+        let event = mockNDK.publishedEvents[0]
+        let eTags = event.tags(withName: "e")
+        #expect(eTags.count >= 1)
+        #expect(eTags.first?[safe: 1] == threadEvent.id)
+    }
+
+    @Test("Send reply adds parent message reference with reply marker")
     func sendReplyAddsParentTag() async {
         // Given: A chat view model with an existing message
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
 
         let parentMessage = Message(
             id: "parent-msg-id",
             pubkey: "user1",
-            threadID: threadID,
+            threadID: projectReference,
             content: "Parent message",
             createdAt: Date(),
             replyTo: nil,
@@ -68,21 +112,60 @@ struct MessageSendingTests {
         // When: Sending a reply
         await viewModel.sendMessage(text: "Reply message", replyTo: parentMessage)
 
-        // Then: Event has 'e' tag referencing the parent
+        // Then: Event has 'e' tag referencing the parent message with 'reply' marker
         let event = mockNDK.publishedEvents[0]
         let eTags = event.tags(withName: "e")
-        #expect(eTags.count == 1)
-        #expect(eTags[0].count > 1)
-        #expect(eTags[0][1] == "parent-msg-id")
+        let parentTag = eTags.first { $0[safe: 1] == "parent-msg-id" }
+        #expect(parentTag != nil)
+        #expect(parentTag?[safe: 3] == "reply")
+    }
+
+    @Test("Send reply adds p-tag for parent author")
+    func sendReplyAddsPTagForParentAuthor() async {
+        // Given: A chat view model with an existing message
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
+        let mockNDK = MockNDK()
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
+
+        let parentMessage = Message(
+            id: "parent-msg-id",
+            pubkey: "original-author-pubkey",
+            threadID: projectReference,
+            content: "Parent message",
+            createdAt: Date(),
+            replyTo: nil,
+            status: nil
+        )
+
+        // When: Sending a reply
+        await viewModel.sendMessage(text: "Reply message", replyTo: parentMessage)
+
+        // Then: Event has 'p' tag for the parent message author
+        let event = mockNDK.publishedEvents[0]
+        let pTags = event.tags(withName: "p")
+        let authorTag = pTags.first { $0[safe: 1] == "original-author-pubkey" }
+        #expect(authorTag != nil)
     }
 
     @Test("Send message shows optimistic update immediately")
     func sendMessageShowsOptimisticUpdate() async {
         // Given: A chat view model with delayed publish
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
         mockNDK.publishDelay = 0.1 // Add delay to observe sending state
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
 
         // When: Sending a message (without await to capture intermediate state)
         Task {
@@ -107,10 +190,16 @@ struct MessageSendingTests {
     @Test("Send message updates status to sent after publish")
     func sendMessageUpdatesStatusAfterPublish() async {
         // Given: A chat view model
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
         mockNDK.publishDelay = 0.1 // Simulate network delay
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
 
         // When: Sending a message
         await viewModel.sendMessage(text: "Test message")
@@ -123,9 +212,15 @@ struct MessageSendingTests {
     @Test("Send message updates with event ID after publish")
     func sendMessageUpdatesEventID() async {
         // Given: A chat view model
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
 
         // When: Sending a message
         await viewModel.sendMessage(text: "Test message")
@@ -139,10 +234,16 @@ struct MessageSendingTests {
     @Test("Failed send shows error status")
     func failedSendShowsErrorStatus() async {
         // Given: A mock NDK that fails to publish
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
         mockNDK.publishShouldFail = true
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
 
         // When: Attempting to send a message
         await viewModel.sendMessage(text: "Failed message")
@@ -159,10 +260,16 @@ struct MessageSendingTests {
     @Test("Retry failed message")
     func retryFailedMessage() async {
         // Given: A view model with a failed message
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
         mockNDK.publishShouldFail = true
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
 
         await viewModel.sendMessage(text: "Failed message")
         guard case .failed = viewModel.messages[0].status else {
@@ -183,9 +290,15 @@ struct MessageSendingTests {
     @Test("Multiple messages maintain correct order")
     func multipleMessagesMaintainOrder() async {
         // Given: A chat view model
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
 
         // When: Sending multiple messages
         await viewModel.sendMessage(text: "First")
@@ -202,9 +315,15 @@ struct MessageSendingTests {
     @Test("Send empty message is rejected")
     func sendEmptyMessageRejected() async {
         // Given: A chat view model
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
 
         // When: Attempting to send an empty message
         await viewModel.sendMessage(text: "")
@@ -217,9 +336,15 @@ struct MessageSendingTests {
     @Test("Send whitespace-only message is rejected")
     func sendWhitespaceMessageRejected() async {
         // Given: A chat view model
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
 
         // When: Attempting to send a whitespace-only message
         await viewModel.sendMessage(text: "   \n\t  ")

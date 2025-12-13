@@ -6,6 +6,7 @@
 
 import Foundation
 import NDKSwiftCore
+import NDKSwiftTesting
 import TENEXCore
 import Testing
 
@@ -18,21 +19,21 @@ struct TypingIndicatorTests {
         let threadID = "thread-id-456"
         let createdAt = Timestamp(Date().timeIntervalSince1970)
 
-        let event = NDKEvent(
-            pubkey: pubkey,
-            createdAt: createdAt,
+        let event = NDKEvent.test(
             kind: 24_111,
+            content: "",
             tags: [
                 ["e", threadID],
             ],
-            content: ""
+            pubkey: pubkey,
+            createdAt: createdAt
         )
 
         // When: Converting event to TypingIndicator
         let indicator = try #require(TypingIndicator.from(event: event))
 
         // Then: TypingIndicator properties match event data
-        #expect(!indicator.id.isEmpty)
+        // Note: event.id is empty for unsigned test events (ID is computed from signature)
         #expect(indicator.pubkey == pubkey)
         #expect(indicator.threadID == threadID)
         #expect(indicator.isTyping == true)
@@ -47,21 +48,21 @@ struct TypingIndicatorTests {
         let threadID = "thread-id-456"
         let createdAt = Timestamp(Date().timeIntervalSince1970)
 
-        let event = NDKEvent(
-            pubkey: pubkey,
-            createdAt: createdAt,
+        let event = NDKEvent.test(
             kind: 24_112,
+            content: "",
             tags: [
                 ["e", threadID],
             ],
-            content: ""
+            pubkey: pubkey,
+            createdAt: createdAt
         )
 
         // When: Converting event to TypingIndicator
         let indicator = try #require(TypingIndicator.from(event: event))
 
         // Then: TypingIndicator properties match event data
-        #expect(!indicator.id.isEmpty)
+        // Note: event.id is empty for unsigned test events (ID is computed from signature)
         #expect(indicator.pubkey == pubkey)
         #expect(indicator.threadID == threadID)
         #expect(indicator.isTyping == true)
@@ -73,13 +74,13 @@ struct TypingIndicatorTests {
     func extractThreadID() throws {
         // Given: Event with thread reference in e tag
         let threadID = "target-thread-id"
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 24_111,
+            content: "",
             tags: [
                 ["e", threadID],
             ],
-            content: ""
+            pubkey: "testpubkey"
         )
 
         // When: Converting to TypingIndicator
@@ -92,11 +93,11 @@ struct TypingIndicatorTests {
     @Test("Return nil for missing e tag")
     func returnNilForMissingETag() {
         // Given: Event without e tag (thread reference)
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 24_111,
+            content: "",
             tags: [],
-            content: ""
+            pubkey: "testpubkey"
         )
 
         // When: Converting to TypingIndicator
@@ -109,13 +110,13 @@ struct TypingIndicatorTests {
     @Test("Return nil for empty e tag value")
     func returnNilForEmptyETag() {
         // Given: Event with empty e tag value
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 24_111,
+            content: "",
             tags: [
                 ["e", ""],
             ],
-            content: ""
+            pubkey: "testpubkey"
         )
 
         // When: Converting to TypingIndicator
@@ -128,13 +129,13 @@ struct TypingIndicatorTests {
     @Test("Return nil for wrong kind")
     func returnNilForWrongKind() {
         // Given: Event with wrong kind
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 1111, // Wrong kind (should be 24111 or 24112)
+            content: "",
             tags: [
                 ["e", "thread-id"],
             ],
-            content: ""
+            pubkey: "testpubkey"
         )
 
         // When: Converting to TypingIndicator

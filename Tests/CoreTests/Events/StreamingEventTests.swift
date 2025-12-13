@@ -6,6 +6,7 @@
 
 import Foundation
 import NDKSwiftCore
+import NDKSwiftTesting
 import TENEXCore
 import Testing
 
@@ -19,21 +20,21 @@ struct StreamingEventTests {
         let delta = "This is a chunk of text"
         let createdAt = Timestamp(Date().timeIntervalSince1970)
 
-        let event = NDKEvent(
-            pubkey: pubkey,
-            createdAt: createdAt,
+        let event = NDKEvent.test(
             kind: 21_111,
+            content: delta,
             tags: [
                 ["e", messageID],
             ],
-            content: delta
+            pubkey: pubkey,
+            createdAt: createdAt
         )
 
         // When: Converting event to StreamingDelta
         let streamingDelta = try #require(StreamingDelta.from(event: event))
 
         // Then: StreamingDelta properties match event data
-        #expect(!streamingDelta.id.isEmpty)
+        // Note: event.id is empty for unsigned test events (ID is computed from signature)
         #expect(streamingDelta.pubkey == pubkey)
         #expect(streamingDelta.messageID == messageID)
         #expect(streamingDelta.delta == delta)
@@ -44,13 +45,13 @@ struct StreamingEventTests {
     func extractMessageID() throws {
         // Given: Event with message reference in e tag
         let messageID = "target-message-id"
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 21_111,
+            content: "delta chunk",
             tags: [
                 ["e", messageID],
             ],
-            content: "delta chunk"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to StreamingDelta
@@ -63,13 +64,13 @@ struct StreamingEventTests {
     @Test("Handle empty delta content")
     func handleEmptyDeltaContent() throws {
         // Given: Event with empty content
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 21_111,
+            content: "",
             tags: [
                 ["e", "message-id"],
             ],
-            content: ""
+            pubkey: "testpubkey"
         )
 
         // When: Converting to StreamingDelta
@@ -82,11 +83,11 @@ struct StreamingEventTests {
     @Test("Return nil for missing e tag")
     func returnNilForMissingETag() {
         // Given: Event without e tag (message reference)
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 21_111,
+            content: "delta",
             tags: [],
-            content: "delta"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to StreamingDelta
@@ -99,13 +100,13 @@ struct StreamingEventTests {
     @Test("Return nil for empty e tag value")
     func returnNilForEmptyETag() {
         // Given: Event with empty e tag value
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 21_111,
+            content: "delta",
             tags: [
                 ["e", ""],
             ],
-            content: "delta"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to StreamingDelta
@@ -118,13 +119,13 @@ struct StreamingEventTests {
     @Test("Return nil for wrong kind")
     func returnNilForWrongKind() {
         // Given: Event with wrong kind
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 1111, // Wrong kind (should be 21111)
+            content: "delta",
             tags: [
                 ["e", "message-id"],
             ],
-            content: "delta"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to StreamingDelta

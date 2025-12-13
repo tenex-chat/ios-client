@@ -6,6 +6,7 @@
 
 import Foundation
 import NDKSwiftCore
+import NDKSwiftTesting
 import SwiftUI
 @testable import TENEXCore
 @testable import TENEXShared
@@ -22,15 +23,15 @@ struct ProjectEventTests {
         let pubkey = "npub1testpubkey1234567890abcdef"
         let createdAt = Timestamp(Date().timeIntervalSince1970)
 
-        let event = NDKEvent(
-            pubkey: pubkey,
-            createdAt: createdAt,
+        let event = NDKEvent.test(
             kind: 31_933,
+            content: "{\"description\": \"\(description)\"}",
             tags: [
                 ["d", projectID],
                 ["title", title],
             ],
-            content: "{\"description\": \"\(description)\"}"
+            pubkey: pubkey,
+            createdAt: createdAt
         )
 
         // When: Converting event to Project
@@ -48,14 +49,14 @@ struct ProjectEventTests {
     func extractTitleFromTags() throws {
         // Given: Event with title tag
         let title = "Project Title From Tags"
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 31_933,
+            content: "{}",
             tags: [
                 ["d", "test-project"],
                 ["title", title],
             ],
-            content: "{}"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Project
@@ -69,14 +70,14 @@ struct ProjectEventTests {
     func extractDescriptionFromContent() throws {
         // Given: Event with description in JSON content
         let description = "This is a detailed description"
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 31_933,
+            content: "{\"description\": \"\(description)\"}",
             tags: [
                 ["d", "test-project"],
                 ["title", "Test"],
             ],
-            content: "{\"description\": \"\(description)\"}"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Project
@@ -89,14 +90,14 @@ struct ProjectEventTests {
     @Test("Handle missing description gracefully")
     func handleMissingDescription() throws {
         // Given: Event without description
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 31_933,
+            content: "{}",
             tags: [
                 ["d", "test-project"],
                 ["title", "Test"],
             ],
-            content: "{}"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Project
@@ -109,14 +110,14 @@ struct ProjectEventTests {
     @Test("Handle invalid JSON content gracefully")
     func handleInvalidJSON() throws {
         // Given: Event with invalid JSON content
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 31_933,
+            content: "not valid json",
             tags: [
                 ["d", "test-project"],
                 ["title", "Test"],
             ],
-            content: "not valid json"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Project
@@ -130,23 +131,23 @@ struct ProjectEventTests {
     func generateDeterministicColor() throws {
         // Given: Two events with same project ID
         let projectID = "consistent-project-id"
-        let event1 = NDKEvent(
-            pubkey: "pubkey1",
+        let event1 = NDKEvent.test(
             kind: 31_933,
+            content: "{}",
             tags: [
                 ["d", projectID],
                 ["title", "Test 1"],
             ],
-            content: "{}"
+            pubkey: "pubkey1"
         )
-        let event2 = NDKEvent(
-            pubkey: "pubkey2",
+        let event2 = NDKEvent.test(
             kind: 31_933,
+            content: "{}",
             tags: [
                 ["d", projectID],
                 ["title", "Test 2"],
             ],
-            content: "{}"
+            pubkey: "pubkey2"
         )
 
         // When: Converting both to Project
@@ -162,13 +163,13 @@ struct ProjectEventTests {
     @Test("Return nil for missing d tag")
     func returnNilForMissingDTag() {
         // Given: Event without d tag
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 31_933,
+            content: "{}",
             tags: [
                 ["title", "Test"],
             ],
-            content: "{}"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Project
@@ -181,14 +182,14 @@ struct ProjectEventTests {
     @Test("Return nil for wrong kind")
     func returnNilForWrongKind() {
         // Given: Event with wrong kind
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 1, // Wrong kind
+            content: "{}",
             tags: [
                 ["d", "test-project"],
                 ["title", "Test"],
             ],
-            content: "{}"
+            pubkey: "testpubkey"
         )
 
         // When: Converting to Project

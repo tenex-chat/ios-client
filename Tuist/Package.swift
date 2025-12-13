@@ -9,6 +9,7 @@ let packageSettings = PackageSettings(
         // Use dynamic frameworks for proper module visibility across dependencies
         "NDKSwiftCore": .framework,
         "NDKSwiftNostrDB": .framework,
+        "NDKSwiftTesting": .framework,
     ]
 )
 #endif
@@ -19,6 +20,6 @@ let packageSettings = PackageSettings(
 let package = Package(
     name: "TENEXDependencies",
     dependencies: [
-        .package(path: "/Users/pablofernandez/10x/NDKSwift-z94ws0/master"),
+        .package(url: "https://github.com/pablof7z/NDKSwift.git", branch: "master"),
     ]
 )

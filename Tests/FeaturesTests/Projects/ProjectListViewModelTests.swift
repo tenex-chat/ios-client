@@ -6,6 +6,7 @@
 
 import Foundation
 import NDKSwiftCore
+import NDKSwiftTesting
 @testable import TENEXCore
 @testable import TENEXFeatures
 import Testing
@@ -167,14 +168,14 @@ struct ProjectListViewModelTests {
 
         // Invalid event (wrong kind)
         let invalidEvent = NDKEvent(
-            pubkey: "test-pubkey",
-            createdAt: Timestamp(Date().timeIntervalSince1970),
             kind: 1, // Wrong kind (should be 31_933)
+            content: "{}",
             tags: [
                 ["d", "invalid-project"],
                 ["title", "Invalid Project"],
             ],
-            content: "{}"
+            pubkey: "test-pubkey",
+            createdAt: Timestamp(Date().timeIntervalSince1970)
         )
 
         mockNDK.mockEvents = [validEvent, invalidEvent]
@@ -369,15 +370,14 @@ struct ProjectListViewModelTests {
             "{}"
         }
 
-        return NDKEvent(
-            pubkey: pubkey,
-            createdAt: Timestamp(Date().timeIntervalSince1970),
+        return NDKEvent.test(
             kind: 31_933, // Project kind
+            content: content,
             tags: [
                 ["d", projectID],
                 ["title", title],
             ],
-            content: content
+            pubkey: pubkey
         )
     }
 }

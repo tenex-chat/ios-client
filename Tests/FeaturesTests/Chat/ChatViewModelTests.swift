@@ -6,6 +6,7 @@
 
 import Foundation
 import NDKSwiftCore
+import NDKSwiftTesting
 import TENEXCore
 @testable import TENEXFeatures
 import Testing
@@ -13,14 +14,22 @@ import Testing
 @Suite("ChatViewModel Tests")
 @MainActor
 struct ChatViewModelTests {
-    @Test("Initialize with thread ID")
-    func initializeWithThreadID() async {
-        // Given: A thread ID and mock NDK
-        let threadID = "11:pubkey:my-thread"
+    // MARK: - Tests
+
+    @Test("Initialize with thread event and project reference")
+    func initializeWithThreadEventAndProjectReference() async {
+        // Given: A thread event and project reference
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
 
         // When: Creating view model
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
 
         // Then: View model is initialized with empty state
         #expect(viewModel.messages.isEmpty)
@@ -28,34 +37,41 @@ struct ChatViewModelTests {
         #expect(viewModel.errorMessage == nil)
         #expect(viewModel.streamingContent.isEmpty)
         #expect(viewModel.typingUsers.isEmpty)
+        #expect(viewModel.threadID == threadEvent.id)
     }
 
     @Test("Load messages from NDK")
     func loadMessagesFromNDK() async {
         // Given: Mock NDK with message events
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
 
-        let event1 = NDKEvent(
-            pubkey: "user1",
-            createdAt: 1000,
+        let event1 = NDKEvent.test(
             kind: 1111,
-            tags: [["a", threadID]],
-            content: "First message"
+            content: "First message",
+            tags: [["a", projectReference]],
+            pubkey: "user1",
+            createdAt: 1000
         )
 
-        let event2 = NDKEvent(
-            pubkey: "user2",
-            createdAt: 2000,
+        let event2 = NDKEvent.test(
             kind: 1111,
-            tags: [["a", threadID]],
-            content: "Second message"
+            content: "Second message",
+            tags: [["a", projectReference]],
+            pubkey: "user2",
+            createdAt: 2000
         )
 
         mockNDK.mockEvents = [event1, event2]
 
         // When: Loading messages
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
         await viewModel.loadMessages()
 
         // Then: Messages are loaded and sorted by creation date
@@ -69,29 +85,35 @@ struct ChatViewModelTests {
     @Test("Sort messages by creation date (oldest first)")
     func sortMessagesByCreationDate() async {
         // Given: Mock NDK with unsorted message events
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
 
-        let event1 = NDKEvent(
-            pubkey: "user1",
-            createdAt: 2000, // Newer
+        let event1 = NDKEvent.test(
             kind: 1111,
-            tags: [["a", threadID]],
-            content: "Second message"
+            content: "Second message",
+            tags: [["a", projectReference]],
+            pubkey: "user1",
+            createdAt: 2000 // Newer
         )
 
-        let event2 = NDKEvent(
-            pubkey: "user2",
-            createdAt: 1000, // Older
+        let event2 = NDKEvent.test(
             kind: 1111,
-            tags: [["a", threadID]],
-            content: "First message"
+            content: "First message",
+            tags: [["a", projectReference]],
+            pubkey: "user2",
+            createdAt: 1000 // Older
         )
 
         mockNDK.mockEvents = [event1, event2]
 
         // When: Loading messages
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
         await viewModel.loadMessages()
 
         // Then: Messages are sorted oldest first
@@ -102,12 +124,18 @@ struct ChatViewModelTests {
     @Test("Handle empty messages list")
     func handleEmptyMessagesList() async {
         // Given: Mock NDK with no messages
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
         mockNDK.mockEvents = []
 
         // When: Loading messages
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
         await viewModel.loadMessages()
 
         // Then: Messages list is empty
@@ -119,20 +147,26 @@ struct ChatViewModelTests {
     @Test("Handle invalid message events")
     func handleInvalidMessageEvents() async {
         // Given: Mock NDK with invalid events (wrong kind)
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
 
-        let invalidEvent = NDKEvent(
-            pubkey: "user1",
+        let invalidEvent = NDKEvent.test(
             kind: 1, // Wrong kind
-            tags: [["a", threadID]],
-            content: "Invalid message"
+            content: "Invalid message",
+            tags: [["a", projectReference]],
+            pubkey: "user1"
         )
 
         mockNDK.mockEvents = [invalidEvent]
 
         // When: Loading messages
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
         await viewModel.loadMessages()
 
         // Then: Invalid events are filtered out
@@ -142,12 +176,18 @@ struct ChatViewModelTests {
     @Test("Handle error during message loading")
     func handleErrorDuringLoading() async {
         // Given: Mock NDK that throws an error
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
         mockNDK.shouldThrowError = true
 
         // When: Loading messages
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
         await viewModel.loadMessages()
 
         // Then: Error message is set
@@ -159,28 +199,34 @@ struct ChatViewModelTests {
     @Test("Subscribe to streaming deltas")
     func subscribeToStreamingDeltas() async {
         // Given: Mock NDK with streaming delta events
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let messageID = "msg-1"
         let mockNDK = MockNDK()
 
-        let delta1 = NDKEvent(
-            pubkey: "agent1",
+        let delta1 = NDKEvent.test(
             kind: 21_111,
+            content: "Hello ",
             tags: [["e", messageID]],
-            content: "Hello "
+            pubkey: "agent1"
         )
 
-        let delta2 = NDKEvent(
-            pubkey: "agent1",
+        let delta2 = NDKEvent.test(
             kind: 21_111,
+            content: "world!",
             tags: [["e", messageID]],
-            content: "world!"
+            pubkey: "agent1"
         )
 
         mockNDK.mockEvents = [delta1, delta2]
 
         // When: Subscribing to streaming deltas
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
         await viewModel.subscribeToStreamingDeltas()
 
         // Then: Deltas are accumulated
@@ -190,20 +236,27 @@ struct ChatViewModelTests {
     @Test("Subscribe to typing indicators (user typing)")
     func subscribeToUserTypingIndicators() async {
         // Given: Mock NDK with typing indicator events
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let threadID = threadEvent.id // Get the auto-generated ID
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
 
-        let typingEvent = NDKEvent(
-            pubkey: "user1",
+        let typingEvent = NDKEvent.test(
             kind: 24_111,
+            content: "",
             tags: [["e", threadID]],
-            content: ""
+            pubkey: "user1"
         )
 
         mockNDK.mockEvents = [typingEvent]
 
         // When: Subscribing to typing indicators
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
         await viewModel.subscribeToTypingIndicators()
 
         // Then: Typing user is tracked
@@ -213,20 +266,27 @@ struct ChatViewModelTests {
     @Test("Subscribe to typing indicators (agent typing)")
     func subscribeToAgentTypingIndicators() async {
         // Given: Mock NDK with agent typing indicator events
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let threadID = threadEvent.id // Get the auto-generated ID
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
 
-        let agentTypingEvent = NDKEvent(
-            pubkey: "agent1",
+        let agentTypingEvent = NDKEvent.test(
             kind: 24_112,
+            content: "",
             tags: [["e", threadID]],
-            content: ""
+            pubkey: "agent1"
         )
 
         mockNDK.mockEvents = [agentTypingEvent]
 
         // When: Subscribing to typing indicators
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
         await viewModel.subscribeToTypingIndicators()
 
         // Then: Agent typing is tracked
@@ -236,21 +296,27 @@ struct ChatViewModelTests {
     @Test("Refresh reloads messages")
     func refreshReloadsMessages() async {
         // Given: Mock NDK with messages
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
 
-        let event = NDKEvent(
-            pubkey: "user1",
-            createdAt: 1000,
+        let event = NDKEvent.test(
             kind: 1111,
-            tags: [["a", threadID]],
-            content: "Test message"
+            content: "Test message",
+            tags: [["a", projectReference]],
+            pubkey: "user1",
+            createdAt: 1000
         )
 
         mockNDK.mockEvents = [event]
 
         // When: Refreshing
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
         await viewModel.refresh()
 
         // Then: Messages are loaded
@@ -261,11 +327,17 @@ struct ChatViewModelTests {
     @Test("Clear error message on reload")
     func clearErrorMessageOnReload() async {
         // Given: View model with an error
-        let threadID = "11:pubkey:my-thread"
+        let threadEvent = NDKEvent.test(kind: 11, content: "Thread content", pubkey: "thread-author")
+        let projectReference = "31933:project-author:my-project"
         let mockNDK = MockNDK()
         mockNDK.shouldThrowError = true
 
-        let viewModel = ChatViewModel(ndk: mockNDK, threadID: threadID, userPubkey: "test-user")
+        let viewModel = ChatViewModel(
+            ndk: mockNDK,
+            threadEvent: threadEvent,
+            projectReference: projectReference,
+            userPubkey: "test-user"
+        )
         await viewModel.loadMessages()
 
         #expect(viewModel.errorMessage != nil)

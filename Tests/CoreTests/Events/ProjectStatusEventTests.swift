@@ -6,6 +6,7 @@
 
 import Foundation
 import NDKSwiftCore
+import NDKSwiftTesting
 @testable import TENEXCore
 import Testing
 
@@ -20,16 +21,16 @@ struct ProjectStatusEventTests {
         let agent2 = "agent2pubkey"
         let createdAt = Timestamp(Date().timeIntervalSince1970)
 
-        let event = NDKEvent(
-            pubkey: pubkey,
-            createdAt: createdAt,
+        let event = NDKEvent.test(
             kind: 24_010,
+            content: "",
             tags: [
                 ["d", projectID],
                 ["agent", agent1],
                 ["agent", agent2],
             ],
-            content: ""
+            pubkey: pubkey,
+            createdAt: createdAt
         )
 
         // When: Converting event to ProjectStatus
@@ -50,16 +51,16 @@ struct ProjectStatusEventTests {
         let agent1 = "agent1"
         let agent2 = "agent2"
         let agent3 = "agent3"
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 24_010,
+            content: "",
             tags: [
                 ["d", "test-project"],
                 ["agent", agent1],
                 ["agent", agent2],
                 ["agent", agent3],
             ],
-            content: ""
+            pubkey: "testpubkey"
         )
 
         // When: Converting to ProjectStatus
@@ -75,13 +76,13 @@ struct ProjectStatusEventTests {
     @Test("Handle no online agents gracefully")
     func handleNoOnlineAgents() throws {
         // Given: Event without agent tags
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 24_010,
+            content: "",
             tags: [
                 ["d", "test-project"],
             ],
-            content: ""
+            pubkey: "testpubkey"
         )
 
         // When: Converting to ProjectStatus
@@ -94,14 +95,14 @@ struct ProjectStatusEventTests {
     @Test("Return nil for wrong kind")
     func returnNilForWrongKind() {
         // Given: Event with wrong kind
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 1, // Wrong kind
+            content: "",
             tags: [
                 ["d", "test-project"],
                 ["agent", "agent1"],
             ],
-            content: ""
+            pubkey: "testpubkey"
         )
 
         // When: Converting to ProjectStatus
@@ -114,13 +115,13 @@ struct ProjectStatusEventTests {
     @Test("Return nil for missing d tag")
     func returnNilForMissingDTag() {
         // Given: Event without d tag
-        let event = NDKEvent(
-            pubkey: "testpubkey",
+        let event = NDKEvent.test(
             kind: 24_010,
+            content: "",
             tags: [
                 ["agent", "agent1"],
             ],
-            content: ""
+            pubkey: "testpubkey"
         )
 
         // When: Converting to ProjectStatus
