@@ -105,7 +105,7 @@ public struct Message: Identifiable, Sendable {
     public static func filter(for threadID: String) -> NDKFilter {
         NDKFilter(
             kinds: [1111],
-            tags: ["a": [threadID]]
+            tags: ["a": Set([threadID])]
         )
     }
 

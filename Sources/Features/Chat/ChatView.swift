@@ -76,7 +76,7 @@ public struct ChatView: View {
     }
 
     @ViewBuilder
-    private func contentView(ndk: any NDKSubscribing & NDKPublishing) -> some View {
+    private func contentView(ndk: NDK) -> some View {
         let vm = viewModel ?? ChatViewModel(
             ndk: ndk,
             threadEvent: threadEvent,

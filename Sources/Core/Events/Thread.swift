@@ -136,7 +136,7 @@ public struct Thread: Identifiable, Sendable {
     public static func filter(for projectID: String) -> NDKFilter {
         NDKFilter(
             kinds: [11],
-            tags: ["a": [projectID]]
+            tags: ["a": Set([projectID])]
         )
     }
 

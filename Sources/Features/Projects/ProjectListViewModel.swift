@@ -23,7 +23,7 @@ public final class ProjectListViewModel {
     ///   - userPubkey: The pubkey of the authenticated user
     ///   - archiveStorage: Storage for archived project IDs
     public init(
-        ndk: any NDKSubscribing,
+        ndk: NDK,
         userPubkey: String,
         archiveStorage: ArchiveStorage = UserDefaultsArchiveStorage()
     ) {
@@ -109,7 +109,7 @@ public final class ProjectListViewModel {
 
     // MARK: Private
 
-    private let ndk: any NDKSubscribing
+    private let ndk: NDK
     private let userPubkey: String
     private let archiveStorage: ArchiveStorage
 

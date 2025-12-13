@@ -56,7 +56,7 @@ public struct ThreadListView: View {
     }
 
     @ViewBuilder
-    private func contentView(ndk: any NDKSubscribing) -> some View {
+    private func contentView(ndk: NDK) -> some View {
         let vm = viewModel ?? ThreadListViewModel(ndk: ndk, projectID: projectID)
 
         Group {

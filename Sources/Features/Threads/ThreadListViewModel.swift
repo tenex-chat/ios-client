@@ -25,7 +25,7 @@ public final class ThreadListViewModel {
     /// - Parameters:
     ///   - ndk: The NDK instance for fetching threads
     ///   - projectId: The project addressable coordinate (kind:pubkey:dTag)
-    public init(ndk: any NDKSubscribing, projectID: String) {
+    public init(ndk: NDK, projectID: String) {
         self.ndk = ndk
         self.projectID = projectID
     }
@@ -80,7 +80,7 @@ public final class ThreadListViewModel {
 
     // MARK: Private
 
-    private let ndk: any NDKSubscribing
+    private let ndk: NDK
     private let projectID: String
     private var subscriptionTask: Task<Void, Never>?
     private var seenEventIDs: Set<String> = []
@@ -127,7 +127,7 @@ public final class ThreadListViewModel {
         let metadataFilter = NDKFilter(kinds: [513])
         let messagesFilter = NDKFilter(
             kinds: [1111],
-            tags: ["a": [projectID]]
+            tags: ["a": Set([projectID])]
         )
         return [threadFilter, metadataFilter, messagesFilter]
     }

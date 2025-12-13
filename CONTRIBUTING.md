@@ -423,7 +423,6 @@ appId: chat.tenex.ios
 Tests/
 └── TestUtilities/
     ├── Mocks/
-    │   ├── MockNDK.swift
     │   └── MockSigner.swift
     ├── Fixtures/
     │   ├── ProjectFixtures.swift

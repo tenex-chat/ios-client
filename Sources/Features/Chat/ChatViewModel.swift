@@ -24,7 +24,7 @@ public final class ChatViewModel {
     ///   - projectReference: The project reference in format "31933:pubkey:d-tag"
     ///   - userPubkey: The pubkey of the authenticated user
     public init(
-        ndk: any NDKSubscribing & NDKPublishing,
+        ndk: NDK,
         threadEvent: NDKEvent,
         projectReference: String,
         userPubkey: String
@@ -246,7 +246,7 @@ public final class ChatViewModel {
 
     // MARK: Private
 
-    private let ndk: any NDKSubscribing & NDKPublishing
+    private let ndk: NDK
     private let threadEvent: NDKEvent
     private let projectReference: String
     private let userPubkey: String
