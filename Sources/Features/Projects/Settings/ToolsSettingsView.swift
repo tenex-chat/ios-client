@@ -47,7 +47,7 @@ struct ToolsSettingsView: View {
     private static let logger = Logger(subsystem: "com.tenex.ios", category: "ToolsSettings")
 
     @Environment(\.ndk) private var ndk
-    @Environment(DataStore.self) private var dataStore
+    @Environment(DataStore.self) private var dataStore: DataStore?
     @State private var showingToolPicker = false
     @State private var showingSuccessAlert = false
 

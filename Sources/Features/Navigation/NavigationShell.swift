@@ -51,7 +51,7 @@ public struct NavigationShell: View {
     // MARK: Private
 
     @Environment(AuthManager.self) private var authManager
-    @Environment(DataStore.self) private var dataStore
+    @Environment(DataStore.self) private var dataStore: DataStore?
     @Environment(\.ndk) private var ndk
     @State private var router = NavigationRouter()
     @State private var showingSignOutConfirmation = false

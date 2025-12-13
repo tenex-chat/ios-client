@@ -37,7 +37,7 @@ public struct ProjectListView: View {
     @State private var viewModel: ProjectListViewModel
     @State private var showingCreateWizard = false
     @Environment(\.ndk) private var ndk
-    @Environment(DataStore.self) private var dataStore
+    @Environment(DataStore.self) private var dataStore: DataStore?
 
     private var projectList: some View {
         List {
