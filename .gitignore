@@ -93,3 +93,4 @@ junit.xml
 *.temp
 tmp/
 temp/
+.worktrees/
