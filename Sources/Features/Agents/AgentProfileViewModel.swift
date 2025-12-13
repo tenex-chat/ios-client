@@ -28,10 +28,13 @@ public final class AgentProfileViewModel {
 
     // MARK: Public
 
-    /// The agent definition to display
+    /// The agent definition to display (Kind 4199)
     public private(set) var agentDefinition: NDKAgentDefinition?
 
-    /// The project agent info (if available)
+    /// The agent metadata (Kind 0)
+    public private(set) var agentMetadata: NDKUserMetadata?
+
+    /// The project agent info (from ProjectStatus)
     public let projectAgent: ProjectAgent?
 
     /// Loading state
@@ -40,46 +43,74 @@ public final class AgentProfileViewModel {
     /// Error message
     public private(set) var errorMessage: String?
 
-    /// Load the agent definition
+    /// Computed property for name (prefer definition, then metadata, then project agent)
+    public var name: String {
+        agentDefinition?.name ?? agentMetadata?.name ?? projectAgent?.name ?? "Unknown Agent"
+    }
+
+    /// Computed property for description
+    public var description: String {
+        agentDefinition?.description ?? agentMetadata?.about ?? "No description provided"
+    }
+
+    /// Computed property for instructions
+    public var instructions: String? {
+        // Kind 4199 instructions
+        if let instructions = agentDefinition?.instructions, !instructions.isEmpty {
+            return instructions
+        }
+        // Kind 0 metadata might have instructions or systemPrompt
+        // NDKUserMetadata might not expose raw content easily depending on implementation
+        // But if we had access to raw JSON, we'd check 'instructions' or 'systemPrompt'
+        // For now, we rely on what NDKUserMetadata exposes or extend it if needed.
+        // Assuming we only get standard fields for now unless we parse content manually.
+        return nil
+    }
+
+    /// Load the agent profile
     public func load() async {
-        guard agentDefinition == nil else { return }
+        guard let projectAgent else { return }
 
-        // If we have a project agent, try to find its definition
-        // We look for kind 4199 events authored by the agent's pubkey
-        if let projectAgent {
-            isLoading = true
-            errorMessage = nil
+        isLoading = true
+        errorMessage = nil
 
-            do {
-                // Fetch kind 4199 events from this author
-                let filter = NDKFilter(
-                    kinds: [4199],
-                    authors: [projectAgent.pubkey],
-                    limit: 1
-                )
+        do {
+            // 1. Fetch Agent Definition (Kind 4199)
+            let definitionFilter = NDKFilter(
+                kinds: [4199],
+                authors: [projectAgent.pubkey],
+                limit: 1
+            )
 
-                // We want the latest definition
-                // Since NDKSwift currently doesn't support complex sorting in query, we fetch and sort manually if needed
-                // But usually limit 1 implies latest if the relay supports it (standard behavior)
-                // However, NDKSwift's `queryEvents` might not guarantee order depending on implementation.
-                // We'll fetch a few and sort.
+            // 2. Fetch Metadata (Kind 0)
+            let metadataFilter = NDKFilter(
+                kinds: [0],
+                authors: [projectAgent.pubkey],
+                limit: 1
+            )
 
-                let events = try await ndk.queryEvents(filters: [filter])
+            let events = try await ndk.queryEvents(filters: [definitionFilter, metadataFilter])
 
-                if let bestEvent = events.max(by: { $0.createdAt < $1.createdAt }) {
-                    agentDefinition = NDKAgentDefinition(from: bestEvent)
-                } else {
-                    // If no definition found, we might want to try searching by name (d-tag) if the pubkey is different?
-                    // For now, assume the agent pubkey authors its definition.
-                    errorMessage = "Agent definition not found."
-                }
-            } catch {
-                Logger().error("Failed to load agent definition: \(error.localizedDescription)")
-                errorMessage = "Failed to load agent definition."
+            // Process Definition
+            if let defEvent = events.filter({ $0.kind == 4199 }).max(by: { $0.createdAt < $1.createdAt }) {
+                agentDefinition = NDKAgentDefinition(from: defEvent)
             }
 
-            isLoading = false
+            // Process Metadata
+            if let metaEvent = events.filter({ $0.kind == 0 }).max(by: { $0.createdAt < $1.createdAt }) {
+                agentMetadata = NDKUserMetadata(from: metaEvent)
+            }
+
+            if agentDefinition == nil && agentMetadata == nil {
+                errorMessage = "Agent profile not found."
+            }
+
+        } catch {
+            Logger().error("Failed to load agent profile: \(error.localizedDescription)")
+            errorMessage = "Failed to load agent profile."
         }
+
+        isLoading = false
     }
 
     // MARK: Private

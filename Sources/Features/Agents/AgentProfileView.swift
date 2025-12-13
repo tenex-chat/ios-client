@@ -9,7 +9,8 @@ import TENEXCore
 
 // MARK: - AgentProfileView
 
-/// Displays detailed information about an agent (Agent Definition)
+/// Displays detailed information about an agent
+/// Matches web implementation: AgentProfileTabs (Feed, Details, Lessons, Settings)
 public struct AgentProfileView: View {
     // MARK: Lifecycle
 
@@ -23,18 +24,18 @@ public struct AgentProfileView: View {
         Group {
             if viewModel.isLoading {
                 ProgressView()
-            } else if let agent = viewModel.agentDefinition {
-                content(for: agent)
+            } else if viewModel.agentDefinition != nil || viewModel.agentMetadata != nil {
+                content
             } else if let error = viewModel.errorMessage {
                 ContentUnavailableView("Error", systemImage: "exclamationmark.triangle", description: Text(error))
             } else {
-                ContentUnavailableView("Not Found", systemImage: "person.slash", description: Text("Agent definition could not be found."))
+                ContentUnavailableView("Not Found", systemImage: "person.slash", description: Text("Agent profile could not be found."))
             }
         }
         .task {
             await viewModel.load()
         }
-        .navigationTitle(viewModel.agentDefinition?.name ?? viewModel.projectAgent?.name ?? "Agent")
+        .navigationTitle(viewModel.name)
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -43,113 +44,97 @@ public struct AgentProfileView: View {
     @State private var viewModel: AgentProfileViewModel
     @State private var selectedTab: Tab = .details
 
-    private enum Tab {
-        case details
-        case phases
+    private enum Tab: String, CaseIterable, Identifiable {
+        case feed = "Feed"
+        case details = "Details"
+        case lessons = "Lessons"
+        case settings = "Settings"
+
+        var id: String { rawValue }
     }
 
-    private func content(for agent: NDKAgentDefinition) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                // Header
-                headerView(agent: agent)
-
-                // Tabs
-                if !agent.phases.isEmpty {
-                    Picker("Tab", selection: $selectedTab) {
-                        Text("Details").tag(Tab.details)
-                        Text("Phases (\(agent.phases.count))").tag(Tab.phases)
-                    }
-                    .pickerStyle(.segmented)
-                    .padding(.horizontal)
-                }
-
-                // Content
-                switch selectedTab {
-                case .details:
-                    detailsView(agent: agent)
-                case .phases:
-                    phasesView(agent: agent)
+    private var content: some View {
+        VStack(spacing: 0) {
+            // Tabs Header
+            Picker("Tab", selection: $selectedTab) {
+                ForEach(Tab.allCases) { tab in
+                    Text(tab.rawValue).tag(tab)
                 }
             }
-            .padding(.vertical)
+            .pickerStyle(.segmented)
+            .padding()
+
+            // Tab Content
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    switch selectedTab {
+                    case .feed:
+                        feedTab
+                    case .details:
+                        detailsTab
+                    case .lessons:
+                        lessonsTab
+                    case .settings:
+                        settingsTab
+                    }
+                }
+                .padding()
+            }
         }
     }
 
-    private func headerView(agent: NDKAgentDefinition) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 16) {
-                // Avatar
-                let initial = agent.name.prefix(1).uppercased()
-                Text(initial)
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 80, height: 80)
-                    .background(Color.blue.gradient, in: Circle())
+    // MARK: - Tabs
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(agent.name)
-                        .font(.title2)
-                        .fontWeight(.bold)
-
-                    Text(agent.role)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.secondary.opacity(0.1), in: Capsule())
-
-                    if let version = agent.version {
-                        Text("v\(version)")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-
-                Spacer()
-            }
-            .padding(.horizontal)
-        }
+    private var feedTab: some View {
+        ContentUnavailableView("Coming Soon", systemImage: "bubble.left.and.bubble.right", description: Text("Agent feed is under construction."))
     }
 
-    private func detailsView(agent: NDKAgentDefinition) -> some View {
+    private var detailsTab: some View {
         VStack(alignment: .leading, spacing: 24) {
+            // Metadata Warning
+            if viewModel.agentDefinition == nil && viewModel.agentMetadata != nil {
+                metadataWarning
+            }
+
             // Description
             section(title: "Description") {
-                Text(agent.description)
+                Text(viewModel.description)
                     .foregroundStyle(.secondary)
             }
 
             // Instructions
-            if !agent.instructions.isEmpty {
-                section(title: "Instructions") {
-                    Text(agent.instructions) // TODO: Markdown support
+            if let instructions = viewModel.agentDefinition?.instructions ?? viewModel.agentMetadata?.instructions {
+                section(title: "Instructions / System Prompt") {
+                    Text(instructions) // TODO: Markdown support
                         .font(.body)
                         .textSelection(.enabled)
+                        .monospaced()
                 }
             }
 
             // Use Criteria
-            if !agent.useCriteria.isEmpty {
+            let criteria = viewModel.agentDefinition?.useCriteria ?? viewModel.agentMetadata?.useCriteria ?? []
+            if !criteria.isEmpty {
                 section(title: "Use Criteria") {
                     VStack(alignment: .leading, spacing: 8) {
-                        ForEach(agent.useCriteria, id: \.self) { criteria in
+                        ForEach(criteria, id: \.self) { item in
                             HStack(alignment: .top) {
                                 Image(systemName: "circle.fill")
                                     .font(.system(size: 6))
                                     .padding(.top, 8)
-                                Text(criteria)
+                                Text(item)
+                                    .foregroundStyle(.secondary)
                             }
                         }
                     }
                 }
             }
 
-            // Tools
-            if !agent.tools.isEmpty {
+            // Tools (Only in Definition)
+            if let tools = viewModel.agentDefinition?.tools, !tools.isEmpty {
                 section(title: "Tools") {
                     FlowLayout(spacing: 8) {
-                        ForEach(agent.tools, id: \.self) { tool in
+                        ForEach(tools, id: \.self) { tool in
                             Text(tool)
                                 .font(.caption)
                                 .padding(.horizontal, 8)
@@ -161,12 +146,12 @@ public struct AgentProfileView: View {
                 }
             }
 
-            // MCP Servers
-            if !agent.mcpServers.isEmpty {
+            // MCP Servers (Only in Definition)
+            if let mcpServers = viewModel.agentDefinition?.mcpServers, !mcpServers.isEmpty {
                 section(title: "MCP Servers") {
                     VStack(alignment: .leading, spacing: 8) {
-                        ForEach(agent.mcpServers, id: \.self) { server in
-                            Text(server) // TODO: Resolve MCP server name if possible
+                        ForEach(mcpServers, id: \.self) { server in
+                            Text(server)
                                 .font(.caption)
                                 .padding(.horizontal, 8)
                                 .padding(.vertical, 4)
@@ -176,45 +161,42 @@ public struct AgentProfileView: View {
                     }
                 }
             }
-
-            // Metadata
-            section(title: "Metadata") {
-                VStack(alignment: .leading, spacing: 8) {
-                    labeledValue("Author", value: String(agent.pubkey.prefix(8)) + "...")
-                    labeledValue("Created", value: agent.createdAt.formatted(date: .abbreviated, time: .shortened))
-                    labeledValue("Event Kind", value: String(agent.event.kind))
-                }
-            }
         }
-        .padding(.horizontal)
     }
 
-    private func phasesView(agent: NDKAgentDefinition) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            ForEach(Array(agent.phases.enumerated()), id: \.offset) { index, phase in
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text("Phase \(index + 1)")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.blue)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color.blue.opacity(0.1), in: Capsule())
+    private var lessonsTab: some View {
+        ContentUnavailableView("Coming Soon", systemImage: "book", description: Text("Agent lessons are under construction."))
+    }
 
-                        Text(phase.name)
-                            .font(.headline)
-                    }
+    private var settingsTab: some View {
+        ContentUnavailableView("Coming Soon", systemImage: "gear", description: Text("Agent settings are under construction."))
+    }
 
-                    Text(phase.instructions)
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                }
-                .padding()
-                .background(Color(UIColor.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+    // MARK: - Components
+
+    private var metadataWarning: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "sparkles")
+                .foregroundStyle(.orange)
+                .font(.title3)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Agent Metadata from Profile")
+                    .font(.headline)
+                    .foregroundStyle(.foreground)
+
+                Text("This agent has metadata stored in their Nostr profile (kind:0 event). Convert it to an Agent Definition for better structure and compatibility.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
             }
         }
-        .padding(.horizontal)
+        .padding()
+        .background(Color.orange.opacity(0.1))
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+        )
     }
 
     private func section<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
@@ -222,18 +204,6 @@ public struct AgentProfileView: View {
             Text(title)
                 .font(.headline)
             content()
-        }
-    }
-
-    private func labeledValue(_ label: String, value: String) -> some View {
-        HStack {
-            Text(label)
-                .foregroundStyle(.secondary)
-                .font(.caption)
-            Spacer()
-            Text(value)
-                .font(.caption)
-                .monospaced()
         }
     }
 }
