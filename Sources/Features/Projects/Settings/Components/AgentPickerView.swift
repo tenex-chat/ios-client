@@ -54,15 +54,13 @@ struct AgentPickerView: View {
                 } label: {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(agent.title)
+                            Text(agent.name)
                                 .font(.body)
                                 .foregroundStyle(.primary)
 
-                            if let role = agent.role {
-                                Text(role)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
+                            Text(agent.role)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
 
                         Spacer()

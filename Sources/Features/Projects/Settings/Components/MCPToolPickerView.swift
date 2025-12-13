@@ -58,12 +58,10 @@ struct MCPToolPickerView: View {
                                 .font(.body)
                                 .foregroundStyle(.primary)
 
-                            if let description = tool.description {
-                                Text(description)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(2)
-                            }
+                            Text(tool.description)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
                         }
 
                         Spacer()
