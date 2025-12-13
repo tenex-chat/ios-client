@@ -32,7 +32,9 @@ public struct CreateProjectWizardView: View {
         NavigationStack {
             wizardContent
                 .navigationTitle("New Project")
+            #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
+            #endif
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") {
@@ -85,7 +87,9 @@ public struct CreateProjectWizardView: View {
             ProjectReviewStep(viewModel: viewModel)
                 .tag(3)
         }
+        #if os(iOS)
         .tabViewStyle(.page(indexDisplayMode: .never))
+        #endif
     }
 
     private var footerButtons: some View {

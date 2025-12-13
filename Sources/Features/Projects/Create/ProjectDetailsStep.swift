@@ -20,9 +20,13 @@ struct ProjectDetailsStep: View {
             Section(header: Text("Optional")) {
                 TextField("Tags (space separated)", text: $viewModel.projectTags)
                 TextField("Image URL", text: $viewModel.projectImageURL)
+                #if os(iOS)
                     .keyboardType(.URL)
+                #endif
                 TextField("Repository URL", text: $viewModel.projectRepoURL)
+                #if os(iOS)
                     .keyboardType(.URL)
+                #endif
             }
         }
     }
