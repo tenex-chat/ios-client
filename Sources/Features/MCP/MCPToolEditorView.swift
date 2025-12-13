@@ -37,7 +37,9 @@ public struct MCPToolEditorView: View {
             }
         }
         .navigationTitle("New MCP Tool")
+        #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        #endif
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel") {
