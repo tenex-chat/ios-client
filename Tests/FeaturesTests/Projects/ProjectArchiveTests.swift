@@ -18,7 +18,8 @@ struct ProjectArchiveTests {
 
     @Test("ProjectListViewModel archive removes project from visible list")
     func archiveRemovesProjectFromList() async throws {
-        let dataStore = DataStore(ndk: NDK(relayURLs: []), userPubkey: "test-pubkey")
+        let ndk = NDK(relayURLs: [])
+        let dataStore = DataStore(ndk: ndk)
         let archiveStorage = InMemoryArchiveStorage()
         let viewModel = ProjectListViewModel(
             dataStore: dataStore,
@@ -36,7 +37,8 @@ struct ProjectArchiveTests {
 
     @Test("ProjectListViewModel archive persists to storage")
     func archivePersistsToStorage() async throws {
-        let dataStore = DataStore(ndk: NDK(relayURLs: []), userPubkey: "test-pubkey")
+        let ndk = NDK(relayURLs: [])
+        let dataStore = DataStore(ndk: ndk)
         let archiveStorage = InMemoryArchiveStorage()
         let viewModel = ProjectListViewModel(
             dataStore: dataStore,
@@ -52,7 +54,8 @@ struct ProjectArchiveTests {
 
     @Test("ProjectListViewModel unarchive restores project")
     func unarchiveRestoresProject() async throws {
-        let dataStore = DataStore(ndk: NDK(relayURLs: []), userPubkey: "test-pubkey")
+        let ndk = NDK(relayURLs: [])
+        let dataStore = DataStore(ndk: ndk)
         let archiveStorage = InMemoryArchiveStorage()
         let viewModel = ProjectListViewModel(
             dataStore: dataStore,

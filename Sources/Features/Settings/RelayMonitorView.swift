@@ -8,6 +8,10 @@ import NDKSwiftCore
 import SwiftUI
 import TENEXShared
 
+// MARK: - NDKRelaySubscriptionInfo + @retroactive Identifiable
+
+extension NDKRelaySubscriptionInfo: @retroactive Identifiable {}
+
 // MARK: - RelayMonitorView
 
 /// View for monitoring relay connectivity and statistics

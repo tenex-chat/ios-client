@@ -39,11 +39,29 @@ public final class ConversationState {
     public private(set) var typingIndicators: [String: NDKEvent] = [:]
 
     /// Merged display list: final messages + streaming synthetic messages, sorted by time.
+    /// Includes computed reply metadata (replyCount, replyAuthorPubkeys) for each message.
     public var displayMessages: [Message] {
+        // Build reply index: parent ID -> [replies]
+        var repliesByParent: [String: [Message]] = [:]
+        for message in messages.values {
+            if let parentID = message.replyTo {
+                repliesByParent[parentID, default: []].append(message)
+            }
+        }
+
         var all: [Message] = []
 
-        // Add final messages
-        all.append(contentsOf: messages.values)
+        // Add final messages with reply metadata
+        for message in messages.values {
+            let replies = repliesByParent[message.id] ?? []
+            if replies.isEmpty {
+                all.append(message)
+            } else {
+                // Get unique pubkeys (up to 3) for avatar display
+                let uniquePubkeys = Array(Set(replies.map(\.pubkey)).prefix(3))
+                all.append(message.with(replyCount: replies.count, replyAuthorPubkeys: uniquePubkeys))
+            }
+        }
 
         // Add streaming sessions as synthetic messages
         for session in streamingSessions.values {

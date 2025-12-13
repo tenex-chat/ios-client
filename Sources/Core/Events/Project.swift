@@ -79,8 +79,7 @@ public struct Project: Identifiable, Sendable {
         let title = titleTag[1]
 
         // Extract description from JSON content (optional)
-        // Fallback to content if not JSON
-        let description = parseDescription(from: event.content) ?? event.content
+        let description = parseDescription(from: event.content)
 
         // Extract other metadata
         let pictureTag = event.tags(withName: "picture").first
