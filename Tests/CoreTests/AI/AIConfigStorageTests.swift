@@ -4,7 +4,9 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import Foundation
 @testable import TENEXCore
+@testable import TENEXFeatures
 import Testing
 
 // MARK: - TestError
