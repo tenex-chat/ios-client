@@ -340,7 +340,7 @@ struct ThreadListViewModelTests {
         let reply1 = NDKEvent(
             pubkey: "user-1",
             createdAt: Timestamp(Date().timeIntervalSince1970),
-            kind: 1111, // swiftlint:disable:this number_separator
+            kind: 1111,
             tags: [
                 ["E", "thread-789"], // Uppercase E for thread root
                 ["a", "test-project"],
@@ -351,7 +351,7 @@ struct ThreadListViewModelTests {
         let reply2 = NDKEvent(
             pubkey: "user-2",
             createdAt: Timestamp(Date().timeIntervalSince1970),
-            kind: 1111, // swiftlint:disable:this number_separator
+            kind: 1111,
             tags: [
                 ["E", "thread-789"], // Uppercase E for thread root
                 ["a", "test-project"],
@@ -362,7 +362,7 @@ struct ThreadListViewModelTests {
         let reply3 = NDKEvent(
             pubkey: "user-3",
             createdAt: Timestamp(Date().timeIntervalSince1970),
-            kind: 1111, // swiftlint:disable:this number_separator
+            kind: 1111,
             tags: [
                 ["E", "thread-789"], // Uppercase E for thread root
                 ["a", "test-project"],
@@ -396,7 +396,7 @@ struct ThreadListViewModelTests {
         let threadReply = NDKEvent(
             pubkey: "user-1",
             createdAt: Timestamp(Date().timeIntervalSince1970),
-            kind: 1111, // swiftlint:disable:this number_separator
+            kind: 1111,
             tags: [
                 ["E", "thread-abc"], // Uppercase E for thread root
                 ["a", "test-project"],
@@ -408,7 +408,7 @@ struct ThreadListViewModelTests {
         let messageReply = NDKEvent(
             pubkey: "user-2",
             createdAt: Timestamp(Date().timeIntervalSince1970),
-            kind: 1111, // swiftlint:disable:this number_separator
+            kind: 1111,
             tags: [
                 ["e", "some-message-id"], // Lowercase e for message reply
                 ["a", "test-project"],

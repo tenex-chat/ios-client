@@ -5,7 +5,7 @@
 //
 
 import Foundation
-import NDKSwift
+import NDKSwiftCore
 @testable import TENEXCore
 import Testing
 

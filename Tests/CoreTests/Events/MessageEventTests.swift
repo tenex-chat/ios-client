@@ -23,7 +23,7 @@ struct MessageEventTests {
         let event = NDKEvent(
             pubkey: pubkey,
             createdAt: createdAt,
-            kind: 1111, // swiftlint:disable:this number_separator
+            kind: 1111,
             tags: [
                 ["a", threadID],
                 ["e", replyTo],
@@ -49,7 +49,7 @@ struct MessageEventTests {
         // Given: Event without e tag (top-level message)
         let event = NDKEvent(
             pubkey: "testpubkey",
-            kind: 1111, // swiftlint:disable:this number_separator
+            kind: 1111,
             tags: [
                 ["a", "11:pubkey:thread-id"],
             ],
@@ -69,7 +69,7 @@ struct MessageEventTests {
         let threadID = "11:creator-pubkey:my-awesome-thread"
         let event = NDKEvent(
             pubkey: "testpubkey",
-            kind: 1111, // swiftlint:disable:this number_separator
+            kind: 1111,
             tags: [
                 ["a", threadID],
             ],
@@ -97,7 +97,7 @@ struct MessageEventTests {
         """
         let event = NDKEvent(
             pubkey: "testpubkey",
-            kind: 1111, // swiftlint:disable:this number_separator
+            kind: 1111,
             tags: [
                 ["a", "11:pubkey:thread-id"],
             ],
@@ -116,7 +116,7 @@ struct MessageEventTests {
         // Given: Event with empty content
         let event = NDKEvent(
             pubkey: "testpubkey",
-            kind: 1111, // swiftlint:disable:this number_separator
+            kind: 1111,
             tags: [
                 ["a", "11:pubkey:thread-id"],
             ],
@@ -136,7 +136,7 @@ struct MessageEventTests {
         let firstReply = "first-parent-id"
         let event = NDKEvent(
             pubkey: "testpubkey",
-            kind: 1111, // swiftlint:disable:this number_separator
+            kind: 1111,
             tags: [
                 ["a", "11:pubkey:thread-id"],
                 ["e", firstReply],
@@ -157,7 +157,7 @@ struct MessageEventTests {
         // Given: Event without a tag (thread reference)
         let event = NDKEvent(
             pubkey: "testpubkey",
-            kind: 1111, // swiftlint:disable:this number_separator
+            kind: 1111,
             tags: [
                 ["p", "some-pubkey"],
             ],
@@ -176,7 +176,7 @@ struct MessageEventTests {
         // Given: Event with empty a tag value
         let event = NDKEvent(
             pubkey: "testpubkey",
-            kind: 1111, // swiftlint:disable:this number_separator
+            kind: 1111,
             tags: [
                 ["a", ""],
             ],
@@ -218,7 +218,7 @@ struct MessageEventTests {
         let filter = Message.filter(for: threadID)
 
         // Then: Filter has correct parameters
-        #expect(filter.kinds == [1_111])
+        #expect(filter.kinds == [1111])
         #expect(filter.tags?["a"] == [threadID])
     }
 }
