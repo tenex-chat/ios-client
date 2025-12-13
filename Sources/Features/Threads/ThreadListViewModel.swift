@@ -26,7 +26,7 @@ public final class ThreadListViewModel {
     ///   - projectId: The project addressable coordinate (kind:pubkey:dTag)
     public init(ndk: any NDKSubscribing, projectID: String) {
         self.ndk = ndk
-        projectID = projectID
+        self.projectID = projectID
     }
 
     deinit {
@@ -93,28 +93,13 @@ public final class ThreadListViewModel {
 
     /// Subscribe to thread events and process them as they arrive
     private func subscribeAndProcessEvents() async throws {
-        // Subscribe to three kinds:
-        // 1. kind:11 - Thread events
-        // 2. kind:513 - Conversation metadata (title/summary)
-        // 3. kind:1111 - Messages (for reply counting)
-
-        let threadFilter = NostrThread.filter(for: projectID)
-        let metadataFilter = NDKFilter(kinds: [513]) // All metadata, we'll filter by thread
-        let messagesFilter = NDKFilter(
-            kinds: [1111], // swiftlint:disable:this number_separator
-            tags: ["a": [projectID]]
-        )
-
-        let subscription = ndk.subscribeToEvents(filters: [threadFilter, metadataFilter, messagesFilter])
+        let filters = createSubscriptionFilters()
+        let subscription = ndk.subscribeToEvents(filters: filters)
 
         // State for building threads
         var threadsByID: [String: NostrThread] = [:]
         var metadataByThreadID: [String: ConversationMetadata] = [:]
         var replyCountsByThreadID: [String: Int] = [:]
-        var needsUpdate = false
-
-        // Debounce timer for batched updates
-        var updateTask: Task<Void, Never>?
 
         for try await event in subscription {
             // Deduplicate events by ID
@@ -123,56 +108,60 @@ public final class ThreadListViewModel {
             }
             seenEventIDs.insert(event.id)
 
-            switch event.kind {
-            case 11:
-                // Parse as Thread
-                if let thread = NostrThread.from(event: event) {
-                    threadsByID[thread.id] = thread
-                    needsUpdate = true
-                }
+            // Process event and update state
+            processEvent(
+                event,
+                threadsByID: &threadsByID,
+                metadataByThreadID: &metadataByThreadID,
+                replyCountsByThreadID: &replyCountsByThreadID
+            )
 
-            case 513:
-                // Parse as ConversationMetadata
-                if let metadata = ConversationMetadata.from(event: event) {
-                    metadataByThreadID[metadata.threadID] = metadata
-                    needsUpdate = true
-                }
-
-            case 1111: // swiftlint:disable:this number_separator
-                // Count replies with uppercase "E" tag
-                if let threadID = event.tags(withName: "E").first?[safe: 1] {
-                    replyCountsByThreadID[threadID, default: 0] += 1
-                    needsUpdate = true
-                }
-
-            default:
-                break
-            }
-
-            // Debounced update: Only update UI once every 100ms
-            if needsUpdate {
-                updateTask?.cancel()
-                updateTask = Task { @MainActor in
-                    try? await Task.sleep(for: .milliseconds(100))
-                    guard !Task.isCancelled else {
-                        return
-                    }
-                    updateThreads(
-                        threadsByID: threadsByID,
-                        metadataByThreadID: metadataByThreadID,
-                        replyCountsByThreadID: replyCountsByThreadID
-                    )
-                }
-                needsUpdate = false
-            }
+            // Update UI with current state
+            updateThreads(
+                threadsByID: threadsByID,
+                metadataByThreadID: metadataByThreadID,
+                replyCountsByThreadID: replyCountsByThreadID
+            )
         }
+    }
 
-        // Final update when subscription completes
-        updateThreads(
-            threadsByID: threadsByID,
-            metadataByThreadID: metadataByThreadID,
-            replyCountsByThreadID: replyCountsByThreadID
+    /// Create subscription filters for threads, metadata, and messages
+    private func createSubscriptionFilters() -> [NDKFilter] {
+        let threadFilter = NostrThread.filter(for: projectID)
+        let metadataFilter = NDKFilter(kinds: [513])
+        let messagesFilter = NDKFilter(
+            kinds: [1111], // swiftlint:disable:this number_separator
+            tags: ["a": [projectID]]
         )
+        return [threadFilter, metadataFilter, messagesFilter]
+    }
+
+    /// Process an individual event and update state dictionaries
+    private func processEvent(
+        _ event: NDKEvent,
+        threadsByID: inout [String: NostrThread],
+        metadataByThreadID: inout [String: ConversationMetadata],
+        replyCountsByThreadID: inout [String: Int]
+    ) {
+        switch event.kind {
+        case 11:
+            if let thread = NostrThread.from(event: event) {
+                threadsByID[thread.id] = thread
+            }
+
+        case 513:
+            if let metadata = ConversationMetadata.from(event: event) {
+                metadataByThreadID[metadata.threadID] = metadata
+            }
+
+        case 1111: // swiftlint:disable:this number_separator
+            if let threadID = event.tags(withName: "E").first?[safe: 1] {
+                replyCountsByThreadID[threadID, default: 0] += 1
+            }
+
+        default:
+            break
+        }
     }
 
     /// Update the threads array by merging data from kind:11, kind:513, and kind:1111
