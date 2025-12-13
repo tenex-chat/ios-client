@@ -130,6 +130,7 @@ let project = Project(
             dependencies: [
                 .target(name: "TENEXCore"),
                 .target(name: "TENEXShared"),
+                .external(name: "NDKSwiftUI"),
             ]
         ),
 

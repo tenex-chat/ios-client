@@ -4,6 +4,8 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftCore
+import NDKSwiftUI
 import SwiftUI
 import TENEXCore
 
@@ -68,7 +70,7 @@ public struct AgentsTabView: View {
         List {
             Section {
                 ForEach(viewModel.agents) { agent in
-                    AgentRow(agent: agent)
+                    AgentRow(agent: agent, ndk: viewModel.ndk)
                 }
             } header: {
                 Text("Online Agents")
@@ -100,11 +102,11 @@ struct AgentRow: View {
     // MARK: Internal
 
     let agent: ProjectAgent
+    let ndk: NDK
 
     var body: some View {
         HStack(spacing: 12) {
-            // Agent avatar (placeholder - will use NDKUIProfilePicture when NDKSwiftUI bug is fixed)
-            agentAvatar
+            NDKUIProfilePicture(ndk: ndk, pubkey: agent.pubkey, size: 48)
 
             // Agent info
             VStack(alignment: .leading, spacing: 4) {
@@ -134,15 +136,6 @@ struct AgentRow: View {
     }
 
     // MARK: Private
-
-    private var agentAvatar: some View {
-        let initial = agent.name.prefix(1).uppercased()
-        return Text(initial)
-            .font(.system(size: 18, weight: .semibold))
-            .foregroundStyle(.white)
-            .frame(width: 48, height: 48)
-            .background(Color.blue.gradient, in: Circle())
-    }
 
     private var globalBadge: some View {
         Text("Global")
