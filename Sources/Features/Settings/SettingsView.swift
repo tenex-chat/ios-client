@@ -4,7 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
-import NDKSwift
+import NDKSwiftCore
 import SwiftUI
 
 // MARK: - SettingsView
@@ -13,16 +13,14 @@ import SwiftUI
 public struct SettingsView: View {
     // MARK: Lifecycle
 
-    public init(ndk: NDK) {
-        self.ndk = ndk
-    }
+    public init() {}
 
     // MARK: Public
 
     public var body: some View {
         List {
             Section("Developer") {
-                NavigationLink(destination: DeveloperToolsView(ndk: ndk)) {
+                NavigationLink(destination: DeveloperToolsView()) {
                     SettingsRow(
                         icon: "wrench.and.screwdriver",
                         title: "Developer Tools",
@@ -37,10 +35,6 @@ public struct SettingsView: View {
             .navigationBarTitleDisplayMode(.inline)
         #endif
     }
-
-    // MARK: Private
-
-    private let ndk: NDK
 }
 
 // MARK: - SettingsRow

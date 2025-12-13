@@ -4,8 +4,9 @@
 // Copyright (c) 2025 TENEX Team
 //
 
-import NDKSwift
+import NDKSwiftCore
 import SwiftUI
+import TENEXShared
 
 // MARK: - RelayMonitorView
 
@@ -13,46 +14,27 @@ import SwiftUI
 struct RelayMonitorView: View {
     // MARK: Lifecycle
 
-    init(ndk: NDK) {
-        self.ndk = ndk
-    }
+    init() {}
 
     // MARK: Internal
 
     var body: some View {
-        List {
-            contentSection
-        }
-        .navigationTitle("Relay Monitor")
-        #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-        #endif
-            .toolbar { toolbarContent }
-            .task { await initialLoad() }
-            .refreshable { await loadRelayStates() }
-            .sheet(item: $selectedRelay) { relay in
-                NavigationStack {
-                    RelayDetailView(relay: relay, state: relayStates[relay.url])
-                }
+        Group {
+            if let ndk {
+                contentView(ndk: ndk)
+            } else {
+                Text("NDK not available")
             }
+        }
     }
 
     // MARK: Private
 
+    @Environment(\.ndk) private var ndk
     @State private var relays: [NDKRelay] = []
     @State private var relayStates: [RelayURL: NDKRelay.State] = [:]
     @State private var selectedRelay: NDKRelay?
     @State private var isLoading = true
-
-    private let ndk: NDK
-
-    @ToolbarContentBuilder private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .primaryAction) {
-            Button { Task { await reconnectAll() } } label: {
-                Image(systemName: "arrow.clockwise")
-            }
-        }
-    }
 
     private var sortedRelays: [NDKRelay] {
         relays.sorted { relay1, relay2 in
@@ -155,8 +137,34 @@ struct RelayMonitorView: View {
         }
     }
 
-    private func initialLoad() async {
-        await loadRelayStates()
+    private func contentView(ndk: NDK) -> some View {
+        List {
+            contentSection
+        }
+        .navigationTitle("Relay Monitor")
+        #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+        #endif
+            .toolbar { toolbarContent(ndk: ndk) }
+            .task { await initialLoad(ndk: ndk) }
+            .refreshable { await loadRelayStates(ndk: ndk) }
+            .sheet(item: $selectedRelay) { relay in
+                NavigationStack {
+                    RelayDetailView(relay: relay, state: relayStates[relay.url])
+                }
+            }
+    }
+
+    @ToolbarContentBuilder private func toolbarContent(ndk _: NDK) -> some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
+            Button { Task { await reconnectAll() } } label: {
+                Image(systemName: "arrow.clockwise")
+            }
+        }
+    }
+
+    private func initialLoad(ndk: NDK) async {
+        await loadRelayStates(ndk: ndk)
         isLoading = false
 
         for relay in relays {
@@ -168,7 +176,7 @@ struct RelayMonitorView: View {
         }
     }
 
-    private func loadRelayStates() async {
+    private func loadRelayStates(ndk: NDK) async {
         relays = await ndk.relays
         for relay in relays {
             let state = await NDKRelay.State(
@@ -360,7 +368,7 @@ private struct RelayDetailView: View {
 
             if let connectedAt = state?.stats.connectedAt {
                 LabeledContent("Connected At") {
-                    Text(formatDate(connectedAt))
+                    Text(FormattingUtilities.shortDateTime(connectedAt))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -368,7 +376,7 @@ private struct RelayDetailView: View {
 
             if let lastMessage = state?.stats.lastMessageAt {
                 LabeledContent("Last Activity") {
-                    Text(formatRelativeDate(lastMessage))
+                    Text(FormattingUtilities.relative(lastMessage))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -396,12 +404,12 @@ private struct RelayDetailView: View {
             }
 
             LabeledContent("Bytes Received") {
-                Text(formatBytes(Int64(state?.stats.bytesReceived ?? 0)))
+                Text(FormattingUtilities.formatBytes(Int64(state?.stats.bytesReceived ?? 0)))
                     .font(.system(.body, design: .monospaced))
             }
 
             LabeledContent("Bytes Sent") {
-                Text(formatBytes(Int64(state?.stats.bytesSent ?? 0)))
+                Text(FormattingUtilities.formatBytes(Int64(state?.stats.bytesSent ?? 0)))
                     .font(.system(.body, design: .monospaced))
             }
 
@@ -452,7 +460,7 @@ private struct RelayDetailView: View {
         if let subscriptions = state?.activeSubscriptions, !subscriptions.isEmpty {
             Section("Active Subscriptions (\(subscriptions.count))") {
                 ForEach(subscriptions, id: \.id) { sub in
-                    SubscriptionRow(sub: sub, formatRelativeDate: formatRelativeDate)
+                    SubscriptionRow(sub: sub)
                 }
             }
         }
@@ -485,7 +493,7 @@ private struct RelayDetailView: View {
     }
 
     @ViewBuilder
-    private func relayInfoContent(_ info: NDKRelayInfo) -> some View {
+    private func relayInfoContent(_ info: NDKRelayInformation) -> some View {
         if let name = info.name {
             LabeledContent("Name") { Text(name) }
         }
@@ -532,32 +540,12 @@ private struct RelayDetailView: View {
             NSPasteboard.general.setString(relay.url, forType: .string)
         #endif
     }
-
-    private func formatDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        formatter.timeStyle = .medium
-        return formatter.string(from: date)
-    }
-
-    private func formatRelativeDate(_ date: Date) -> String {
-        let formatter = RelativeDateTimeFormatter()
-        formatter.unitsStyle = .abbreviated
-        return formatter.localizedString(for: date, relativeTo: Date())
-    }
-
-    private func formatBytes(_ bytes: Int64) -> String {
-        let formatter = ByteCountFormatter()
-        formatter.countStyle = .file
-        return formatter.string(fromByteCount: bytes)
-    }
 }
 
 // MARK: - SubscriptionRow
 
 private struct SubscriptionRow: View {
-    let sub: NDKSubscriptionInfo
-    let formatRelativeDate: (Date) -> String
+    let sub: NDKRelaySubscriptionInfo
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -575,7 +563,7 @@ private struct SubscriptionRow: View {
                     .foregroundStyle(.secondary)
 
                 if let lastEvent = sub.lastEventAt {
-                    Text(formatRelativeDate(lastEvent))
+                    Text(FormattingUtilities.relative(lastEvent))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }

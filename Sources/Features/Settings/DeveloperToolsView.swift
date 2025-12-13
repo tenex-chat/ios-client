@@ -4,7 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
-import NDKSwift
+import NDKSwiftCore
 import SwiftUI
 
 // MARK: - DeveloperToolsView
@@ -13,37 +13,28 @@ import SwiftUI
 struct DeveloperToolsView: View {
     // MARK: Lifecycle
 
-    init(ndk: NDK) {
-        self.ndk = ndk
-    }
+    init() {}
 
     // MARK: Internal
 
     var body: some View {
-        List {
-            quickStatsSection
-            inspectionToolsSection
-            loggingSection
-            quickActionsSection
-            infoSection
+        Group {
+            if let ndk {
+                contentView(ndk: ndk)
+            } else {
+                Text("NDK not available")
+            }
         }
-        .navigationTitle("Developer Tools")
-        #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-        #endif
-            .task { await initialLoad() }
-            .refreshable { await refreshStats() }
     }
 
     // MARK: Private
 
+    @Environment(\.ndk) private var ndk
     @State private var isLoading = true
     @State private var totalRelayCount = 0
     @State private var connectedRelayCount = 0
     @State private var signerPubkey: String?
     @State private var isNetworkLoggingEnabled = false
-
-    private let ndk: NDK
 
     private var quickStatsSection: some View {
         Section("Quick Stats") {
@@ -64,7 +55,7 @@ struct DeveloperToolsView: View {
 
     private var inspectionToolsSection: some View {
         Section("Inspection Tools") {
-            NavigationLink(destination: RelayMonitorView(ndk: ndk)) {
+            NavigationLink(destination: RelayMonitorView()) {
                 ToolRow(
                     icon: "antenna.radiowaves.left.and.right",
                     title: "Relay Monitor",
@@ -96,9 +87,38 @@ struct DeveloperToolsView: View {
         }
     }
 
-    private var quickActionsSection: some View {
+    private var infoSection: some View {
+        Section("Info") {
+            LabeledContent("NDK Log Level") {
+                Text(NDKLogger.logLevel.description)
+                    .foregroundStyle(.secondary)
+            }
+            LabeledContent("Network Logging") {
+                Text(isNetworkLoggingEnabled ? "Enabled" : "Disabled")
+                    .foregroundStyle(isNetworkLoggingEnabled ? .green : .secondary)
+            }
+        }
+    }
+
+    private func contentView(ndk: NDK) -> some View {
+        List {
+            quickStatsSection
+            inspectionToolsSection
+            loggingSection
+            quickActionsSection(ndk: ndk)
+            infoSection
+        }
+        .navigationTitle("Developer Tools")
+        #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+        #endif
+            .task { await initialLoad(ndk: ndk) }
+            .refreshable { await refreshStats(ndk: ndk) }
+    }
+
+    private func quickActionsSection(ndk: NDK) -> some View {
         Section("Quick Actions") {
-            Button { Task { await refreshStats() } } label: {
+            Button { Task { await refreshStats(ndk: ndk) } } label: {
                 Label("Refresh Stats", systemImage: "arrow.clockwise")
             }
             Button { toggleLogLevel() } label: {
@@ -118,25 +138,12 @@ struct DeveloperToolsView: View {
         }
     }
 
-    private var infoSection: some View {
-        Section("Info") {
-            LabeledContent("NDK Log Level") {
-                Text(NDKLogger.logLevel.description)
-                    .foregroundStyle(.secondary)
-            }
-            LabeledContent("Network Logging") {
-                Text(isNetworkLoggingEnabled ? "Enabled" : "Disabled")
-                    .foregroundStyle(isNetworkLoggingEnabled ? .green : .secondary)
-            }
-        }
-    }
-
-    private func initialLoad() async {
+    private func initialLoad(ndk: NDK) async {
         isNetworkLoggingEnabled = NDKLogger.logNetworkTraffic
-        await refreshStats()
+        await refreshStats(ndk: ndk)
     }
 
-    private func refreshStats() async {
+    private func refreshStats(ndk: NDK) async {
         isLoading = true
 
         let relays = await ndk.relays

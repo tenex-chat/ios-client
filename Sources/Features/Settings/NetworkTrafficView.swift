@@ -4,8 +4,9 @@
 // Copyright (c) 2025 TENEX Team
 //
 
-import NDKSwift
+import NDKSwiftCore
 import SwiftUI
+import TENEXShared
 
 // MARK: - NetworkTrafficView
 
@@ -338,7 +339,7 @@ private struct NetworkMessageRow: View {
     }
 
     private var timestampText: some View {
-        Text(formatTimestamp(message.timestamp))
+        Text(FormattingUtilities.timestamp(message.timestamp))
             .font(.system(.caption2, design: .monospaced))
             .foregroundStyle(.secondary)
     }
@@ -356,12 +357,6 @@ private struct NetworkMessageRow: View {
             .font(.system(.caption, design: .monospaced))
             .lineLimit(2)
             .foregroundStyle(.primary)
-    }
-
-    private func formatTimestamp(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss.SSS"
-        return formatter.string(from: date)
     }
 }
 

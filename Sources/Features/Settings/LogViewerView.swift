@@ -4,8 +4,44 @@
 // Copyright (c) 2025 TENEX Team
 //
 
-import NDKSwift
+import NDKSwiftCore
 import SwiftUI
+import TENEXShared
+
+// MARK: - Log Level Styling
+
+private func colorForLogLevel(_ level: NDKLogLevel, inMessage: Bool = false) -> Color {
+    switch level {
+    case .error:
+        .red
+    case .warning:
+        .orange
+    case .info:
+        inMessage ? .primary : .blue
+    case .debug:
+        inMessage ? .secondary : .gray
+    case .trace,
+         .off:
+        .secondary
+    }
+}
+
+private func iconForLogLevel(_ level: NDKLogLevel) -> String {
+    switch level {
+    case .error:
+        "xmark.circle.fill"
+    case .warning:
+        "exclamationmark.triangle.fill"
+    case .info:
+        "info.circle.fill"
+    case .debug:
+        "ladybug.fill"
+    case .trace:
+        "ant.fill"
+    case .off:
+        "nosign"
+    }
+}
 
 // MARK: - LogViewerView
 
@@ -104,14 +140,14 @@ struct LogViewerView: View {
                 Button {
                     selectedLevel = level
                 } label: {
-                    Label(level.description, systemImage: iconForLevel(level))
+                    Label(level.description, systemImage: iconForLogLevel(level))
                 }
             }
         } label: {
             FilterChip(
                 label: selectedLevel?.description ?? "Level",
                 isActive: selectedLevel != nil,
-                color: selectedLevel.map { colorForLevel($0) } ?? .secondary
+                color: selectedLevel.map { colorForLogLevel($0) } ?? .secondary
             )
         }
     }
@@ -260,7 +296,7 @@ struct LogViewerView: View {
     private func copyLogs() {
         let logText = filteredEntries
             .map { entry in
-                "[\(formatTimestamp(entry.timestamp))] [\(entry.level)] [\(entry.category.rawValue)] \(entry.message)"
+                "[\(FormattingUtilities.timestamp(entry.timestamp))] [\(entry.level)] [\(entry.category.rawValue)] \(entry.message)"
             }
             .joined(separator: "\n")
         #if os(iOS)
@@ -269,46 +305,6 @@ struct LogViewerView: View {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(logText, forType: .string)
         #endif
-    }
-
-    private func formatTimestamp(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss.SSS"
-        return formatter.string(from: date)
-    }
-
-    private func colorForLevel(_ level: NDKLogLevel) -> Color {
-        switch level {
-        case .error:
-            .red
-        case .warning:
-            .orange
-        case .info:
-            .blue
-        case .debug:
-            .gray
-        case .trace:
-            .secondary
-        case .off:
-            .secondary
-        }
-    }
-
-    private func iconForLevel(_ level: NDKLogLevel) -> String {
-        switch level {
-        case .error:
-            "xmark.circle.fill"
-        case .warning:
-            "exclamationmark.triangle.fill"
-        case .info:
-            "info.circle.fill"
-        case .debug:
-            "ladybug.fill"
-        case .trace:
-            "ant.fill"
-        case .off:
-            "nosign"
-        }
     }
 }
 
@@ -374,9 +370,9 @@ private struct LogEntryRow: View {
     private var headerRow: some View {
         HStack(spacing: 6) {
             Circle()
-                .fill(colorForLevel(entry.level))
+                .fill(colorForLogLevel(entry.level, inMessage: true))
                 .frame(width: 8, height: 8)
-            Text(formatTimestamp(entry.timestamp))
+            Text(FormattingUtilities.timestamp(entry.timestamp))
                 .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(.secondary)
             categoryBadge
@@ -397,30 +393,7 @@ private struct LogEntryRow: View {
     private var messageText: some View {
         Text(entry.message)
             .font(.system(.caption, design: .monospaced))
-            .foregroundStyle(colorForLevel(entry.level))
+            .foregroundStyle(colorForLogLevel(entry.level, inMessage: true))
             .textSelection(.enabled)
-    }
-
-    private func formatTimestamp(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "HH:mm:ss.SSS"
-        return formatter.string(from: date)
-    }
-
-    private func colorForLevel(_ level: NDKLogLevel) -> Color {
-        switch level {
-        case .error:
-            .red
-        case .warning:
-            .orange
-        case .info:
-            .primary
-        case .debug:
-            .secondary
-        case .trace:
-            .secondary
-        case .off:
-            .secondary
-        }
     }
 }
