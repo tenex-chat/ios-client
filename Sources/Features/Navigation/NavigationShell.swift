@@ -80,8 +80,20 @@ public struct NavigationShell: View {
     // MARK: - Settings
 
     private var settingsButton: some View {
-        NavigationLink(value: AppRoute.settings) {
-            Label("Settings", systemImage: "gearshape")
+        Menu {
+            NavigationLink(value: AppRoute.settings) {
+                Label("Settings", systemImage: "gearshape")
+            }
+            if let ndk = ndk {
+                NavigationLink(destination: AgentListView(ndk: ndk)) {
+                    Label("Agents", systemImage: "person.2")
+                }
+                NavigationLink(destination: MCPToolListView(ndk: ndk)) {
+                    Label("MCP Tools", systemImage: "hammer")
+                }
+            }
+        } label: {
+            Label("Menu", systemImage: "ellipsis.circle")
         }
     }
 

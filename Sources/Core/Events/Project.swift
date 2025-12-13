@@ -25,6 +25,21 @@ public struct Project: Identifiable, Sendable {
     /// Optional project description
     public let description: String?
 
+    /// Optional project picture URL
+    public let picture: String?
+
+    /// Optional repository URL
+    public let repoUrl: String?
+
+    /// List of hashtags
+    public let hashtags: [String]
+
+    /// List of agent IDs (kind 4199 event IDs)
+    public let agentIds: [String]
+
+    /// List of MCP tool IDs (kind 4200 event IDs)
+    public let mcpToolIds: [String]
+
     /// When the project was created
     public let createdAt: Date
 
@@ -64,7 +79,20 @@ public struct Project: Identifiable, Sendable {
         let title = titleTag[1]
 
         // Extract description from JSON content (optional)
-        let description = parseDescription(from: event.content)
+        // Fallback to content if not JSON
+        let description = parseDescription(from: event.content) ?? event.content
+
+        // Extract other metadata
+        let picture = event.tags(withName: "picture").first?.count ?? 0 > 1 ? event.tags(withName: "picture").first?[1] : nil
+            ?? event.tags(withName: "image").first?.count ?? 0 > 1 ? event.tags(withName: "image").first?[1] : nil
+
+        let repoUrl = event.tags(withName: "repo").first?.count ?? 0 > 1 ? event.tags(withName: "repo").first?[1] : nil
+
+        let hashtags = event.tags.filter { $0.count > 1 && $0[0] == "t" }.map { $0[1] }
+
+        let agentIds = event.tags.filter { $0.count > 1 && $0[0] == "agent" }.map { $0[1] }
+
+        let mcpToolIds = event.tags.filter { $0.count > 1 && $0[0] == "mcp" }.map { $0[1] }
 
         // Convert timestamp to Date
         let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
@@ -77,6 +105,11 @@ public struct Project: Identifiable, Sendable {
             pubkey: event.pubkey,
             title: title,
             description: description,
+            picture: picture,
+            repoUrl: repoUrl,
+            hashtags: hashtags,
+            agentIds: agentIds,
+            mcpToolIds: mcpToolIds,
             createdAt: createdAt,
             color: color
         )
