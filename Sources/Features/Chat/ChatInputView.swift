@@ -6,6 +6,40 @@
 
 import SwiftUI
 
+#if os(iOS)
+    import UIKit
+#else
+    import AppKit
+#endif
+
+// MARK: - Platform Colors
+
+private extension Color {
+    static var platformBackground: Color {
+        #if os(iOS)
+            Color(uiColor: .systemBackground)
+        #else
+            Color(nsColor: .windowBackgroundColor)
+        #endif
+    }
+
+    static var platformSecondaryBackground: Color {
+        #if os(iOS)
+            Color(uiColor: .secondarySystemBackground)
+        #else
+            Color(nsColor: .controlBackgroundColor)
+        #endif
+    }
+
+    static var platformSeparator: Color {
+        #if os(iOS)
+            Color(uiColor: .separator)
+        #else
+            Color(nsColor: .separatorColor)
+        #endif
+    }
+}
+
 // MARK: - ChatInputView
 
 /// Multi-line text input for composing chat messages
@@ -37,7 +71,7 @@ public struct ChatInputView: View {
             }
         }
         .padding(12)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color.platformBackground)
     }
 
     // MARK: Private
@@ -73,11 +107,11 @@ public struct ChatInputView: View {
             .font(.system(size: 16))
             .frame(minHeight: 40, maxHeight: 120)
             .padding(8)
-            .background(Color(uiColor: .systemGray6))
+            .background(Color.platformSecondaryBackground)
             .cornerRadius(20)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(Color(uiColor: .separator), lineWidth: 1)
+                    .stroke(Color.platformSeparator, lineWidth: 1)
             )
             .overlay(alignment: .topLeading) {
                 if viewModel.inputText.isEmpty {
