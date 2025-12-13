@@ -28,14 +28,16 @@ public struct AgentSelectorView: View {
                 }
             }
             .navigationTitle("Select Agent")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        viewModel.dismissSelector()
+            #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+            #endif
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            viewModel.dismissSelector()
+                        }
                     }
                 }
-            }
         }
     }
 
