@@ -5,7 +5,6 @@
 //
 
 import Foundation
-import NDKSwiftCore
 import Observation
 import TENEXCore
 
@@ -19,90 +18,44 @@ public final class ProjectListViewModel {
 
     /// Initialize the project list view model
     /// - Parameters:
-    ///   - ndk: The NDK instance for fetching projects
-    ///   - userPubkey: The pubkey of the authenticated user
+    ///   - dataStore: The centralized data store
     ///   - archiveStorage: Storage for archived project IDs
     public init(
-        ndk: NDK,
-        userPubkey: String,
+        dataStore: DataStore,
         archiveStorage: ArchiveStorage = UserDefaultsArchiveStorage()
     ) {
-        self.ndk = ndk
-        self.userPubkey = userPubkey
+        self.dataStore = dataStore
         self.archiveStorage = archiveStorage
-
-        // Start continuous subscription in background
-        Task {
-            await subscribeToProjects()
-        }
     }
 
     // MARK: Public
 
     /// The list of visible (non-archived) projects
-    public private(set) var projects: [Project] = []
+    public var projects: [Project] {
+        filterArchivedProjects(from: dataStore.projects)
+    }
 
-    /// The current error message, if any
-    public private(set) var errorMessage: String?
+    /// Whether projects are currently being loaded
+    public var isLoading: Bool {
+        dataStore.isLoadingProjects
+    }
 
     /// Archive a project (hide from list)
     /// - Parameter id: The project ID to archive
     public func archiveProject(id: String) async {
         archiveStorage.archive(projectID: id)
-        projects = filterArchivedProjects(from: allProjects)
     }
 
     /// Unarchive a project (restore to list)
     /// - Parameter id: The project ID to unarchive
     public func unarchiveProject(id: String) async {
         archiveStorage.unarchive(projectID: id)
-        projects = filterArchivedProjects(from: allProjects)
     }
-
-    // MARK: Internal
-
-    let ndk: NDK
 
     // MARK: Private
 
-    private let userPubkey: String
+    @ObservationIgnored private let dataStore: DataStore
     private let archiveStorage: ArchiveStorage
-
-    /// All projects including archived ones
-    private var allProjects: [Project] = []
-
-    /// Subscribe to projects and update UI as they arrive
-    /// This runs continuously in the background
-    private func subscribeToProjects() async {
-        do {
-            // Create filter for projects by this user
-            let filter = Project.filter(for: userPubkey)
-
-            var projectsByID: [String: Project] = [:]
-            var projectOrder: [String] = []
-
-            let subscription = ndk.subscribeToEvents(filters: [filter])
-
-            // Continuous subscription - runs forever
-            for try await event in subscription {
-                // Try to parse as Project
-                if let project = Project.from(event: event) {
-                    // Update projects map (handles replaceable events)
-                    if projectsByID[project.id] == nil {
-                        projectOrder.append(project.id)
-                    }
-                    projectsByID[project.id] = project
-
-                    // Update UI immediately as events arrive
-                    allProjects = projectOrder.compactMap { projectsByID[$0] }
-                    projects = filterArchivedProjects(from: allProjects)
-                }
-            }
-        } catch {
-            // Set error message if subscription fails
-            errorMessage = "Failed to subscribe to projects."
-        }
-    }
 
     /// Filter out archived projects
     private func filterArchivedProjects(from projects: [Project]) -> [Project] {

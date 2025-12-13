@@ -7,7 +7,7 @@
 import SwiftUI
 
 struct ProjectReviewStep: View {
-    @ObservedObject var viewModel: CreateProjectViewModel
+    @Bindable var viewModel: CreateProjectViewModel
 
     var body: some View {
         List {

@@ -4,49 +4,90 @@
 // Copyright (c) 2025 TENEX Team
 //
 
-import Combine
 import Foundation
 import NDKSwiftCore
+import Observation
 import SwiftUI
 import TENEXCore
 
+/// View model for the create project wizard
 @MainActor
-public final class CreateProjectViewModel: ObservableObject {
+@Observable
+public final class CreateProjectViewModel {
     // MARK: Lifecycle
 
-    public init(ndk: NDK) {
+    /// Initialize the create project view model
+    /// - Parameters:
+    ///   - ndk: The NDK instance for publishing projects
+    ///   - dataStore: The centralized data store
+    public init(ndk: NDK, dataStore: DataStore) {
         self.ndk = ndk
-        // Initialize fetchers
-        fetchAgents()
-        fetchMCPTools()
+        self.dataStore = dataStore
     }
 
     // MARK: Public
 
-    public let ndk: NDK
+    // MARK: - Wizard State
 
-    // Wizard State
-    @Published public var currentStep = 0
-    @Published public var isPublishing = false
-    @Published public var error: String?
+    /// Current wizard step (0-3)
+    public var currentStep = 0
 
-    // Step 1: Details
-    @Published public var projectName = ""
-    @Published public var projectDescription = ""
-    @Published public var projectTags = "" // Space/Comma separated
-    @Published public var projectImageURL = ""
-    @Published public var projectRepoURL = ""
+    /// Whether the project is being published
+    public var isPublishing = false
 
-    // Step 2: Agents
-    @Published public var availableAgents: [AgentDefinition] = []
-    @Published public var selectedAgentIDs: Set<String> = []
-    @Published public var isLoadingAgents = false
+    /// Error message if publish fails
+    public var error: String?
 
-    // Step 3: MCP Tools
-    @Published public var availableTools: [MCPTool] = []
-    @Published public var selectedToolIDs: Set<String> = []
-    @Published public var isLoadingTools = false
+    // MARK: - Project Details
 
+    /// Project name
+    public var projectName = ""
+
+    /// Project description
+    public var projectDescription = ""
+
+    /// Project hashtags (space/comma separated)
+    public var projectTags = ""
+
+    /// Project image URL
+    public var projectImageURL = ""
+
+    /// Project repository URL
+    public var projectRepoURL = ""
+
+    // MARK: - Agent Selection
+
+    /// Selected agent IDs
+    public var selectedAgentIDs: Set<String> = []
+
+    // MARK: - Tool Selection
+
+    /// Selected tool IDs
+    public var selectedToolIDs: Set<String> = []
+
+    /// Available agents from DataStore
+    public var availableAgents: [AgentDefinition] {
+        dataStore.agents
+    }
+
+    /// Whether agents are currently loading
+    public var isLoadingAgents: Bool {
+        dataStore.isLoadingAgents
+    }
+
+    /// Available MCP tools from DataStore
+    public var availableTools: [MCPTool] {
+        dataStore.tools
+    }
+
+    /// Whether tools are currently loading
+    public var isLoadingTools: Bool {
+        dataStore.isLoadingTools
+    }
+
+    // MARK: - Navigation
+
+    /// Whether the user can proceed to the next step
     public var canProceed: Bool {
         switch currentStep {
         case 0:
@@ -62,18 +103,22 @@ public final class CreateProjectViewModel: ObservableObject {
         }
     }
 
+    /// Advance to the next wizard step
     public func nextStep() {
         if currentStep < 3 {
             currentStep += 1
         }
     }
 
+    /// Go back to the previous wizard step
     public func previousStep() {
         if currentStep > 0 {
             currentStep -= 1
         }
     }
 
+    /// Create and publish the project to Nostr
+    /// - Returns: True if successful, false otherwise
     public func createProject() async -> Bool {
         guard !projectName.isEmpty else {
             return false
@@ -140,61 +185,7 @@ public final class CreateProjectViewModel: ObservableObject {
 
     // MARK: Private
 
-    private func fetchAgents() {
-        isLoadingAgents = true
+    @ObservationIgnored private let ndk: NDK
 
-        let filter = NDKFilter(kinds: [4199], limit: 100)
-
-        Task {
-            do {
-                let subscription = ndk.subscribeToEvents(filters: [filter])
-                var collectedAgents: [AgentDefinition] = []
-
-                for try await event in subscription {
-                    if let agent = AgentDefinition.from(event: event) {
-                        collectedAgents.append(agent)
-                    }
-                }
-
-                await MainActor.run {
-                    self.availableAgents = collectedAgents
-                    self.isLoadingAgents = false
-                }
-            } catch {
-                await MainActor.run {
-                    self.error = error.localizedDescription
-                    self.isLoadingAgents = false
-                }
-            }
-        }
-    }
-
-    private func fetchMCPTools() {
-        isLoadingTools = true
-
-        let filter = NDKFilter(kinds: [4200], limit: 100)
-
-        Task {
-            do {
-                let subscription = ndk.subscribeToEvents(filters: [filter])
-                var collectedTools: [MCPTool] = []
-
-                for try await event in subscription {
-                    if let tool = MCPTool.from(event: event) {
-                        collectedTools.append(tool)
-                    }
-                }
-
-                await MainActor.run {
-                    self.availableTools = collectedTools
-                    self.isLoadingTools = false
-                }
-            } catch {
-                await MainActor.run {
-                    self.error = error.localizedDescription
-                    self.isLoadingTools = false
-                }
-            }
-        }
-    }
+    @ObservationIgnored private let dataStore: DataStore
 }

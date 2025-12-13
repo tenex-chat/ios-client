@@ -4,48 +4,35 @@
 // Copyright (c) 2025 TENEX Team
 //
 
-import Combine
 import Foundation
-import NDKSwiftCore
+import Observation
 import TENEXCore
 
+/// View model for the agent list screen
 @MainActor
-public final class AgentListViewModel: ObservableObject {
+@Observable
+public final class AgentListViewModel {
     // MARK: Lifecycle
 
-    public init(ndk: NDK) {
-        self.ndk = ndk
-        fetchAgents()
+    /// Initialize the agent list view model
+    /// - Parameter dataStore: The centralized data store
+    public init(dataStore: DataStore) {
+        self.dataStore = dataStore
     }
 
     // MARK: Public
 
-    public let ndk: NDK
-
-    @Published public var agents: [AgentDefinition] = []
-    @Published public var error: String?
-
-    public func fetchAgents() {
-        let filter = NDKFilter(kinds: [4199], limit: 100)
-
-        Task {
-            do {
-                let subscription = ndk.subscribeToEvents(filters: [filter])
-                var seenIDs: Set<String> = []
-
-                for try await event in subscription {
-                    // Deduplicate
-                    guard !seenIDs.contains(event.id) else { continue }
-                    seenIDs.insert(event.id)
-
-                    if let agent = AgentDefinition.from(event: event) {
-                        // Update UI immediately as events arrive
-                        agents.append(agent)
-                    }
-                }
-            } catch {
-                self.error = error.localizedDescription
-            }
-        }
+    /// All available agent definitions
+    public var agents: [AgentDefinition] {
+        dataStore.agents
     }
+
+    /// Whether agents are currently being loaded
+    public var isLoading: Bool {
+        dataStore.isLoadingAgents
+    }
+
+    // MARK: Private
+
+    @ObservationIgnored private let dataStore: DataStore
 }

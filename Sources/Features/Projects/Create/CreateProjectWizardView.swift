@@ -12,18 +12,8 @@ import SwiftUI
 public struct CreateProjectWizardView: View {
     // MARK: Lifecycle
 
-    public init() {
-        _viewModel = StateObject(wrappedValue: CreateProjectViewModel(ndk: NDK()))
-    }
-
-    init(ndk: NDK? = nil) {
-        if let ndk {
-            _viewModel = StateObject(wrappedValue: CreateProjectViewModel(ndk: ndk))
-        } else {
-            _viewModel = StateObject(
-                wrappedValue: CreateProjectViewModel(ndk: NDK())
-            )
-        }
+    public init(ndk: NDK, dataStore: DataStore) {
+        _viewModel = State(wrappedValue: CreateProjectViewModel(ndk: ndk, dataStore: dataStore))
     }
 
     // MARK: Public
@@ -47,7 +37,7 @@ public struct CreateProjectWizardView: View {
 
     // MARK: Private
 
-    @StateObject private var viewModel: CreateProjectViewModel
+    @State private var viewModel: CreateProjectViewModel
     @Environment(\.dismiss) private var dismiss
     @Environment(\.ndk) private var ndk
 

@@ -300,12 +300,21 @@ private struct RelayDetailView: View {
                     Button("Done") { dismiss() }
                 }
             }
+            .sheet(item: $selectedSubscription) { subscription in
+                NavigationStack {
+                    SubscriptionDetailView(
+                        relay: relay,
+                        subscription: subscription
+                    )
+                }
+            }
     }
 
     // MARK: Private
 
     @Environment(\.dismiss) private var dismiss
     @State private var isReconnecting = false
+    @State private var selectedSubscription: NDKRelaySubscriptionInfo?
 
     private var statusColor: Color {
         guard let connectionState = state?.connectionState else {
@@ -461,6 +470,8 @@ private struct RelayDetailView: View {
             Section("Active Subscriptions (\(subscriptions.count))") {
                 ForEach(subscriptions, id: \.id) { sub in
                     SubscriptionRow(sub: sub)
+                        .contentShape(Rectangle())
+                        .onTapGesture { selectedSubscription = sub }
                 }
             }
         }

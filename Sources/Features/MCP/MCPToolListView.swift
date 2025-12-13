@@ -13,16 +13,8 @@ import TENEXCore
 public struct MCPToolListView: View {
     // MARK: Lifecycle
 
-    public init() {
-        _viewModel = StateObject(wrappedValue: MCPToolListViewModel(ndk: NDK()))
-    }
-
-    init(ndk: NDK? = nil) {
-        if let ndk {
-            _viewModel = StateObject(wrappedValue: MCPToolListViewModel(ndk: ndk))
-        } else {
-            _viewModel = StateObject(wrappedValue: MCPToolListViewModel(ndk: NDK()))
-        }
+    public init(viewModel: MCPToolListViewModel) {
+        self.viewModel = viewModel
     }
 
     // MARK: Public
@@ -47,7 +39,7 @@ public struct MCPToolListView: View {
 
     // MARK: Private
 
-    @StateObject private var viewModel: MCPToolListViewModel
+    @State private var viewModel: MCPToolListViewModel
     @State private var showingEditor = false
     @Environment(\.ndk) private var ndk
 

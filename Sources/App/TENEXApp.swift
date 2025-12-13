@@ -22,12 +22,23 @@ struct TENEXApp: App {
                 .environment(authManager)
                 .environment(\.ndk, ndk)
                 .task {
+                    // Initialize DataStore with NDK
+                    if dataStore == nil {
+                        dataStore = DataStore(ndk: ndk)
+                    }
+
                     // Restore session on app launch
                     try? await authManager.restoreSession()
 
                     // Connect to relays
                     await ndk.connect()
+
+                    // Start data subscriptions after auth
+                    if authManager.isAuthenticated, let pubkey = authManager.currentUser?.pubkey {
+                        dataStore?.startSubscriptions(for: pubkey)
+                    }
                 }
+                .environment(dataStore)
         }
     }
 
@@ -36,6 +47,7 @@ struct TENEXApp: App {
     // MARK: - State
 
     @State private var authManager = AuthManager()
+    @State private var dataStore: DataStore?
     @State private var ndk: NDK = {
         // Disable outbox model to query all connected relays
         // (outbox requires NIP-65 relay metadata which we don't have yet)

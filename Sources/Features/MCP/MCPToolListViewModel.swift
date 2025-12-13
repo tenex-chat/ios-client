@@ -4,48 +4,35 @@
 // Copyright (c) 2025 TENEX Team
 //
 
-import Combine
 import Foundation
-import NDKSwiftCore
+import Observation
 import TENEXCore
 
+/// View model for the MCP tool list screen
 @MainActor
-public final class MCPToolListViewModel: ObservableObject {
+@Observable
+public final class MCPToolListViewModel {
     // MARK: Lifecycle
 
-    public init(ndk: NDK) {
-        self.ndk = ndk
-        fetchTools()
+    /// Initialize the MCP tool list view model
+    /// - Parameter dataStore: The centralized data store
+    public init(dataStore: DataStore) {
+        self.dataStore = dataStore
     }
 
     // MARK: Public
 
-    public let ndk: NDK
-
-    @Published public var tools: [MCPTool] = []
-    @Published public var error: String?
-
-    public func fetchTools() {
-        let filter = NDKFilter(kinds: [4200], limit: 100)
-
-        Task {
-            do {
-                let subscription = ndk.subscribeToEvents(filters: [filter])
-                var seenIDs: Set<String> = []
-
-                for try await event in subscription {
-                    // Deduplicate
-                    guard !seenIDs.contains(event.id) else { continue }
-                    seenIDs.insert(event.id)
-
-                    if let tool = MCPTool.from(event: event) {
-                        // Update UI immediately as events arrive
-                        tools.append(tool)
-                    }
-                }
-            } catch {
-                self.error = error.localizedDescription
-            }
-        }
+    /// All available MCP tools
+    public var tools: [MCPTool] {
+        dataStore.tools
     }
+
+    /// Whether tools are currently being loaded
+    public var isLoading: Bool {
+        dataStore.isLoadingTools
+    }
+
+    // MARK: Private
+
+    @ObservationIgnored private let dataStore: DataStore
 }

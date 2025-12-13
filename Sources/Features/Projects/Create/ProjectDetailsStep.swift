@@ -7,7 +7,7 @@
 import SwiftUI
 
 struct ProjectDetailsStep: View {
-    @ObservedObject var viewModel: CreateProjectViewModel
+    @Bindable var viewModel: CreateProjectViewModel
 
     var body: some View {
         Form {
