@@ -160,14 +160,14 @@ let project = Project(
             dependencies: []
         ),
 
-        // MARK: - Unit Tests
+        // MARK: - Unit Tests - iOS
 
         .target(
-            name: "TENEXCoreTests",
-            destinations: [.iPhone, .iPad, .mac],
+            name: "TENEXCoreTests-iOS",
+            destinations: [.iPhone, .iPad],
             product: .unitTests,
-            bundleId: "chat.tenex.ios.core.tests",
-            deploymentTargets: .multiplatform(iOS: "17.0", macOS: "14.0"),
+            bundleId: "chat.tenex.ios.core.tests.ios",
+            deploymentTargets: .iOS("17.0"),
             sources: ["Tests/CoreTests/**"],
             dependencies: [
                 .target(name: "TENEXCore"),
@@ -177,11 +177,11 @@ let project = Project(
         ),
 
         .target(
-            name: "TENEXFeaturesTests",
-            destinations: [.iPhone, .iPad, .mac],
+            name: "TENEXFeaturesTests-iOS",
+            destinations: [.iPhone, .iPad],
             product: .unitTests,
-            bundleId: "chat.tenex.ios.features.tests",
-            deploymentTargets: .multiplatform(iOS: "17.0", macOS: "14.0"),
+            bundleId: "chat.tenex.ios.features.tests.ios",
+            deploymentTargets: .iOS("17.0"),
             sources: ["Tests/FeaturesTests/**", "Tests/TestHelpers/**"],
             dependencies: [
                 .target(name: "TENEXFeatures"),
@@ -190,11 +190,52 @@ let project = Project(
         ),
 
         .target(
-            name: "TENEXSharedTests",
-            destinations: [.iPhone, .iPad, .mac],
+            name: "TENEXSharedTests-iOS",
+            destinations: [.iPhone, .iPad],
             product: .unitTests,
-            bundleId: "chat.tenex.ios.shared.tests",
-            deploymentTargets: .multiplatform(iOS: "17.0", macOS: "14.0"),
+            bundleId: "chat.tenex.ios.shared.tests.ios",
+            deploymentTargets: .iOS("17.0"),
+            sources: ["Tests/SharedTests/**"],
+            dependencies: [
+                .target(name: "TENEXShared"),
+            ]
+        ),
+
+        // MARK: - Unit Tests - macOS
+
+        .target(
+            name: "TENEXCoreTests-macOS",
+            destinations: [.mac],
+            product: .unitTests,
+            bundleId: "chat.tenex.ios.core.tests.macos",
+            deploymentTargets: .macOS("14.0"),
+            sources: ["Tests/CoreTests/**"],
+            dependencies: [
+                .target(name: "TENEXCore"),
+                .external(name: "NDKSwiftCore"),
+                .external(name: "NDKSwiftNostrDB"),
+            ]
+        ),
+
+        .target(
+            name: "TENEXFeaturesTests-macOS",
+            destinations: [.mac],
+            product: .unitTests,
+            bundleId: "chat.tenex.ios.features.tests.macos",
+            deploymentTargets: .macOS("14.0"),
+            sources: ["Tests/FeaturesTests/**", "Tests/TestHelpers/**"],
+            dependencies: [
+                .target(name: "TENEXFeatures"),
+                .target(name: "TENEXCore"),
+            ]
+        ),
+
+        .target(
+            name: "TENEXSharedTests-macOS",
+            destinations: [.mac],
+            product: .unitTests,
+            bundleId: "chat.tenex.ios.shared.tests.macos",
+            deploymentTargets: .macOS("14.0"),
             sources: ["Tests/SharedTests/**"],
             dependencies: [
                 .target(name: "TENEXShared"),
@@ -221,9 +262,9 @@ let project = Project(
             shared: true,
             buildAction: .buildAction(targets: ["TENEX"]),
             testAction: .targets([
-                .testableTarget(target: .target("TENEXCoreTests")),
-                .testableTarget(target: .target("TENEXFeaturesTests")),
-                .testableTarget(target: .target("TENEXSharedTests")),
+                .testableTarget(target: .target("TENEXCoreTests-iOS")),
+                .testableTarget(target: .target("TENEXFeaturesTests-iOS")),
+                .testableTarget(target: .target("TENEXSharedTests-iOS")),
             ]),
             runAction: .runAction(executable: "TENEX"),
             archiveAction: .archiveAction(configuration: "Release"),
@@ -231,17 +272,31 @@ let project = Project(
             analyzeAction: .analyzeAction(configuration: "Debug")
         ),
         .scheme(
-            name: "TENEX-Tests",
+            name: "TENEX-Tests-iOS",
             shared: true,
             buildAction: .buildAction(targets: [
-                "TENEXCoreTests",
-                "TENEXFeaturesTests",
-                "TENEXSharedTests",
+                "TENEXCoreTests-iOS",
+                "TENEXFeaturesTests-iOS",
+                "TENEXSharedTests-iOS",
             ]),
             testAction: .targets([
-                .testableTarget(target: .target("TENEXCoreTests")),
-                .testableTarget(target: .target("TENEXFeaturesTests")),
-                .testableTarget(target: .target("TENEXSharedTests")),
+                .testableTarget(target: .target("TENEXCoreTests-iOS")),
+                .testableTarget(target: .target("TENEXFeaturesTests-iOS")),
+                .testableTarget(target: .target("TENEXSharedTests-iOS")),
+            ])
+        ),
+        .scheme(
+            name: "TENEX-Tests-macOS",
+            shared: true,
+            buildAction: .buildAction(targets: [
+                "TENEXCoreTests-macOS",
+                "TENEXFeaturesTests-macOS",
+                "TENEXSharedTests-macOS",
+            ]),
+            testAction: .targets([
+                .testableTarget(target: .target("TENEXCoreTests-macOS")),
+                .testableTarget(target: .target("TENEXFeaturesTests-macOS")),
+                .testableTarget(target: .target("TENEXSharedTests-macOS")),
             ])
         ),
     ],
