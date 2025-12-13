@@ -5,7 +5,7 @@
 //
 
 import Foundation
-import NDKSwiftCoreCore
+import NDKSwiftCore
 import Observation
 
 // MARK: - AuthUser

@@ -131,8 +131,8 @@ public struct NavigationShell: View {
             }
 
         case let .project(id):
-            if let ndk, let project = projects.first(where: { $0.id == id }) {
-                ProjectDetailView(project: project, ndk: ndk)
+            if let project = projects.first(where: { $0.id == id }) {
+                ProjectDetailView(project: project)
             } else {
                 ProjectDetailPlaceholder(projectID: id)
             }
@@ -144,11 +144,7 @@ public struct NavigationShell: View {
             ThreadDetailPlaceholder(projectID: projectID, threadID: threadID)
 
         case .settings:
-            if let ndk {
-                SettingsView(ndk: ndk)
-            } else {
-                Text("Loading...")
-            }
+            SettingsView()
         }
     }
 

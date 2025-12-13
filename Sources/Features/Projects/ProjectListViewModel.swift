@@ -5,63 +5,9 @@
 //
 
 import Foundation
-import NDKSwiftCoreCore
+import NDKSwiftCore
 import Observation
 import TENEXCore
-
-// MARK: - NDKSubscribing
-
-/// Protocol for objects that can subscribe to Nostr events
-public protocol NDKSubscribing: Sendable {
-    /// Subscribe to Nostr events matching the given filters
-    /// - Parameter filters: The filters to apply
-    /// - Returns: An async throwing stream of events
-    @MainActor func subscribeToEvents(filters: [NDKFilter]) -> AsyncThrowingStream<NDKEvent, Error>
-}
-
-// MARK: - NDKPublishing
-
-/// Protocol for objects that can publish Nostr events
-public protocol NDKPublishing: Sendable {
-    /// Publish a Nostr event
-    /// - Parameter event: The event to publish
-    /// - Throws: An error if publishing fails
-    func publish(_ event: NDKEvent) async throws
-}
-
-// MARK: - NDK + NDKSubscribing
-
-/// Extend NDK to conform to the protocol
-extension NDK: NDKSubscribing {
-    @MainActor
-    public func subscribeToEvents(filters: [NDKFilter]) -> AsyncThrowingStream<NDKEvent, Error> {
-        let subscription = subscribe(filters: filters)
-        return AsyncThrowingStream { continuation in
-            let task = Task {
-                do {
-                    for try await event in subscription {
-                        continuation.yield(event)
-                    }
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
-                }
-            }
-            continuation.onTermination = { _ in
-                task.cancel()
-            }
-        }
-    }
-}
-
-// MARK: - NDK + NDKPublishing
-
-/// Extend NDK to conform to the publishing protocol
-extension NDK: NDKPublishing {
-    public func publish(_ event: NDKEvent) async throws {
-        _ = try await (publish(event) as Set<NDKRelay>)
-    }
-}
 
 // MARK: - ProjectListViewModel
 
