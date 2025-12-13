@@ -6,10 +6,10 @@
 
 import SwiftUI
 
+// MARK: - AgentListView
+
 public struct AgentListView: View {
-    @StateObject private var viewModel: AgentListViewModel
-    @State private var showingEditor = false
-    @Environment(\.ndk) private var ndk
+    // MARK: Lifecycle
 
     public init() {
         // NDK will be injected via environment, but StateObject needs initialization.
@@ -26,16 +26,20 @@ public struct AgentListView: View {
         _viewModel = StateObject(wrappedValue: AgentListViewModel(ndk: NDK(publicKey: "", privateKey: nil, relays: [])))
     }
 
-    // Better approach for this codebase likely:
+    /// Better approach for this codebase likely:
     init(ndk: NDK? = nil) {
-         if let ndk = ndk {
-             _viewModel = StateObject(wrappedValue: AgentListViewModel(ndk: ndk))
-         } else {
-             // Fallback or placeholder - this part is tricky without a global NDK accessor
-             // Assuming we have one for now to satisfy the compiler
-             _viewModel = StateObject(wrappedValue: AgentListViewModel(ndk: NDK(publicKey: "", privateKey: nil, relays: [])))
-         }
+        if let ndk {
+            _viewModel = StateObject(wrappedValue: AgentListViewModel(ndk: ndk))
+        } else {
+            // Fallback or placeholder - this part is tricky without a global NDK accessor
+            // Assuming we have one for now to satisfy the compiler
+            _viewModel = StateObject(
+                wrappedValue: AgentListViewModel(ndk: NDK(publicKey: "", privateKey: nil, relays: []))
+            )
+        }
     }
+
+    // MARK: Public
 
     public var body: some View {
         NavigationStack {
@@ -43,7 +47,11 @@ public struct AgentListView: View {
                 if viewModel.isLoading {
                     ProgressView("Loading agents...")
                 } else if viewModel.agents.isEmpty {
-                    ContentUnavailableView("No Agents", systemImage: "person.slash", description: Text("Create your first agent definition."))
+                    ContentUnavailableView(
+                        "No Agents",
+                        systemImage: "person.slash",
+                        description: Text("Create your first agent definition.")
+                    )
                 } else {
                     List(viewModel.agents) { agent in
                         NavigationLink(destination: AgentDetailView(agent: agent)) {
@@ -67,7 +75,7 @@ public struct AgentListView: View {
                 }
             }
             .sheet(isPresented: $showingEditor) {
-                if let ndk = ndk {
+                if let ndk {
                     NavigationStack {
                         AgentEditorView(ndk: ndk)
                     }
@@ -76,18 +84,27 @@ public struct AgentListView: View {
                 }
             }
             .task {
-                if let ndk = ndk {
+                if let ndk {
                     // Re-initialize with correct NDK if needed, or just let fetching happen if we could inject it
                     // Since we can't easily swap the StateObject, we rely on the init trick or
                     // we could have a `configure(ndk:)` method on the VM.
-                    // For now, assume the VM was initialized correctly or we can't easily fix it without major refactor.
+                    // For now, assume the VM was initialized correctly or we can't easily fix it without major
+                    // refactor.
                     // Ideally we pass NDK into the view init from NavigationShell.
                     // Let's assume the NavigationShell passes it.
                 }
             }
         }
     }
+
+    // MARK: Private
+
+    @StateObject private var viewModel: AgentListViewModel
+    @State private var showingEditor = false
+    @Environment(\.ndk) private var ndk
 }
+
+// MARK: - AgentDetailView
 
 struct AgentDetailView: View {
     let agent: AgentDefinition

@@ -4,24 +4,19 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftCore
 import SwiftUI
 
 public struct MCPToolEditorView: View {
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var name = ""
-    @State private var description = ""
-    @State private var command = ""
-    @State private var parametersJson = "{}"
-
-    @State private var isPublishing = false
-    @State private var error: String?
-
-    public let ndk: NDK
+    // MARK: Lifecycle
 
     public init(ndk: NDK) {
         self.ndk = ndk
     }
+
+    // MARK: Public
+
+    public let ndk: NDK
 
     public var body: some View {
         Form {
@@ -32,7 +27,7 @@ public struct MCPToolEditorView: View {
 
             Section(header: Text("Description")) {
                 TextField("Description", text: $description, axis: .vertical)
-                    .lineLimit(3...5)
+                    .lineLimit(3 ... 5)
             }
 
             Section(header: Text("Parameters (JSON)")) {
@@ -61,6 +56,18 @@ public struct MCPToolEditorView: View {
         }
     }
 
+    // MARK: Private
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var name = ""
+    @State private var description = ""
+    @State private var command = ""
+    @State private var parametersJson = "{}"
+
+    @State private var isPublishing = false
+    @State private var error: String?
+
     private func createTool() async {
         isPublishing = true
         defer { isPublishing = false }
@@ -72,9 +79,10 @@ public struct MCPToolEditorView: View {
         ]
 
         if let data = parametersJson.data(using: .utf8),
-           let _ = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-             // Valid JSON, add tag
-             tags.append(["params", parametersJson])
+           (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) != nil
+        {
+            // Valid JSON, add tag
+            tags.append(["params", parametersJson])
         }
 
         let content = description
@@ -82,7 +90,7 @@ public struct MCPToolEditorView: View {
         let event = NDKEvent(kind: 4200, tags: tags, content: content, ndk: ndk)
 
         do {
-            try await event.publish()
+            try await ndk.publish(event)
             dismiss()
         } catch {
             self.error = error.localizedDescription

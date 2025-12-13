@@ -32,11 +32,17 @@ public final class AgentListViewModel: ObservableObject {
 
         Task {
             do {
-                let events = try await ndk.fetchEvents(filters: [filter])
-                let agents = events.compactMap { AgentDefinition.from(event: $0) }
+                let subscription = ndk.subscribeToEvents(filters: [filter])
+                var collectedAgents: [AgentDefinition] = []
+
+                for try await event in subscription {
+                    if let agent = AgentDefinition.from(event: event) {
+                        collectedAgents.append(agent)
+                    }
+                }
 
                 await MainActor.run {
-                    self.agents = agents
+                    self.agents = collectedAgents
                     self.isLoading = false
                 }
             } catch {

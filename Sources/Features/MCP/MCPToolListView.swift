@@ -6,22 +6,32 @@
 
 import SwiftUI
 
+// MARK: - MCPToolListView
+
 public struct MCPToolListView: View {
-    @StateObject private var viewModel: MCPToolListViewModel
-    @State private var showingEditor = false
-    @Environment(\.ndk) private var ndk
+    // MARK: Lifecycle
 
     public init() {
-         _viewModel = StateObject(wrappedValue: MCPToolListViewModel(ndk: NDK(publicKey: "", privateKey: nil, relays: [])))
+        _viewModel = StateObject(wrappedValue: MCPToolListViewModel(ndk: NDK(
+            publicKey: "",
+            privateKey: nil,
+            relays: []
+        )))
     }
 
     init(ndk: NDK? = nil) {
-         if let ndk = ndk {
-             _viewModel = StateObject(wrappedValue: MCPToolListViewModel(ndk: ndk))
-         } else {
-             _viewModel = StateObject(wrappedValue: MCPToolListViewModel(ndk: NDK(publicKey: "", privateKey: nil, relays: [])))
-         }
+        if let ndk {
+            _viewModel = StateObject(wrappedValue: MCPToolListViewModel(ndk: ndk))
+        } else {
+            _viewModel = StateObject(wrappedValue: MCPToolListViewModel(ndk: NDK(
+                publicKey: "",
+                privateKey: nil,
+                relays: []
+            )))
+        }
     }
+
+    // MARK: Public
 
     public var body: some View {
         NavigationStack {
@@ -29,7 +39,11 @@ public struct MCPToolListView: View {
                 if viewModel.isLoading {
                     ProgressView("Loading tools...")
                 } else if viewModel.tools.isEmpty {
-                    ContentUnavailableView("No Tools", systemImage: "hammer", description: Text("Create your first MCP tool definition."))
+                    ContentUnavailableView(
+                        "No Tools",
+                        systemImage: "hammer",
+                        description: Text("Create your first MCP tool definition.")
+                    )
                 } else {
                     List(viewModel.tools) { tool in
                         NavigationLink(destination: MCPToolDetailView(tool: tool)) {
@@ -53,7 +67,7 @@ public struct MCPToolListView: View {
                 }
             }
             .sheet(isPresented: $showingEditor) {
-                if let ndk = ndk {
+                if let ndk {
                     NavigationStack {
                         MCPToolEditorView(ndk: ndk)
                     }
@@ -63,7 +77,15 @@ public struct MCPToolListView: View {
             }
         }
     }
+
+    // MARK: Private
+
+    @StateObject private var viewModel: MCPToolListViewModel
+    @State private var showingEditor = false
+    @Environment(\.ndk) private var ndk
 }
+
+// MARK: - MCPToolDetailView
 
 struct MCPToolDetailView: View {
     let tool: MCPTool

@@ -4,26 +4,19 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftCore
 import SwiftUI
 
 public struct AgentEditorView: View {
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var name = ""
-    @State private var description = ""
-    @State private var role = "assistant"
-    @State private var instructions = ""
-    @State private var model = ""
-    @State private var picture = ""
-
-    @State private var isPublishing = false
-    @State private var error: String?
-
-    public let ndk: NDK
+    // MARK: Lifecycle
 
     public init(ndk: NDK) {
         self.ndk = ndk
     }
+
+    // MARK: Public
+
+    public let ndk: NDK
 
     public var body: some View {
         Form {
@@ -37,7 +30,7 @@ public struct AgentEditorView: View {
 
             Section(header: Text("Instructions")) {
                 TextField("Instructions", text: $instructions, axis: .vertical)
-                    .lineLimit(5...10)
+                    .lineLimit(5 ... 10)
             }
         }
         .navigationTitle("New Agent")
@@ -59,6 +52,20 @@ public struct AgentEditorView: View {
             }
         }
     }
+
+    // MARK: Private
+
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var name = ""
+    @State private var description = ""
+    @State private var role = "assistant"
+    @State private var instructions = ""
+    @State private var model = ""
+    @State private var picture = ""
+
+    @State private var isPublishing = false
+    @State private var error: String?
 
     private func createAgent() async {
         isPublishing = true
@@ -88,7 +95,7 @@ public struct AgentEditorView: View {
         let event = NDKEvent(kind: 4199, tags: tags, content: content, ndk: ndk)
 
         do {
-            try await event.publish()
+            try await ndk.publish(event)
             dismiss()
         } catch {
             self.error = error.localizedDescription

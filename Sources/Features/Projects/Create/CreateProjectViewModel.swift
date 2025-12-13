@@ -25,39 +25,39 @@ public final class CreateProjectViewModel: ObservableObject {
     public let ndk: NDK
 
     // Wizard State
-    @Published public var currentStep: Int = 0
+    @Published public var currentStep = 0
     @Published public var isPublishing = false
     @Published public var error: String?
 
     // Step 1: Details
-    @Published public var projectName: String = ""
-    @Published public var projectDescription: String = ""
-    @Published public var projectTags: String = "" // Space/Comma separated
-    @Published public var projectImageUrl: String = ""
-    @Published public var projectRepoUrl: String = ""
+    @Published public var projectName = ""
+    @Published public var projectDescription = ""
+    @Published public var projectTags = "" // Space/Comma separated
+    @Published public var projectImageURL = ""
+    @Published public var projectRepoURL = ""
 
     // Step 2: Agents
     @Published public var availableAgents: [AgentDefinition] = []
-    @Published public var selectedAgentIds: Set<String> = []
+    @Published public var selectedAgentIDs: Set<String> = []
     @Published public var isLoadingAgents = false
 
     // Step 3: MCP Tools
     @Published public var availableTools: [MCPTool] = []
-    @Published public var selectedToolIds: Set<String> = []
+    @Published public var selectedToolIDs: Set<String> = []
     @Published public var isLoadingTools = false
 
     public var canProceed: Bool {
         switch currentStep {
         case 0:
-            return !projectName.isEmpty && !projectDescription.isEmpty
+            !projectName.isEmpty && !projectDescription.isEmpty
         case 1:
-            return true // Agent selection is optional
+            true // Agent selection is optional
         case 2:
-            return true // Tool selection is optional
+            true // Tool selection is optional
         case 3:
-            return !isPublishing
+            !isPublishing
         default:
-            return false
+            false
         }
     }
 
@@ -74,7 +74,9 @@ public final class CreateProjectViewModel: ObservableObject {
     }
 
     public func createProject() async -> Bool {
-        guard !projectName.isEmpty else { return false }
+        guard !projectName.isEmpty else {
+            return false
+        }
 
         isPublishing = true
         defer { isPublishing = false }
@@ -85,42 +87,45 @@ public final class CreateProjectViewModel: ObservableObject {
             ["title", projectName],
         ]
 
-        if !projectImageUrl.isEmpty {
-            tags.append(["picture", projectImageUrl])
+        if !projectImageURL.isEmpty {
+            tags.append(["picture", projectImageURL])
         }
 
-        if !projectRepoUrl.isEmpty {
-            tags.append(["repo", projectRepoUrl])
+        if !projectRepoURL.isEmpty {
+            tags.append(["repo", projectRepoURL])
         }
 
         // Hashtags
-        let hashtags = projectTags.split(separator: " ").map { String($0).trimmingCharacters(in: .punctuationCharacters) }
+        let hashtags = projectTags.split(separator: " ").map {
+            String($0).trimmingCharacters(in: .punctuationCharacters)
+        }
         for tag in hashtags {
             tags.append(["t", tag])
         }
 
         // Agents
-        for agentId in selectedAgentIds {
-            tags.append(["agent", agentId])
+        for agentID in selectedAgentIDs {
+            tags.append(["agent", agentID])
         }
 
         // MCP Tools
-        for toolId in selectedToolIds {
-            tags.append(["mcp", toolId])
+        for toolID in selectedToolIDs {
+            tags.append(["mcp", toolID])
         }
 
         // Content (JSON description)
         let contentDict: [String: Any] = ["description": projectDescription]
         guard let contentData = try? JSONSerialization.data(withJSONObject: contentDict),
-              let content = String(data: contentData, encoding: .utf8) else {
+              let content = String(data: contentData, encoding: .utf8)
+        else {
             error = "Failed to serialize description"
             return false
         }
 
-        let event = NDKEvent(kind: 31933, tags: tags, content: content, ndk: ndk)
+        let event = NDKEvent(kind: 31_933, tags: tags, content: content, ndk: ndk)
 
         do {
-            try await event.publish()
+            try await ndk.publish(event)
             return true
         } catch {
             self.error = error.localizedDescription
@@ -137,11 +142,17 @@ public final class CreateProjectViewModel: ObservableObject {
 
         Task {
             do {
-                let events = try await ndk.fetchEvents(filters: [filter])
-                let agents = events.compactMap { AgentDefinition.from(event: $0) }
+                let subscription = ndk.subscribeToEvents(filters: [filter])
+                var collectedAgents: [AgentDefinition] = []
+
+                for try await event in subscription {
+                    if let agent = AgentDefinition.from(event: event) {
+                        collectedAgents.append(agent)
+                    }
+                }
 
                 await MainActor.run {
-                    self.availableAgents = agents
+                    self.availableAgents = collectedAgents
                     self.isLoadingAgents = false
                 }
             } catch {
@@ -160,11 +171,17 @@ public final class CreateProjectViewModel: ObservableObject {
 
         Task {
             do {
-                let events = try await ndk.fetchEvents(filters: [filter])
-                let tools = events.compactMap { MCPTool.from(event: $0) }
+                let subscription = ndk.subscribeToEvents(filters: [filter])
+                var collectedTools: [MCPTool] = []
+
+                for try await event in subscription {
+                    if let tool = MCPTool.from(event: event) {
+                        collectedTools.append(tool)
+                    }
+                }
 
                 await MainActor.run {
-                    self.availableTools = tools
+                    self.availableTools = collectedTools
                     self.isLoadingTools = false
                 }
             } catch {

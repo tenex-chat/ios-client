@@ -6,22 +6,30 @@
 
 import SwiftUI
 
+// MARK: - CreateProjectWizardView
+
 public struct CreateProjectWizardView: View {
-    @StateObject private var viewModel: CreateProjectViewModel
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.ndk) private var ndk
+    // MARK: Lifecycle
 
     public init() {
-        _viewModel = StateObject(wrappedValue: CreateProjectViewModel(ndk: NDK(publicKey: "", privateKey: nil, relays: [])))
+        _viewModel = StateObject(wrappedValue: CreateProjectViewModel(ndk: NDK(
+            publicKey: "",
+            privateKey: nil,
+            relays: []
+        )))
     }
 
     init(ndk: NDK? = nil) {
-         if let ndk = ndk {
-             _viewModel = StateObject(wrappedValue: CreateProjectViewModel(ndk: ndk))
-         } else {
-             _viewModel = StateObject(wrappedValue: CreateProjectViewModel(ndk: NDK(publicKey: "", privateKey: nil, relays: [])))
-         }
+        if let ndk {
+            _viewModel = StateObject(wrappedValue: CreateProjectViewModel(ndk: ndk))
+        } else {
+            _viewModel = StateObject(
+                wrappedValue: CreateProjectViewModel(ndk: NDK(publicKey: "", privateKey: nil, relays: []))
+            )
+        }
     }
+
+    // MARK: Public
 
     public var body: some View {
         NavigationStack {
@@ -32,7 +40,8 @@ public struct CreateProjectWizardView: View {
                     StepConnector(isActive: viewModel.currentStep > 0)
                     StepIndicator(step: 1, currentStep: viewModel.currentStep, icon: "person.2")
                     StepConnector(isActive: viewModel.currentStep > 1)
-                    StepIndicator(step: 2, currentStep: viewModel.currentStep, icon: "hammer") // Using hammer as wrench alternative
+                    StepIndicator(step: 2, currentStep: viewModel.currentStep,
+                                  icon: "hammer") // Using hammer as wrench alternative
                     StepConnector(isActive: viewModel.currentStep > 2)
                     StepIndicator(step: 3, currentStep: viewModel.currentStep, icon: "checkmark.circle")
                 }
@@ -99,7 +108,15 @@ public struct CreateProjectWizardView: View {
             }
         }
     }
+
+    // MARK: Private
+
+    @StateObject private var viewModel: CreateProjectViewModel
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.ndk) private var ndk
 }
+
+// MARK: - StepIndicator
 
 struct StepIndicator: View {
     let step: Int
@@ -121,6 +138,8 @@ struct StepIndicator: View {
         }
     }
 }
+
+// MARK: - StepConnector
 
 struct StepConnector: View {
     let isActive: Bool

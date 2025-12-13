@@ -9,8 +9,6 @@ import NDKSwiftCore
 
 /// Represents an MCP Tool (Nostr kind:4200)
 public struct MCPTool: Identifiable, Sendable, Equatable {
-    // MARK: Public
-
     /// The event ID
     public let id: String
 
@@ -29,6 +27,9 @@ public struct MCPTool: Identifiable, Sendable, Equatable {
     /// The tool parameters (JSON)
     public let parameters: [String: Any]?
 
+    /// The tool capabilities
+    public let capabilities: [String]
+
     /// When the tool was created
     public let createdAt: Date
 
@@ -36,16 +37,23 @@ public struct MCPTool: Identifiable, Sendable, Equatable {
     /// - Parameter event: The NDKEvent (must be kind:4200)
     /// - Returns: An MCPTool instance, or nil if the event is invalid
     public static func from(event: NDKEvent) -> Self? {
-        guard event.kind == 4200 else { return nil }
+        guard event.kind == 4200 else {
+            return nil
+        }
 
-        let name = event.tags(withName: "name").first?.count ?? 0 > 1 ? event.tags(withName: "name").first?[1] : ""
-        let command = event.tags(withName: "command").first?.count ?? 0 > 1 ? event.tags(withName: "command").first?[1] : ""
+        let name = event.tags(withName: "name").first?.count ?? 0 > 1 ?
+            event.tags(withName: "name").first?[1] : ""
+        let command = event.tags(withName: "command").first?.count ?? 0 > 1 ?
+            event.tags(withName: "command").first?[1] : ""
 
-        let paramsString = event.tags(withName: "params").first?.count ?? 0 > 1 ? event.tags(withName: "params").first?[1] : nil
-        var parameters: [String: Any]? = nil
+        let paramsString = event.tags(withName: "params").first?.count ?? 0 > 1 ?
+            event.tags(withName: "params").first?[1] : nil
+        var parameters: [String: Any]?
         if let data = paramsString?.data(using: .utf8) {
             parameters = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         }
+
+        let capabilities = event.tags.filter { $0.count > 1 && $0[0] == "capability" }.map { $0[1] }
 
         return Self(
             id: event.id,
@@ -54,11 +62,12 @@ public struct MCPTool: Identifiable, Sendable, Equatable {
             description: event.content,
             command: command ?? "",
             parameters: parameters,
+            capabilities: capabilities,
             createdAt: Date(timeIntervalSince1970: TimeInterval(event.createdAt))
         )
     }
 
-    public static func == (lhs: MCPTool, rhs: MCPTool) -> Bool {
+    public static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.id == rhs.id
     }
 }

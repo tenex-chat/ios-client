@@ -84,7 +84,7 @@ public struct NavigationShell: View {
             NavigationLink(value: AppRoute.settings) {
                 Label("Settings", systemImage: "gearshape")
             }
-            if let ndk = ndk {
+            if let ndk {
                 NavigationLink(destination: AgentListView(ndk: ndk)) {
                     Label("Agents", systemImage: "person.2")
                 }
