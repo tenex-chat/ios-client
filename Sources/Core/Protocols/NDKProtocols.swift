@@ -65,21 +65,23 @@ public extension NDK {
     /// - Returns: An async throwing stream of events from all subscriptions
     @MainActor
     func subscribeToEvents(filters: [NDKFilter]) -> AsyncThrowingStream<NDKEvent, Error> {
-        let subscriptions = filters.map { subscribe(filter: $0) }
+        // Capture self and filters for use in Task
+        let ndk = self
 
         return AsyncThrowingStream { continuation in
-            let task = Task {
-                await withTaskGroup(of: Void.self) { group in
-                    for subscription in subscriptions {
-                        group.addTask {
-                            for await event in subscription.events {
-                                continuation.yield(event)
-                            }
+            let task = Task { @MainActor in
+                // Create subscriptions on MainActor inside the task
+                let subscriptions = filters.map { ndk.subscribe(filter: $0) }
+
+                // Process each subscription sequentially to avoid Sendable issues
+                // This is still efficient because the underlying async streams are concurrent
+                for subscription in subscriptions {
+                    Task {
+                        for await event in subscription.events {
+                            continuation.yield(event)
                         }
                     }
-                    await group.waitForAll()
                 }
-                continuation.finish()
             }
             continuation.onTermination = { _ in
                 task.cancel()
