@@ -4,6 +4,8 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftCore
+import NDKSwiftUI
 import SwiftUI
 import TENEXCore
 
@@ -34,9 +36,15 @@ public struct MessageRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 // Author and timestamp
                 HStack(spacing: 8) {
-                    Text(authorName)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(isAgent ? .blue : .primary)
+                    if let ndk, isAgent {
+                        NDKUIUsername(ndk: ndk, pubkey: message.pubkey)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.blue)
+                    } else {
+                        Text("You")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.primary)
+                    }
 
                     Text(message.createdAt, style: .relative)
                         .font(.system(size: 12))
@@ -54,17 +62,12 @@ public struct MessageRow: View {
 
     // MARK: Private
 
+    @Environment(\.ndk) private var ndk
+    @State private var cursorVisible = false
+
     private let message: Message
     private let currentUserPubkey: String?
     private let isAgent: Bool
-
-    private var authorName: String {
-        if isAgent {
-            "Agent"
-        } else {
-            "You"
-        }
-    }
 
     private var markdownText: AttributedString {
         do {
@@ -83,7 +86,10 @@ public struct MessageRow: View {
 
     private var messageContent: some View {
         Group {
-            if message.content.contains("```") {
+            if message.isStreaming {
+                // Streaming message with blinking cursor
+                streamingContent
+            } else if message.content.contains("```") {
                 // Contains code blocks - render with special formatting
                 codeBlockContent
             } else {
@@ -94,6 +100,26 @@ public struct MessageRow: View {
                     .foregroundStyle(.primary)
                     .textSelection(.enabled)
             }
+        }
+    }
+
+    private var streamingContent: some View {
+        HStack(alignment: .bottom, spacing: 2) {
+            Text(markdownText)
+                .font(.system(size: 16))
+                .lineSpacing(1.4)
+                .foregroundStyle(.primary)
+
+            // Blinking cursor
+            Rectangle()
+                .fill(.primary)
+                .frame(width: 2, height: 16)
+                .opacity(cursorVisible ? 1 : 0)
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
+                        cursorVisible = true
+                    }
+                }
         }
     }
 

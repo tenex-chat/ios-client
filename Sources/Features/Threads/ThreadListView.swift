@@ -74,10 +74,6 @@ public struct ThreadListView: View {
             if viewModel == nil {
                 viewModel = vm
             }
-            await vm.loadThreads()
-        }
-        .refreshable {
-            await vm.refresh()
         }
         .alert("Error", isPresented: .constant(vm.errorMessage != nil)) {
             Button("OK") {

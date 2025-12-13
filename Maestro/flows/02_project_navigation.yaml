@@ -1,0 +1,41 @@
+# Maestro Flow: Project Navigation
+# Verifies user can navigate from project list to project detail
+#
+# Prerequisites: App in logged in state with at least one project
+# Expected: User can tap project and see project detail view
+
+appId: chat.tenex.ios
+---
+- launchApp
+
+# Wait for project list to load
+- assertVisible: "Projects"
+
+# Wait for projects to load from relay
+- runScript:
+    script: |
+      console.log("Waiting for projects to load...")
+- extendedWaitUntil:
+    visible: "No Projects"
+    timeout: 10000
+    optional: true
+
+# If we have projects, try to navigate to one
+- tapOn:
+    text: ".*"
+    index: 0
+    optional: true
+
+# Should see project detail view (with tabs: Threads, Docs, Agents, Feed)
+- assertVisible:
+    text: "Threads"
+    timeout: 5000
+
+- assertVisible:
+    text: "Docs"
+
+- assertVisible:
+    text: "Agents"
+
+- assertVisible:
+    text: "Feed"

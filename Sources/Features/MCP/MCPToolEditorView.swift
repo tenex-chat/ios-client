@@ -38,24 +38,24 @@ public struct MCPToolEditorView: View {
         }
         .navigationTitle("New MCP Tool")
         #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.inline)
         #endif
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") {
-                    dismiss()
-                }
-            }
-
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Create") {
-                    Task {
-                        await createTool()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
                     }
                 }
-                .disabled(name.isEmpty || command.isEmpty || isPublishing)
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Create") {
+                        Task {
+                            await createTool()
+                        }
+                    }
+                    .disabled(name.isEmpty || command.isEmpty || isPublishing)
+                }
             }
-        }
     }
 
     // MARK: Private

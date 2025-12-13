@@ -45,9 +45,7 @@ public struct MCPToolListView: View {
 
     private var contentView: some View {
         Group {
-            if viewModel.isLoading {
-                ProgressView("Loading tools...")
-            } else if viewModel.tools.isEmpty {
+            if viewModel.tools.isEmpty {
                 ContentUnavailableView(
                     "No Tools",
                     systemImage: "hammer",
