@@ -30,12 +30,6 @@ public struct ProjectListView: View {
             }
         }
         .navigationTitle("Projects")
-        .task {
-            await viewModel.loadProjects()
-        }
-        .refreshable {
-            await viewModel.refresh()
-        }
         .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
             Button("OK") {
                 // Error message will be cleared on next load

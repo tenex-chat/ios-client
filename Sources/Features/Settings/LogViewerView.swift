@@ -74,12 +74,13 @@ struct LogViewerView: View {
     @State private var searchText = ""
     @State private var isLive = true
     @State private var isLoading = true
+    @State private var currentLogLevel: NDKLogLevel = .info
 
     @ToolbarContentBuilder private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
             Menu {
-                Button { toggleLogLevel() } label: {
-                    Label("Log Level: \(NDKLogger.logLevel.description)", systemImage: "slider.horizontal.3")
+                Button { Task { await toggleLogLevel() } } label: {
+                    Label("Log Level: \(currentLogLevel.description)", systemImage: "slider.horizontal.3")
                 }
                 Divider()
                 Button { copyLogs() } label: {
@@ -262,6 +263,7 @@ struct LogViewerView: View {
     }
 
     private func initialLoad() async {
+        currentLogLevel = await NDKLoggerConfig.shared.logLevel
         await loadEntries()
         isLoading = false
     }
@@ -280,17 +282,19 @@ struct LogViewerView: View {
         entries = await NDKLogBuffer.shared.getEntries()
     }
 
-    private func toggleLogLevel() {
-        switch NDKLogger.logLevel {
+    private func toggleLogLevel() async {
+        let newLevel: NDKLogLevel = switch currentLogLevel {
         case .info:
-            NDKLogger.logLevel = .debug
+            .debug
         case .debug:
-            NDKLogger.logLevel = .trace
+            .trace
         case .trace:
-            NDKLogger.logLevel = .info
+            .info
         default:
-            NDKLogger.logLevel = .info
+            .info
         }
+        await NDKLogger.configure(logLevel: newLevel)
+        currentLogLevel = newLevel
     }
 
     private func copyLogs() {

@@ -65,15 +65,32 @@ public struct Message: Identifiable, Sendable {
     public let status: MessageStatus?
 
     /// Create a Message from a Nostr event
-    /// - Parameter event: The NDKEvent (must be kind:1111)
+    /// - Parameter event: The NDKEvent (must be kind:11 or kind:1111)
     /// - Returns: A Message instance, or nil if the event is invalid
     public static func from(event: NDKEvent) -> Self? {
-        // Verify correct kind
+        // Handle kind:11 (thread event - the original post)
+        if event.kind == 11 {
+            // For kind:11, the thread ID is the event's own ID
+            // and there's no parent (replyTo is nil)
+            let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
+
+            return Self(
+                id: event.id,
+                pubkey: event.pubkey,
+                threadID: event.id,
+                content: event.content,
+                createdAt: createdAt,
+                replyTo: nil,
+                status: nil
+            )
+        }
+
+        // Handle kind:1111 (GenericReply - replies to the thread)
         guard event.kind == 1111 else {
             return nil
         }
 
-        // Extract thread ID from 'a' tag (required)
+        // Extract thread ID from 'a' tag (required for replies)
         guard let aTag = event.tags(withName: "a").first,
               aTag.count > 1,
               !aTag[1].isEmpty
@@ -100,12 +117,12 @@ public struct Message: Identifiable, Sendable {
     }
 
     /// Create a filter for fetching messages by thread
-    /// - Parameter threadId: The thread identifier
-    /// - Returns: An NDKFilter configured for kind:1111 events
+    /// - Parameter threadId: The thread identifier (conversation ID)
+    /// - Returns: An NDKFilter configured for kind:1111 events with 'e' tag
     public static func filter(for threadID: String) -> NDKFilter {
         NDKFilter(
             kinds: [1111],
-            tags: ["a": Set([threadID])]
+            tags: ["e": Set([threadID])]
         )
     }
 

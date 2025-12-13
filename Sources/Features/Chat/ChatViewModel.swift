@@ -33,15 +33,22 @@ public final class ChatViewModel {
         self.threadEvent = threadEvent
         self.projectReference = projectReference
         self.userPubkey = userPubkey
+
+        // Add the thread event (kind:11) as the first message
+        if let threadMessage = Message.from(event: threadEvent) {
+            messages.append(threadMessage)
+        }
+
+        // Start continuous subscription in background
+        Task {
+            await subscribeToMessages()
+        }
     }
 
     // MARK: Public
 
     /// The list of messages
     public private(set) var messages: [Message] = []
-
-    /// Whether messages are currently being loaded
-    public private(set) var isLoading = false
 
     /// The current error message, if any
     public private(set) var errorMessage: String?
@@ -52,46 +59,12 @@ public final class ChatViewModel {
     /// Set of pubkeys of users who are currently typing
     public private(set) var typingUsers: Set<String> = []
 
+    /// The most recent thread title from kind:513 metadata
+    public private(set) var threadTitle: String?
+
     /// The thread ID derived from the thread event
     public var threadID: String {
         threadEvent.id
-    }
-
-    /// Load messages from Nostr
-    public func loadMessages() async {
-        // Clear error
-        errorMessage = nil
-
-        // Start loading
-        isLoading = true
-
-        defer {
-            // Always stop loading when done
-            isLoading = false
-        }
-
-        do {
-            // Create filter for messages in this thread (uses project reference as the 'a' tag)
-            let filter = Message.filter(for: projectReference)
-
-            // Subscribe to messages
-            var fetchedMessages: [Message] = []
-
-            let subscription = ndk.subscribeToEvents(filters: [filter])
-
-            for try await event in subscription {
-                // Try to parse as Message
-                if let message = Message.from(event: event) {
-                    fetchedMessages.append(message)
-                }
-            }
-
-            // Sort by creation date (oldest first for chat display)
-            messages = fetchedMessages.sorted { $0.createdAt < $1.createdAt }
-        } catch {
-            // Set error message
-            errorMessage = "Failed to load messages. Please try again."
-        }
     }
 
     /// Subscribe to streaming deltas for real-time message updates
@@ -144,9 +117,32 @@ public final class ChatViewModel {
         }
     }
 
-    /// Refresh the messages list
-    public func refresh() async {
-        await loadMessages()
+    /// Subscribe to thread metadata (kind:513) to get the most recent title
+    public func subscribeToThreadMetadata() async {
+        do {
+            // Create filter for metadata for this thread
+            let filter = ConversationMetadata.filter(for: threadID)
+
+            let subscription = ndk.subscribeToEvents(filters: [filter])
+
+            var latestMetadata: ConversationMetadata?
+
+            for try await event in subscription {
+                // Try to parse as ConversationMetadata
+                if let metadata = ConversationMetadata.from(event: event) {
+                    // Only use metadata if it's newer than what we already have
+                    if let existing = latestMetadata {
+                        guard metadata.createdAt > existing.createdAt else {
+                            continue
+                        }
+                    }
+                    latestMetadata = metadata
+                    threadTitle = metadata.title
+                }
+            }
+        } catch {
+            // Silently fail for metadata (non-critical)
+        }
     }
 
     /// Send a new message to the thread
@@ -250,4 +246,28 @@ public final class ChatViewModel {
     private let threadEvent: NDKEvent
     private let projectReference: String
     private let userPubkey: String
+
+    /// Subscribe to messages and update UI as they arrive
+    /// This runs continuously in the background
+    private func subscribeToMessages() async {
+        do {
+            // Create filter for messages in this thread (uses thread ID as the 'e' tag)
+            let filter = Message.filter(for: threadID)
+
+            let subscription = ndk.subscribeToEvents(filters: [filter])
+
+            // Continuous subscription - runs forever
+            for try await event in subscription {
+                // Try to parse as Message
+                if let message = Message.from(event: event) {
+                    // Add to messages and keep sorted
+                    messages.append(message)
+                    messages.sort { $0.createdAt < $1.createdAt }
+                }
+            }
+        } catch {
+            // Set error message if subscription fails
+            errorMessage = "Failed to subscribe to messages."
+        }
+    }
 }

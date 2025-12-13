@@ -95,25 +95,21 @@ public struct ChatView: View {
     @ViewBuilder
     private func mainContent(viewModel: ChatViewModel) -> some View {
         Group {
-            if viewModel.isLoading, viewModel.messages.isEmpty {
-                loadingView
-            } else if viewModel.messages.isEmpty {
+            if viewModel.messages.isEmpty {
                 emptyView
             } else {
                 messageList(viewModel: viewModel)
             }
         }
-        .task {
-            await viewModel.loadMessages()
-        }
+        .navigationTitle(viewModel.threadTitle ?? "Thread")
         .task {
             await viewModel.subscribeToStreamingDeltas()
         }
         .task {
             await viewModel.subscribeToTypingIndicators()
         }
-        .refreshable {
-            await viewModel.refresh()
+        .task {
+            await viewModel.subscribeToThreadMetadata()
         }
         .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
             Button("OK") {

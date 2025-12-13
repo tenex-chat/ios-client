@@ -37,14 +37,14 @@ struct TENEXApp: App {
 
     @State private var authManager = AuthManager()
     @State private var ndk: NDK = {
+        // Disable outbox model to query all connected relays
+        // (outbox requires NIP-65 relay metadata which we don't have yet)
         let ndk = NDK(
             relayURLs: [
                 "wss://tenex.chat",
-            ]
+            ],
+            outboxEnabled: false
         )
-        // Disable outbox model to query all connected relays
-        // (outbox requires NIP-65 relay metadata which we don't have yet)
-        ndk.outboxEnabled = false
         return ndk
     }()
 }

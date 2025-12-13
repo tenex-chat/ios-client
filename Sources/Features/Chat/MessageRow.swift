@@ -4,6 +4,8 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftCore
+import NDKSwiftUI
 import SwiftUI
 import TENEXCore
 
@@ -34,9 +36,15 @@ public struct MessageRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 // Author and timestamp
                 HStack(spacing: 8) {
-                    Text(authorName)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(isAgent ? .blue : .primary)
+                    if let ndk, isAgent {
+                        NDKUIUsername(ndk: ndk, pubkey: message.pubkey)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.blue)
+                    } else {
+                        Text("You")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.primary)
+                    }
 
                     Text(message.createdAt, style: .relative)
                         .font(.system(size: 12))
@@ -54,17 +62,11 @@ public struct MessageRow: View {
 
     // MARK: Private
 
+    @Environment(\.ndk) private var ndk
+
     private let message: Message
     private let currentUserPubkey: String?
     private let isAgent: Bool
-
-    private var authorName: String {
-        if isAgent {
-            "Agent"
-        } else {
-            "You"
-        }
-    }
 
     private var markdownText: AttributedString {
         do {

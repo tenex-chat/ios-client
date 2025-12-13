@@ -30,6 +30,11 @@ public final class ProjectListViewModel {
         self.ndk = ndk
         self.userPubkey = userPubkey
         self.archiveStorage = archiveStorage
+
+        // Start continuous subscription in background
+        Task {
+            await subscribeToProjects()
+        }
     }
 
     // MARK: Public
@@ -37,61 +42,8 @@ public final class ProjectListViewModel {
     /// The list of visible (non-archived) projects
     public private(set) var projects: [Project] = []
 
-    /// Whether projects are currently being loaded
-    public private(set) var isLoading = false
-
     /// The current error message, if any
     public private(set) var errorMessage: String?
-
-    /// Load projects from Nostr
-    public func loadProjects() async {
-        // Clear error
-        errorMessage = nil
-
-        // Start loading
-        isLoading = true
-
-        defer {
-            // Always stop loading when done
-            isLoading = false
-        }
-
-        do {
-            // Create filter for projects by this user
-            let filter = Project.filter(for: userPubkey)
-
-            // Subscribe to projects
-            var projectsByID: [String: Project] = [:]
-            var projectOrder: [String] = []
-
-            let subscription = ndk.subscribeToEvents(filters: [filter])
-
-            for try await event in subscription {
-                // Try to parse as Project
-                if let project = Project.from(event: event) {
-                    // Update projects map (handles replaceable events)
-                    if projectsByID[project.id] == nil {
-                        projectOrder.append(project.id)
-                    }
-                    projectsByID[project.id] = project
-
-                    // Update UI immediately as events arrive (maintaining order)
-                    allProjects = projectOrder.compactMap { projectsByID[$0] }
-                    projects = filterArchivedProjects(from: allProjects)
-                }
-            }
-
-            // Subscription finished (after EOSE)
-        } catch {
-            // Set error message
-            errorMessage = "Failed to load projects. Please try again."
-        }
-    }
-
-    /// Refresh the project list
-    public func refresh() async {
-        await loadProjects()
-    }
 
     /// Archive a project (hide from list)
     /// - Parameter id: The project ID to archive
@@ -118,6 +70,39 @@ public final class ProjectListViewModel {
 
     /// All projects including archived ones
     private var allProjects: [Project] = []
+
+    /// Subscribe to projects and update UI as they arrive
+    /// This runs continuously in the background
+    private func subscribeToProjects() async {
+        do {
+            // Create filter for projects by this user
+            let filter = Project.filter(for: userPubkey)
+
+            var projectsByID: [String: Project] = [:]
+            var projectOrder: [String] = []
+
+            let subscription = ndk.subscribeToEvents(filters: [filter])
+
+            // Continuous subscription - runs forever
+            for try await event in subscription {
+                // Try to parse as Project
+                if let project = Project.from(event: event) {
+                    // Update projects map (handles replaceable events)
+                    if projectsByID[project.id] == nil {
+                        projectOrder.append(project.id)
+                    }
+                    projectsByID[project.id] = project
+
+                    // Update UI immediately as events arrive
+                    allProjects = projectOrder.compactMap { projectsByID[$0] }
+                    projects = filterArchivedProjects(from: allProjects)
+                }
+            }
+        } catch {
+            // Set error message if subscription fails
+            errorMessage = "Failed to subscribe to projects."
+        }
+    }
 
     /// Filter out archived projects
     private func filterArchivedProjects(from projects: [Project]) -> [Project] {

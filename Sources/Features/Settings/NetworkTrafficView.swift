@@ -45,6 +45,7 @@ struct NetworkTrafficView: View {
     @State private var isLive = true
     @State private var isLoading = true
     @State private var selectedMessage: NDKNetworkMessage?
+    @State private var isNetworkLoggingEnabled = false
 
     private var loggingToggle: some View {
         HStack {
@@ -53,8 +54,13 @@ struct NetworkTrafficView: View {
                 .foregroundStyle(.secondary)
             Spacer()
             Toggle("", isOn: Binding(
-                get: { NDKLogger.logNetworkTraffic },
-                set: { NDKLogger.logNetworkTraffic = $0 }
+                get: { isNetworkLoggingEnabled },
+                set: { newValue in
+                    isNetworkLoggingEnabled = newValue
+                    Task {
+                        await NDKLogger.configure(logNetworkTraffic: newValue)
+                    }
+                }
             ))
             .labelsHidden()
         }
@@ -146,7 +152,7 @@ struct NetworkTrafficView: View {
     }
 
     @ViewBuilder private var contentView: some View {
-        if !NDKLogger.logNetworkTraffic {
+        if !isNetworkLoggingEnabled {
             disabledView
         } else if isLoading {
             loadingView
@@ -218,6 +224,7 @@ struct NetworkTrafficView: View {
     }
 
     private func initialLoad() async {
+        isNetworkLoggingEnabled = await NDKLoggerConfig.shared.logNetworkTraffic
         await loadMessages()
         isLoading = false
     }

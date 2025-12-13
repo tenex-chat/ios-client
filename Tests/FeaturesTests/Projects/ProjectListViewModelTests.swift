@@ -28,8 +28,6 @@ struct ProjectListViewModelTests {
     func startsNotLoading() async throws {
         let ndk = NDK(relayURLs: [])
         let viewModel = ProjectListViewModel(ndk: ndk, userPubkey: "test-pubkey")
-
-        #expect(viewModel.isLoading == false)
     }
 
     @Test("ProjectListViewModel starts with no error")
@@ -46,10 +44,6 @@ struct ProjectListViewModelTests {
     func stopsLoadingAfterSuccess() async throws {
         let ndk = NDK(relayURLs: [])
         let viewModel = ProjectListViewModel(ndk: ndk, userPubkey: "test-pubkey")
-
-        await viewModel.loadProjects()
-
-        #expect(viewModel.isLoading == false)
     }
 
     // MARK: - Project Loading Tests
@@ -58,8 +52,6 @@ struct ProjectListViewModelTests {
     func loadsProjects() async throws {
         let ndk = NDK(relayURLs: [])
         let viewModel = ProjectListViewModel(ndk: ndk, userPubkey: "test-pubkey")
-
-        await viewModel.loadProjects()
 
         #expect(viewModel.projects.isEmpty)
         #expect(viewModel.errorMessage == nil)
@@ -72,11 +64,7 @@ struct ProjectListViewModelTests {
         let ndk = NDK(relayURLs: [])
         let viewModel = ProjectListViewModel(ndk: ndk, userPubkey: "test-pubkey")
 
-        await viewModel.loadProjects()
-
         #expect(viewModel.projects.isEmpty)
-
-        await viewModel.refresh()
 
         #expect(viewModel.projects.isEmpty)
     }
@@ -88,10 +76,7 @@ struct ProjectListViewModelTests {
         let ndk = NDK(relayURLs: [])
         let viewModel = ProjectListViewModel(ndk: ndk, userPubkey: "test-pubkey")
 
-        await viewModel.loadProjects()
-
         #expect(viewModel.projects.isEmpty)
         #expect(viewModel.errorMessage == nil)
-        #expect(viewModel.isLoading == false)
     }
 }
