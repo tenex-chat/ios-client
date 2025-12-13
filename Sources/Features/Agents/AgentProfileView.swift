@@ -9,7 +9,7 @@ import TENEXCore
 
 // MARK: - AgentProfileView
 
-/// Displays detailed information about an agent
+/// Displays detailed information about a project agent
 /// Matches web implementation: AgentProfileTabs (Feed, Details, Lessons, Settings)
 public struct AgentProfileView: View {
     // MARK: Lifecycle
@@ -24,12 +24,8 @@ public struct AgentProfileView: View {
         Group {
             if viewModel.isLoading {
                 ProgressView()
-            } else if viewModel.agentDefinition != nil || viewModel.agentMetadata != nil {
-                content
-            } else if let error = viewModel.errorMessage {
-                ContentUnavailableView("Error", systemImage: "exclamationmark.triangle", description: Text(error))
             } else {
-                ContentUnavailableView("Not Found", systemImage: "person.slash", description: Text("Agent profile could not be found."))
+                content
             }
         }
         .task {
@@ -91,9 +87,70 @@ public struct AgentProfileView: View {
 
     private var detailsTab: some View {
         VStack(alignment: .leading, spacing: 24) {
-            // Metadata Warning
-            if viewModel.agentDefinition == nil && viewModel.agentMetadata != nil {
-                metadataWarning
+            // Header Info
+            HStack(spacing: 16) {
+                // Avatar
+                let initial = viewModel.name.prefix(1).uppercased()
+                Text(initial)
+                    .font(.system(size: 32, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 80, height: 80)
+                    .background(Color.blue.gradient, in: Circle())
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(viewModel.name)
+                        .font(.title2)
+                        .fontWeight(.bold)
+
+                    if let role = viewModel.agentMetadata?.role {
+                        Text(role)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.secondary.opacity(0.1), in: Capsule())
+                    }
+
+                    if viewModel.projectAgent.isGlobal {
+                        Text("Global Agent")
+                            .font(.caption)
+                            .foregroundStyle(.blue)
+                    }
+                }
+            }
+
+            // Runtime Info (From ProjectStatus)
+            section(title: "Runtime Configuration") {
+                VStack(alignment: .leading, spacing: 8) {
+                    if let model = viewModel.projectAgent.model {
+                        HStack {
+                            Text("Model:")
+                                .foregroundStyle(.secondary)
+                            Text(model)
+                                .monospaced()
+                        }
+                    }
+
+                    if !viewModel.projectAgent.tools.isEmpty {
+                        HStack(alignment: .top) {
+                            Text("Tools:")
+                                .foregroundStyle(.secondary)
+                            FlowLayout(spacing: 4) {
+                                ForEach(viewModel.projectAgent.tools, id: \.self) { tool in
+                                    Text(tool)
+                                        .font(.caption)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 6))
+                                        .foregroundStyle(.blue)
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding()
+                .background(Color(UIColor.secondarySystemBackground))
+                .cornerRadius(8)
             }
 
             // Description
@@ -103,7 +160,7 @@ public struct AgentProfileView: View {
             }
 
             // Instructions
-            if let instructions = viewModel.agentDefinition?.instructions ?? viewModel.agentMetadata?.instructions {
+            if let instructions = viewModel.instructions {
                 section(title: "Instructions / System Prompt") {
                     Text(instructions) // TODO: Markdown support
                         .font(.body)
@@ -113,7 +170,7 @@ public struct AgentProfileView: View {
             }
 
             // Use Criteria
-            let criteria = viewModel.agentDefinition?.useCriteria ?? viewModel.agentMetadata?.useCriteria ?? []
+            let criteria = viewModel.agentMetadata?.useCriteria ?? []
             if !criteria.isEmpty {
                 section(title: "Use Criteria") {
                     VStack(alignment: .leading, spacing: 8) {
@@ -125,38 +182,6 @@ public struct AgentProfileView: View {
                                 Text(item)
                                     .foregroundStyle(.secondary)
                             }
-                        }
-                    }
-                }
-            }
-
-            // Tools (Only in Definition)
-            if let tools = viewModel.agentDefinition?.tools, !tools.isEmpty {
-                section(title: "Tools") {
-                    FlowLayout(spacing: 8) {
-                        ForEach(tools, id: \.self) { tool in
-                            Text(tool)
-                                .font(.caption)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
-                                .foregroundStyle(.blue)
-                        }
-                    }
-                }
-            }
-
-            // MCP Servers (Only in Definition)
-            if let mcpServers = viewModel.agentDefinition?.mcpServers, !mcpServers.isEmpty {
-                section(title: "MCP Servers") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(mcpServers, id: \.self) { server in
-                            Text(server)
-                                .font(.caption)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
-                                .foregroundStyle(.orange)
                         }
                     }
                 }
@@ -173,31 +198,6 @@ public struct AgentProfileView: View {
     }
 
     // MARK: - Components
-
-    private var metadataWarning: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "sparkles")
-                .foregroundStyle(.orange)
-                .font(.title3)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Agent Metadata from Profile")
-                    .font(.headline)
-                    .foregroundStyle(.foreground)
-
-                Text("This agent has metadata stored in their Nostr profile (kind:0 event). Convert it to an Agent Definition for better structure and compatibility.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .padding()
-        .background(Color.orange.opacity(0.1))
-        .cornerRadius(12)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
-        )
-    }
 
     private func section<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 12) {
