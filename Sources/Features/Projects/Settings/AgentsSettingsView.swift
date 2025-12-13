@@ -28,7 +28,6 @@ struct AgentsSettingsView: View {
         }
         .navigationTitle("Agents")
         .sheet(isPresented: $showingAgentPicker, content: agentPickerSheet)
-        .task { await loadAvailableAgents() }
         .alert(
             "Project Updated",
             isPresented: $showingSuccessAlert,
@@ -48,9 +47,8 @@ struct AgentsSettingsView: View {
     private static let logger = Logger(subsystem: "com.tenex.ios", category: "AgentsSettings")
 
     @Environment(\.ndk) private var ndk
+    @Environment(DataStore.self) private var dataStore: DataStore?
     @State private var showingAgentPicker = false
-    @State private var availableAgents: [AgentDefinition] = []
-    @State private var isLoadingAgents = false
     @State private var showingSuccessAlert = false
 
     @Bindable private var viewModel: ProjectSettingsViewModel
@@ -112,11 +110,12 @@ struct AgentsSettingsView: View {
 
     private func agentPickerSheet() -> some View {
         Group {
-            if let ndk {
+            if let dataStore {
                 NavigationStack {
+                    @Bindable var dataStoreBindable = dataStore
                     AgentPickerView(
                         selectedAgentIDs: $viewModel.selectedAgentIDs,
-                        availableAgents: $availableAgents
+                        availableAgents: .constant(dataStore.agents)
                     )
                 }
             }
@@ -137,30 +136,5 @@ struct AgentsSettingsView: View {
 
     private func errorAlertMessage() -> some View {
         Text(viewModel.saveError ?? "")
-    }
-
-    private func loadAvailableAgents() async {
-        guard let ndk, !isLoadingAgents else {
-            return
-        }
-
-        isLoadingAgents = true
-        defer { isLoadingAgents = false }
-
-        do {
-            let filter = NDKFilter(kinds: [4199], limit: 100)
-            let subscription = ndk.subscribeToEvents(filters: [filter])
-            var agents: [AgentDefinition] = []
-
-            for try await event in subscription {
-                if let agent = AgentDefinition.from(event: event) {
-                    agents.append(agent)
-                }
-            }
-
-            availableAgents = agents
-        } catch {
-            Self.logger.error("Failed to load agents: \(error.localizedDescription)")
-        }
     }
 }

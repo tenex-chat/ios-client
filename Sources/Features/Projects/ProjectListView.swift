@@ -30,27 +30,14 @@ public struct ProjectListView: View {
             }
         }
         .navigationTitle("Projects")
-        .task {
-            await viewModel.loadProjects()
-        }
-        .refreshable {
-            await viewModel.refresh()
-        }
-        .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
-            Button("OK") {
-                // Error message will be cleared on next load
-            }
-        } message: {
-            if let errorMessage = viewModel.errorMessage {
-                Text(errorMessage)
-            }
-        }
     }
 
     // MARK: Private
 
     @State private var viewModel: ProjectListViewModel
     @State private var showingCreateWizard = false
+    @Environment(\.ndk) private var ndk
+    @Environment(DataStore.self) private var dataStore: DataStore?
 
     private var projectList: some View {
         List {
@@ -82,7 +69,9 @@ public struct ProjectListView: View {
             }
         }
         .sheet(isPresented: $showingCreateWizard) {
-            CreateProjectWizardView(ndk: viewModel.ndk)
+            if let dataStore {
+                CreateProjectWizardView(ndk: ndk, dataStore: dataStore)
+            }
         }
     }
 
@@ -107,7 +96,9 @@ public struct ProjectListView: View {
             .padding(.top)
         }
         .sheet(isPresented: $showingCreateWizard) {
-            CreateProjectWizardView(ndk: viewModel.ndk)
+            if let dataStore {
+                CreateProjectWizardView(ndk: ndk, dataStore: dataStore)
+            }
         }
     }
 }
