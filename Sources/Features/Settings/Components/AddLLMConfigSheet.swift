@@ -106,7 +106,9 @@ struct AddLLMConfigSheet: View {
     @ViewBuilder private var nameSection: some View {
         Section {
             TextField("Configuration Name", text: $formViewModel.name)
+            #if os(iOS)
                 .textInputAutocapitalization(.words)
+            #endif
         } header: {
             Text("Name")
         } footer: {
@@ -129,7 +131,9 @@ struct AddLLMConfigSheet: View {
     @ViewBuilder private var modelSection: some View {
         Section {
             TextField("Model", text: $formViewModel.model)
+            #if os(iOS)
                 .textInputAutocapitalization(.never)
+            #endif
                 .autocorrectionDisabled()
         } header: {
             Text("Model")
@@ -142,9 +146,11 @@ struct AddLLMConfigSheet: View {
         if formViewModel.requiresBaseURL {
             Section {
                 TextField("Base URL", text: $formViewModel.baseURL)
+                #if os(iOS)
                     .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
                     .keyboardType(.URL)
+                #endif
+                    .autocorrectionDisabled()
             } header: {
                 Text("Base URL")
             } footer: {
@@ -157,7 +163,9 @@ struct AddLLMConfigSheet: View {
         if formViewModel.provider != .appleIntelligence {
             Section {
                 SecureField("API Key", text: $formViewModel.apiKey)
+                #if os(iOS)
                     .textInputAutocapitalization(.never)
+                #endif
                     .autocorrectionDisabled()
             } header: {
                 Text("API Key")

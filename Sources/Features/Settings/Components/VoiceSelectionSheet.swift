@@ -86,8 +86,12 @@ struct VoiceSelectionSheet: View {
             }
             .padding(.horizontal)
             .padding(.vertical, 8)
-            .background(Color(.systemGray6))
-            .cornerRadius(10)
+            #if os(iOS)
+                .background(Color(.systemGray6))
+            #else
+                .background(Color(nsColor: .controlBackgroundColor))
+            #endif
+                .cornerRadius(10)
 
             // Provider filter
             Picker("Provider", selection: $viewModel.selectedProvider) {
@@ -99,7 +103,11 @@ struct VoiceSelectionSheet: View {
             .pickerStyle(.segmented)
         }
         .padding()
-        .background(Color(.systemGroupedBackground))
+        #if os(iOS)
+            .background(Color(.systemGroupedBackground))
+        #else
+            .background(Color(nsColor: .windowBackgroundColor))
+        #endif
     }
 
     @ViewBuilder private var selectionFooter: some View {
@@ -111,7 +119,11 @@ struct VoiceSelectionSheet: View {
             Spacer()
         }
         .padding()
-        .background(Color(.systemGroupedBackground))
+        #if os(iOS)
+            .background(Color(.systemGroupedBackground))
+        #else
+            .background(Color(nsColor: .windowBackgroundColor))
+        #endif
     }
 
     @ViewBuilder
