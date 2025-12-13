@@ -35,11 +35,20 @@ public final class ProjectListViewModel {
     // MARK: Public
 
     /// The currently selected group ID (nil = show all projects)
-    public var selectedGroupID: String?
+    public var selectedGroupID: String? {
+        didSet {
+            groupStorage.setSelectedGroupID(selectedGroupID)
+        }
+    }
 
     /// All project groups
     public var groups: [ProjectGroup] {
         groupStorage.getAllGroups()
+    }
+
+    /// All non-archived projects (used for group editor)
+    public var allNonArchivedProjects: [Project] {
+        filterArchivedProjects(from: dataStore.projects)
     }
 
     /// The list of visible (non-archived) projects, filtered by selected group
@@ -76,7 +85,6 @@ public final class ProjectListViewModel {
     /// - Parameter groupID: The group ID to select, or nil for all projects
     public func selectGroup(_ groupID: String?) {
         selectedGroupID = groupID
-        groupStorage.setSelectedGroupID(groupID)
     }
 
     /// Create a new project group

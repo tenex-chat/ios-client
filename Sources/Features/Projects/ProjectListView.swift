@@ -86,9 +86,7 @@ public struct ProjectListView: View {
     @Environment(DataStore.self) private var dataStore: DataStore?
 
     private var allProjects: [Project] {
-        dataStore?.projects.filter { project in
-            !UserDefaultsArchiveStorage().archivedProjectIDs().contains(project.id)
-        } ?? []
+        viewModel.allNonArchivedProjects
     }
 
     private var emptyStateTitle: String {
