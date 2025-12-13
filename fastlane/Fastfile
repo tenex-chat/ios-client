@@ -27,7 +27,6 @@ platform :ios do
       scheme: "TENEX",
       export_method: "app-store",
       clean: true,
-      include_bitcode: true,
       include_symbols: true,
       xcargs: "CURRENT_PROJECT_VERSION=#{ENV["GITHUB_RUN_NUMBER"]} MARKETING_VERSION=1.0.0"
     )

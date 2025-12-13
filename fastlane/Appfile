@@ -1,5 +1,5 @@
 app_identifier "chat.tenex.ios"
-apple_id "your-email@example.com" # Your Apple email address
-
-itc_team_id "12345678" # App Store Connect Team ID
 team_id "456SHKPP26" # Developer Portal Team ID
+
+# Note: apple_id and itc_team_id are not required when using App Store Connect API Key authentication
+# which is configured in the GitHub Actions workflow via environment variables
