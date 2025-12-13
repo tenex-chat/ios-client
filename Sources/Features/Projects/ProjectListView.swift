@@ -22,22 +22,84 @@ public struct ProjectListView: View {
     // MARK: Public
 
     public var body: some View {
-        Group {
-            if viewModel.projects.isEmpty {
-                emptyView
-            } else {
-                projectList
+        VStack(spacing: 0) {
+            // Project group tabs
+            ProjectGroupTabBar(
+                selectedGroupID: $viewModel.selectedGroupID,
+                groups: viewModel.groups,
+                onCreateGroup: {
+                    editingGroup = nil
+                    showingGroupEditor = true
+                },
+                onEditGroup: { group in
+                    editingGroup = group
+                    showingGroupEditor = true
+                },
+                onDeleteGroup: { group in
+                    viewModel.deleteGroup(id: group.id)
+                }
+            )
+
+            Divider()
+
+            // Project list or empty view
+            Group {
+                if viewModel.projects.isEmpty {
+                    emptyView
+                } else {
+                    projectList
+                }
             }
         }
         .navigationTitle("Projects")
+        .sheet(isPresented: $showingGroupEditor) {
+            ProjectGroupEditorSheet(
+                isPresented: $showingGroupEditor,
+                allProjects: allProjects,
+                existingGroup: editingGroup,
+                onSave: { name, projectIDs in
+                    if let existingGroup = editingGroup {
+                        var updatedGroup = existingGroup
+                        updatedGroup.name = name
+                        updatedGroup.projectIDs = projectIDs
+                        viewModel.updateGroup(updatedGroup)
+                    } else {
+                        viewModel.createGroup(name: name, projectIDs: projectIDs)
+                    }
+                },
+                onDelete: editingGroup != nil ? {
+                    if let group = editingGroup {
+                        viewModel.deleteGroup(id: group.id)
+                    }
+                } : nil
+            )
+        }
     }
 
     // MARK: Private
 
     @State private var viewModel: ProjectListViewModel
     @State private var showingCreateWizard = false
+    @State private var showingGroupEditor = false
+    @State private var editingGroup: ProjectGroup?
     @Environment(\.ndk) private var ndk
     @Environment(DataStore.self) private var dataStore: DataStore?
+
+    private var allProjects: [Project] {
+        dataStore?.projects.filter { project in
+            !UserDefaultsArchiveStorage().archivedProjectIDs().contains(project.id)
+        } ?? []
+    }
+
+    private var emptyStateTitle: String {
+        viewModel.selectedGroupID != nil ? "No Projects in This Group" : "No Projects"
+    }
+
+    private var emptyStateMessage: String {
+        viewModel.selectedGroupID != nil
+            ? "This group doesn't have any projects yet"
+            : "You don't have any projects yet"
+    }
 
     private var projectList: some View {
         List {
@@ -81,11 +143,11 @@ public struct ProjectListView: View {
                 .font(.system(size: 60))
                 .foregroundStyle(.blue)
 
-            Text("No Projects")
+            Text(emptyStateTitle)
                 .font(.title)
                 .fontWeight(.semibold)
 
-            Text("You don't have any projects yet")
+            Text(emptyStateMessage)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
