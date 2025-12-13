@@ -69,7 +69,7 @@ public struct ProjectListView: View {
             }
         }
         .sheet(isPresented: $showingCreateWizard) {
-            if let dataStore {
+            if let ndk, let dataStore {
                 CreateProjectWizardView(ndk: ndk, dataStore: dataStore)
             }
         }
@@ -96,7 +96,7 @@ public struct ProjectListView: View {
             .padding(.top)
         }
         .sheet(isPresented: $showingCreateWizard) {
-            if let dataStore {
+            if let ndk, let dataStore {
                 CreateProjectWizardView(ndk: ndk, dataStore: dataStore)
             }
         }
