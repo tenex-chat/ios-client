@@ -50,12 +50,28 @@ public struct ProjectDetailView: View {
                 Label("Feed", systemImage: "list.bullet")
             }
         }
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showingSettings = true
+                } label: {
+                    Label("Settings", systemImage: "gear")
+                }
+            }
+        }
+        .sheet(isPresented: $showingSettings) {
+            ProjectSettingsView(project: project)
+        }
     }
 
     // MARK: Private
 
     @Environment(\.ndk) private var ndk
     @Environment(AuthManager.self) private var authManager
+    @State private var showingSettings = false
 
     private let project: Project
 
