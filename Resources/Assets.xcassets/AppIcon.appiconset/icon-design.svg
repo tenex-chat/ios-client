@@ -1,0 +1,46 @@
+<!-- TENEX App Icon - Modern Geometric Design -->
+<!-- This SVG should be exported at 1024x1024 and then scaled down for other sizes -->
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Primary gradient: Teal to blue (matches accent color) -->
+    <linearGradient id="primaryGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3C82E0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2D6BC7;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- Secondary gradient: Lighter teal accent -->
+    <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#5FA3F5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3C82E0;stop-opacity:1" />
+    </linearGradient>
+
+    <!-- Background gradient -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1A4D8F;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0F2D5C;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background with rounded corners (iOS style) -->
+  <rect width="1024" height="1024" rx="226" ry="226" fill="url(#bgGradient)"/>
+
+  <!-- Geometric "T" lettermark with layered structure -->
+  <!-- Bottom layer: Foundation block representing stability -->
+  <rect x="256" y="688" width="512" height="80" rx="12" ry="12" fill="url(#primaryGradient)" opacity="0.8"/>
+
+  <!-- Middle layer: Horizontal bar of "T" -->
+  <rect x="192" y="256" width="640" height="96" rx="16" ry="16" fill="url(#primaryGradient)"/>
+
+  <!-- Top accent: Small detail on horizontal bar -->
+  <rect x="832" y="256" width="12" height="96" rx="6" ry="6" fill="url(#accentGradient)" opacity="0.6"/>
+
+  <!-- Vertical bar of "T" -->
+  <rect x="448" y="256" width="128" height="432" rx="16" ry="16" fill="url(#accentGradient)"/>
+
+  <!-- Accent details: Nodes representing connections/collaboration -->
+  <circle cx="512" cy="480" r="24" fill="#FFFFFF" opacity="0.3"/>
+  <circle cx="512" cy="560" r="20" fill="#FFFFFF" opacity="0.25"/>
+
+  <!-- Bottom connection element: Subtle detail -->
+  <rect x="480" y="640" width="64" height="48" rx="8" ry="8" fill="url(#accentGradient)" opacity="0.7"/>
+</svg>

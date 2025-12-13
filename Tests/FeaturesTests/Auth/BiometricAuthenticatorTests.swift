@@ -59,15 +59,15 @@ struct BiometricAuthenticatorTests {
         #expect(result == true)
     }
 
-    @Test("BiometricAuthenticator fails authentication when denied")
+    @Test("BiometricAuthenticator throws when authentication denied")
     @MainActor
-    func failsAuthenticationWhenDenied() async throws {
+    func throwsWhenAuthenticationDenied() async {
         let mockContext = MockBiometricContext(canEvaluate: true, shouldSucceed: false)
         let authenticator = BiometricAuthenticator(context: mockContext)
 
-        let result = try await authenticator.authenticate(reason: "Test authentication")
-
-        #expect(result == false)
+        await #expect(throws: BiometricError.failed) {
+            _ = try await authenticator.authenticate(reason: "Test authentication")
+        }
     }
 
     @Test("BiometricAuthenticator throws when not available")
@@ -89,7 +89,7 @@ struct BiometricAuthenticatorTests {
 final class MockBiometricContext: BiometricContext {
     // MARK: Lifecycle
 
-    init(canEvaluate: Bool, biometricType: BiometricType = .none, shouldSucceed: Bool = true) {
+    init(canEvaluate: Bool, biometricType: BiometricType = .unavailable, shouldSucceed: Bool = true) {
         self.canEvaluate = canEvaluate
         self.biometricType = biometricType
         self.shouldSucceed = shouldSucceed
@@ -109,7 +109,10 @@ final class MockBiometricContext: BiometricContext {
         guard canEvaluate else {
             throw BiometricError.notAvailable
         }
-        return shouldSucceed
+        guard shouldSucceed else {
+            throw BiometricError.failed
+        }
+        return true
     }
 
     func getBiometricType() -> BiometricType {

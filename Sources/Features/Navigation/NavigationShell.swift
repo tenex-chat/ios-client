@@ -28,11 +28,17 @@ public struct NavigationShell: View {
                 .toolbar {
                     #if os(iOS)
                         ToolbarItem(placement: .topBarTrailing) {
-                            signOutButton
+                            HStack(spacing: 16) {
+                                settingsButton
+                                signOutButton
+                            }
                         }
                     #else
                         ToolbarItem(placement: .primaryAction) {
-                            signOutButton
+                            HStack(spacing: 16) {
+                                settingsButton
+                                signOutButton
+                            }
                         }
                     #endif
                 }
@@ -68,6 +74,14 @@ public struct NavigationShell: View {
         }
         .task {
             await loadProjects()
+        }
+    }
+
+    // MARK: - Settings
+
+    private var settingsButton: some View {
+        NavigationLink(value: AppRoute.settings) {
+            Label("Settings", systemImage: "gearshape")
         }
     }
 
@@ -128,6 +142,13 @@ public struct NavigationShell: View {
 
         case let .thread(projectID, threadID):
             ThreadDetailPlaceholder(projectID: projectID, threadID: threadID)
+
+        case .settings:
+            if let ndk {
+                SettingsView(ndk: ndk)
+            } else {
+                Text("Loading...")
+            }
         }
     }
 

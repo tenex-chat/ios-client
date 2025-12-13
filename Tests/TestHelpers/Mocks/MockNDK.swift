@@ -5,17 +5,18 @@
 //
 
 import Foundation
-@preconcurrency import NDKSwift
+import NDKSwiftCoreCore
 @testable import TENEXFeatures
 
-/// Mock NDK for testing subscriptions
+/// Mock NDK for testing subscriptions and publishing
 @MainActor
-public final class MockNDK: NDKSubscribing, @unchecked Sendable {
+public final class MockNDK: NDKSubscribing, NDKPublishing, @unchecked Sendable {
     // MARK: Lifecycle
 
     /// Initialize a new mock NDK instance
     public init() {
         mockEvents = []
+        publishedEvents = []
     }
 
     // MARK: Public
@@ -26,13 +27,23 @@ public final class MockNDK: NDKSubscribing, @unchecked Sendable {
         case genericError
         case connectionFailed
         case subscriptionFailed
+        case publishFailed
     }
 
     /// Events to return from subscriptions
     public var mockEvents: [NDKEvent] = []
 
+    /// Events that have been published
+    public var publishedEvents: [NDKEvent] = []
+
     /// Whether subscriptions should throw an error
     public var shouldThrowError = false
+
+    /// Whether publishing should fail
+    public var publishShouldFail = false
+
+    /// Delay before publish completes (for testing async behavior)
+    public var publishDelay: TimeInterval = 0
 
     /// Error to throw if shouldThrowError is true
     public var errorToThrow: Error = MockError.genericError
@@ -52,5 +63,23 @@ public final class MockNDK: NDKSubscribing, @unchecked Sendable {
                 continuation.finish()
             }
         }
+    }
+
+    /// Publish an event
+    public func publish(_ event: NDKEvent) async throws {
+        if publishDelay > 0 {
+            try await Task.sleep(nanoseconds: UInt64(publishDelay * 1_000_000_000))
+        }
+
+        if publishShouldFail {
+            throw MockError.publishFailed
+        }
+
+        // Generate event ID if not present (simulate signing)
+        if event.id == nil || event.id?.isEmpty == true {
+            event.id = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
+        }
+
+        publishedEvents.append(event)
     }
 }

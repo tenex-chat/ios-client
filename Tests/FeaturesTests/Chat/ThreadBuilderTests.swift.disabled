@@ -1,0 +1,210 @@
+//
+// ThreadBuilderTests.swift
+// TENEX iOS Client
+// Copyright (c) 2025 TENEX Team
+//
+
+import Foundation
+@testable import TENEXCore
+import Testing
+
+// MARK: - ThreadBuilderTests
+
+/// Tests for thread tree construction
+struct ThreadBuilderTests {
+    // MARK: Internal
+
+    // MARK: - Tree Construction Tests
+
+    @Test("Build tree from flat message list")
+    func buildTreeFromFlatList() async throws {
+        // Given: A flat list of messages with parent-child relationships
+        let messages = [
+            createMessage(id: "1", replyTo: nil, createdAt: Date(timeIntervalSince1970: 1_000)),
+            createMessage(id: "2", replyTo: "1", createdAt: Date(timeIntervalSince1970: 2_000)),
+            createMessage(id: "3", replyTo: "1", createdAt: Date(timeIntervalSince1970: 3_000)),
+            createMessage(id: "4", replyTo: "2", createdAt: Date(timeIntervalSince1970: 4_000)),
+        ]
+
+        // When: Building the thread tree
+        let tree = ThreadBuilder.buildTree(from: messages)
+
+        // Then: Should have correct tree structure
+        #expect(tree.count == 1, "Should have 1 root message")
+        #expect(tree[0].message.id == "1", "Root should be message 1")
+        #expect(tree[0].replies.count == 2, "Message 1 should have 2 direct replies")
+        #expect(tree[0].replies[0].message.id == "2", "First reply should be message 2")
+        #expect(tree[0].replies[1].message.id == "3", "Second reply should be message 3")
+        #expect(tree[0].replies[0].replies.count == 1, "Message 2 should have 1 reply")
+        #expect(tree[0].replies[0].replies[0].message.id == "4", "Reply to message 2 should be message 4")
+    }
+
+    @Test("Build tree with multiple root messages")
+    func buildTreeWithMultipleRoots() async throws {
+        // Given: Multiple messages with no parent (multiple conversation threads)
+        let messages = [
+            createMessage(id: "1", replyTo: nil, createdAt: Date(timeIntervalSince1970: 1_000)),
+            createMessage(id: "2", replyTo: nil, createdAt: Date(timeIntervalSince1970: 2_000)),
+            createMessage(id: "3", replyTo: "1", createdAt: Date(timeIntervalSince1970: 3_000)),
+        ]
+
+        // When: Building the thread tree
+        let tree = ThreadBuilder.buildTree(from: messages)
+
+        // Then: Should have 2 root messages
+        #expect(tree.count == 2, "Should have 2 root messages")
+        #expect(tree[0].message.id == "1", "First root should be message 1")
+        #expect(tree[1].message.id == "2", "Second root should be message 2")
+        #expect(tree[0].replies.count == 1, "Message 1 should have 1 reply")
+        #expect(tree[1].replies.isEmpty, "Message 2 should have no replies")
+    }
+
+    @Test("Handle orphaned messages (parent not in list)")
+    func handleOrphanedMessages() async throws {
+        // Given: Messages with parent that doesn't exist in the list
+        let messages = [
+            createMessage(id: "1", replyTo: nil, createdAt: Date(timeIntervalSince1970: 1_000)),
+            createMessage(id: "2", replyTo: "999", createdAt: Date(timeIntervalSince1970: 2_000)), // Orphaned
+        ]
+
+        // When: Building the thread tree
+        let tree = ThreadBuilder.buildTree(from: messages)
+
+        // Then: Orphaned messages should be treated as roots
+        #expect(tree.count == 2, "Should have 2 root messages (including orphan)")
+        let ids = tree.map(\.message.id).sorted()
+        #expect(ids == ["1", "2"], "Both messages should be roots")
+    }
+
+    // MARK: - Depth Limiting Tests
+
+    @Test("Limit thread depth to 5 levels")
+    func depthLimiting() async throws {
+        // Given: A deep thread (7 levels)
+        let messages = [
+            createMessage(id: "1", replyTo: nil, createdAt: Date(timeIntervalSince1970: 1_000)),
+            createMessage(id: "2", replyTo: "1", createdAt: Date(timeIntervalSince1970: 2_000)),
+            createMessage(id: "3", replyTo: "2", createdAt: Date(timeIntervalSince1970: 3_000)),
+            createMessage(id: "4", replyTo: "3", createdAt: Date(timeIntervalSince1970: 4_000)),
+            createMessage(id: "5", replyTo: "4", createdAt: Date(timeIntervalSince1970: 5_000)),
+            createMessage(id: "6", replyTo: "5", createdAt: Date(timeIntervalSince1970: 6_000)),
+            createMessage(id: "7", replyTo: "6", createdAt: Date(timeIntervalSince1970: 7_000)),
+        ]
+
+        // When: Building the thread tree
+        let tree = ThreadBuilder.buildTree(from: messages)
+
+        // Then: Should be limited to 5 levels
+        let maxDepth = getMaxDepth(tree)
+        #expect(maxDepth == 5, "Max depth should be 5")
+
+        // Message 6 and 7 should be flattened at level 5
+        let level5Node = tree[0].replies[0].replies[0].replies[0].replies[0]
+        #expect(level5Node.replies.count == 2, "Level 5 should have 2 flattened replies")
+        let level5ReplyIDs = level5Node.replies.map(\.message.id).sorted()
+        #expect(level5ReplyIDs == ["6", "7"], "Messages 6 and 7 should be at level 5")
+    }
+
+    @Test("Flatten messages deeper than 5 levels")
+    func flattenDeepMessages() async throws {
+        // Given: Deep thread with multiple branches at depth
+        let messages = [
+            createMessage(id: "1", replyTo: nil, createdAt: Date(timeIntervalSince1970: 1_000)),
+            createMessage(id: "2", replyTo: "1", createdAt: Date(timeIntervalSince1970: 2_000)),
+            createMessage(id: "3", replyTo: "2", createdAt: Date(timeIntervalSince1970: 3_000)),
+            createMessage(id: "4", replyTo: "3", createdAt: Date(timeIntervalSince1970: 4_000)),
+            createMessage(id: "5", replyTo: "4", createdAt: Date(timeIntervalSince1970: 5_000)),
+            createMessage(id: "6", replyTo: "5", createdAt: Date(timeIntervalSince1970: 6_000)),
+            createMessage(id: "7", replyTo: "6", createdAt: Date(timeIntervalSince1970: 7_000)),
+            createMessage(id: "8", replyTo: "7", createdAt: Date(timeIntervalSince1970: 8_000)),
+        ]
+
+        // When: Building the thread tree
+        let tree = ThreadBuilder.buildTree(from: messages)
+
+        // Then: All messages beyond level 5 should be flattened
+        let level5Node = tree[0].replies[0].replies[0].replies[0].replies[0]
+        #expect(level5Node.replies.count == 3, "Level 5 should have 3 flattened replies (6, 7, 8)")
+        let level5ReplyIDs = level5Node.replies.map(\.message.id).sorted()
+        #expect(level5ReplyIDs == ["6", "7", "8"], "Messages 6, 7, 8 should all be at level 5")
+    }
+
+    // MARK: - Chronological Ordering Tests
+
+    @Test("Sort messages chronologically within each level")
+    func chronologicalOrdering() async throws {
+        // Given: Messages with mixed timestamps
+        let messages = [
+            createMessage(id: "1", replyTo: nil, createdAt: Date(timeIntervalSince1970: 1_000)),
+            createMessage(id: "2", replyTo: "1", createdAt: Date(timeIntervalSince1970: 3_000)),
+            createMessage(id: "3", replyTo: "1", createdAt: Date(timeIntervalSince1970: 2_000)),
+            createMessage(id: "4", replyTo: "1", createdAt: Date(timeIntervalSince1970: 4_000)),
+        ]
+
+        // When: Building the thread tree
+        let tree = ThreadBuilder.buildTree(from: messages)
+
+        // Then: Replies should be sorted by creation time (oldest first)
+        let replyIDs = tree[0].replies.map(\.message.id)
+        #expect(replyIDs == ["3", "2", "4"], "Replies should be in chronological order")
+    }
+
+    @Test("Sort root messages chronologically")
+    func chronologicalRootOrdering() async throws {
+        // Given: Multiple root messages with different timestamps
+        let messages = [
+            createMessage(id: "3", replyTo: nil, createdAt: Date(timeIntervalSince1970: 3_000)),
+            createMessage(id: "1", replyTo: nil, createdAt: Date(timeIntervalSince1970: 1_000)),
+            createMessage(id: "2", replyTo: nil, createdAt: Date(timeIntervalSince1970: 2_000)),
+        ]
+
+        // When: Building the thread tree
+        let tree = ThreadBuilder.buildTree(from: messages)
+
+        // Then: Roots should be sorted by creation time (oldest first)
+        let rootIDs = tree.map(\.message.id)
+        #expect(rootIDs == ["1", "2", "3"], "Roots should be in chronological order")
+    }
+
+    @Test("Empty message list returns empty tree")
+    func emptyMessageList() async throws {
+        // Given: Empty message list
+        let messages: [Message] = []
+
+        // When: Building the thread tree
+        let tree = ThreadBuilder.buildTree(from: messages)
+
+        // Then: Should return empty tree
+        #expect(tree.isEmpty, "Empty message list should produce empty tree")
+    }
+
+    // MARK: Private
+
+    // MARK: - Helper Methods
+
+    private func createMessage(id: String, replyTo: String?, createdAt: Date) -> Message {
+        Message(
+            id: id,
+            pubkey: "test-pubkey",
+            threadID: "test-thread",
+            content: "Test message",
+            createdAt: createdAt,
+            replyTo: replyTo
+        )
+    }
+
+    // TODO: Implement ThreadNode type
+    // private func getMaxDepth(_ tree: [ThreadNode]) -> Int {
+    //     guard !tree.isEmpty else {
+    //         return 0
+    //     }
+    //
+    //     let maxChildDepth = tree
+    //         .map { node in
+    //             node.replies.isEmpty ? 0 : getMaxDepth(node.replies)
+    //         }
+    //         .max() ?? 0
+    //
+    //     return 1 + maxChildDepth
+    // }
+}

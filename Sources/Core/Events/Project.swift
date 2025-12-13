@@ -5,7 +5,7 @@
 //
 
 import Foundation
-import NDKSwift
+import NDKSwiftCore
 import SwiftUI
 import TENEXShared
 
@@ -30,6 +30,12 @@ public struct Project: Identifiable, Sendable {
 
     /// Deterministic color based on project ID
     public let color: Color
+
+    /// The addressable event coordinate for this project (kind:pubkey:dTag)
+    /// Used for referencing this project in #a tags
+    public var coordinate: String {
+        "31933:\(pubkey):\(id)"
+    }
 
     /// Create a Project from a Nostr event
     /// - Parameter event: The NDKEvent (must be kind:31_933)

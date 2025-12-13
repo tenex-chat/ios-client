@@ -5,7 +5,7 @@
 //
 
 import Foundation
-@preconcurrency import NDKSwift
+import NDKSwiftCoreCore
 import Observation
 import TENEXCore
 
@@ -17,6 +17,16 @@ public protocol NDKSubscribing: Sendable {
     /// - Parameter filters: The filters to apply
     /// - Returns: An async throwing stream of events
     @MainActor func subscribeToEvents(filters: [NDKFilter]) -> AsyncThrowingStream<NDKEvent, Error>
+}
+
+// MARK: - NDKPublishing
+
+/// Protocol for objects that can publish Nostr events
+public protocol NDKPublishing: Sendable {
+    /// Publish a Nostr event
+    /// - Parameter event: The event to publish
+    /// - Throws: An error if publishing fails
+    func publish(_ event: NDKEvent) async throws
 }
 
 // MARK: - NDK + NDKSubscribing
@@ -41,6 +51,15 @@ extension NDK: NDKSubscribing {
                 task.cancel()
             }
         }
+    }
+}
+
+// MARK: - NDK + NDKPublishing
+
+/// Extend NDK to conform to the publishing protocol
+extension NDK: NDKPublishing {
+    public func publish(_ event: NDKEvent) async throws {
+        _ = try await (publish(event) as Set<NDKRelay>)
     }
 }
 
@@ -131,14 +150,14 @@ public final class ProjectListViewModel {
     /// Archive a project (hide from list)
     /// - Parameter id: The project ID to archive
     public func archiveProject(id: String) async {
-        archiveStorage.archive(projectId: id)
+        archiveStorage.archive(projectID: id)
         projects = filterArchivedProjects(from: allProjects)
     }
 
     /// Unarchive a project (restore to list)
     /// - Parameter id: The project ID to unarchive
     public func unarchiveProject(id: String) async {
-        archiveStorage.unarchive(projectId: id)
+        archiveStorage.unarchive(projectID: id)
         projects = filterArchivedProjects(from: allProjects)
     }
 
@@ -153,7 +172,7 @@ public final class ProjectListViewModel {
 
     /// Filter out archived projects
     private func filterArchivedProjects(from projects: [Project]) -> [Project] {
-        let archivedIds = archiveStorage.archivedProjectIds()
-        return projects.filter { !archivedIds.contains($0.id) }
+        let archivedIDs = archiveStorage.archivedProjectIDs()
+        return projects.filter { !archivedIDs.contains($0.id) }
     }
 }

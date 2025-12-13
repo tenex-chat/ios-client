@@ -29,6 +29,11 @@ public final class ThreadListViewModel {
         projectID = projectID
     }
 
+    deinit {
+        // Clean up subscription when view model is deallocated
+        subscriptionTask?.cancel()
+    }
+
     // MARK: Public
 
     /// The list of threads
@@ -63,13 +68,26 @@ public final class ThreadListViewModel {
 
     /// Refresh the thread list
     public func refresh() async {
+        // Cancel existing subscription
+        cancelSubscription()
+        // Clear seen events for fresh subscription
+        seenEventIDs.removeAll()
+        // Reload threads
         await loadThreads()
+    }
+
+    /// Cancel the active subscription
+    public func cancelSubscription() {
+        subscriptionTask?.cancel()
+        subscriptionTask = nil
     }
 
     // MARK: Private
 
     private let ndk: any NDKSubscribing
     private let projectID: String
+    private var subscriptionTask: Task<Void, Never>?
+    private var seenEventIDs: Set<String> = []
 
     // MARK: - Private Helpers
 
@@ -93,46 +111,68 @@ public final class ThreadListViewModel {
         var threadsByID: [String: NostrThread] = [:]
         var metadataByThreadID: [String: ConversationMetadata] = [:]
         var replyCountsByThreadID: [String: Int] = [:]
+        var needsUpdate = false
+
+        // Debounce timer for batched updates
+        var updateTask: Task<Void, Never>?
 
         for try await event in subscription {
+            // Deduplicate events by ID
+            guard !seenEventIDs.contains(event.id) else {
+                continue
+            }
+            seenEventIDs.insert(event.id)
+
             switch event.kind {
             case 11:
                 // Parse as Thread
                 if let thread = NostrThread.from(event: event) {
                     threadsByID[thread.id] = thread
-                    updateThreads(
-                        threadsByID: threadsByID,
-                        metadataByThreadID: metadataByThreadID,
-                        replyCountsByThreadID: replyCountsByThreadID
-                    )
+                    needsUpdate = true
                 }
 
             case 513:
                 // Parse as ConversationMetadata
                 if let metadata = ConversationMetadata.from(event: event) {
                     metadataByThreadID[metadata.threadID] = metadata
-                    updateThreads(
-                        threadsByID: threadsByID,
-                        metadataByThreadID: metadataByThreadID,
-                        replyCountsByThreadID: replyCountsByThreadID
-                    )
+                    needsUpdate = true
                 }
 
             case 1111: // swiftlint:disable:this number_separator
                 // Count replies with uppercase "E" tag
                 if let threadID = event.tags(withName: "E").first?[safe: 1] {
                     replyCountsByThreadID[threadID, default: 0] += 1
+                    needsUpdate = true
+                }
+
+            default:
+                break
+            }
+
+            // Debounced update: Only update UI once every 100ms
+            if needsUpdate {
+                updateTask?.cancel()
+                updateTask = Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(100))
+                    guard !Task.isCancelled else {
+                        return
+                    }
                     updateThreads(
                         threadsByID: threadsByID,
                         metadataByThreadID: metadataByThreadID,
                         replyCountsByThreadID: replyCountsByThreadID
                     )
                 }
-
-            default:
-                break
+                needsUpdate = false
             }
         }
+
+        // Final update when subscription completes
+        updateThreads(
+            threadsByID: threadsByID,
+            metadataByThreadID: metadataByThreadID,
+            replyCountsByThreadID: replyCountsByThreadID
+        )
     }
 
     /// Update the threads array by merging data from kind:11, kind:513, and kind:1111

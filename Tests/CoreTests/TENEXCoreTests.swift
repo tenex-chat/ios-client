@@ -11,6 +11,6 @@ import Testing
 struct TENEXCoreTests {
     @Test("Module version is defined")
     func moduleVersionIsDefined() {
-        #expect(TENEXCore.version == "0.1.0")
+        #expect(Core.version == "0.1.0")
     }
 }

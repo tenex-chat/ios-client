@@ -5,7 +5,7 @@
 //
 
 import Foundation
-import NDKSwift
+import NDKSwiftCore
 import SwiftUI
 @testable import TENEXCore
 @testable import TENEXShared

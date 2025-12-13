@@ -4,7 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
-import NDKSwift
+import NDKSwiftCore
 import Testing
 
 @Suite("NDK Integration Tests")
@@ -12,7 +12,7 @@ struct NDKIntegrationTests {
     @Test("NDK connects to relay")
     func ndkConnectsToRelay() async throws {
         // Initialize NDK with relay
-        let ndk = NDK(relayURLs: ["wss://relay.damus.io"])
+        let ndk = NDK(relayURLs: ["wss://tenex.chat"])
 
         // Track connection state
         var connected = false

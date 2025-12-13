@@ -7,10 +7,8 @@ import ProjectDescription
 let packageSettings = PackageSettings(
     productTypes: [
         // Use dynamic frameworks for proper module visibility across dependencies
-        "NDKSwift": .framework,
-        "P256K": .framework,
-        "libsecp256k1": .framework,
-        "CryptoSwift": .framework,
+        "NDKSwiftCore": .framework,
+        "NDKSwiftNostrDB": .framework,
     ]
 )
 #endif
@@ -21,8 +19,6 @@ let packageSettings = PackageSettings(
 let package = Package(
     name: "TENEXDependencies",
     dependencies: [
-        .package(url: "https://github.com/pablof7z/NDKSwift", from: "0.1.0"),
-        // Explicit secp256k1 dependency to ensure proper linking
-        .package(url: "https://github.com/GigaBitcoin/secp256k1.swift.git", from: "0.21.0"),
+        .package(path: "/Users/pablofernandez/10x/NDKSwift-z94ws0/master"),
     ]
 )

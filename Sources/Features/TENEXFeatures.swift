@@ -5,7 +5,7 @@
 //
 
 import Foundation
-@preconcurrency import NDKSwift
+import NDKSwiftCoreCore
 import SwiftUI
 import TENEXCore
 import TENEXShared

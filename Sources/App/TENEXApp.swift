@@ -4,7 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
-import NDKSwift
+import NDKSwiftCore
 import SwiftUI
 import TENEXFeatures
 
@@ -38,9 +38,7 @@ struct TENEXApp: App {
     @State private var authManager = AuthManager()
     @State private var ndk = NDK(
         relayURLs: [
-            "wss://relay.damus.io",
-            "wss://nos.lol",
-            "wss://relay.nostr.band",
+            "wss://tenex.chat",
         ]
     )
 }

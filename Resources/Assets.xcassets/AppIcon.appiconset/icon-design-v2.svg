@@ -1,0 +1,37 @@
+<!-- TENEX App Icon - Clean Modern Design v2 -->
+<!-- Optimized for ImageMagick rendering with solid colors -->
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background gradient -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1A4D8F;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0F2D5C;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background with rounded corners (iOS style) -->
+  <rect width="1024" height="1024" rx="226" ry="226" fill="url(#bgGradient)"/>
+
+  <!-- Inner background for depth -->
+  <rect x="96" y="96" width="832" height="832" rx="160" ry="160" fill="#0F2A52" opacity="0.6"/>
+
+  <!-- Clean geometric "T" with solid vibrant colors -->
+  <!-- Horizontal bar - bright blue -->
+  <rect x="224" y="288" width="576" height="128" rx="24" ry="24" fill="#4A9FF5"/>
+
+  <!-- Add depth with darker overlay on one side -->
+  <rect x="224" y="288" width="288" height="128" rx="24" ry="24" fill="#3C82E0" opacity="0.8"/>
+
+  <!-- Vertical bar - bright blue -->
+  <rect x="448" y="288" width="128" height="512" rx="24" ry="24" fill="#4A9FF5"/>
+
+  <!-- Add depth with darker overlay on one side -->
+  <rect x="448" y="288" width="64" height="512" rx="24" ry="24" fill="#3C82E0" opacity="0.8"/>
+
+  <!-- Subtle glow for depth -->
+  <ellipse cx="512" cy="512" rx="280" ry="320" fill="#FFFFFF" opacity="0.08"/>
+
+  <!-- Small accent mark bottom right (representing AI/connection) -->
+  <circle cx="720" cy="720" r="40" fill="#5FA3F5" opacity="0.7"/>
+  <circle cx="720" cy="720" r="20" fill="#FFFFFF" opacity="0.9"/>
+</svg>

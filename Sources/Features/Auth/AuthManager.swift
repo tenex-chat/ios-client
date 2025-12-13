@@ -5,7 +5,7 @@
 //
 
 import Foundation
-@preconcurrency import NDKSwift
+import NDKSwiftCoreCore
 import Observation
 
 // MARK: - AuthUser
@@ -36,9 +36,18 @@ public final class AuthManager {
     // MARK: - Initialization
 
     /// Initialize the auth manager with secure storage
-    /// - Parameter storage: Secure storage instance for credential persistence (defaults to KeychainStorage)
-    public init(storage: SecureStorage = KeychainStorage()) {
+    /// - Parameters:
+    ///   - storage: Secure storage instance for credential persistence (defaults to KeychainStorage)
+    ///   - biometricAuthenticator: Biometric authenticator instance (defaults to BiometricAuthenticator)
+    public init(
+        storage: SecureStorage = KeychainStorage(),
+        biometricAuthenticator: BiometricAuthenticator = BiometricAuthenticator()
+    ) {
         self.storage = storage
+        self.biometricAuthenticator = biometricAuthenticator
+
+        // Restore biometric preference from storage
+        isBiometricEnabled = (try? storage.retrieve(for: StorageKey.biometricEnabled)) == "true"
     }
 
     // MARK: Public
@@ -51,6 +60,9 @@ public final class AuthManager {
 
     /// The signer for the authenticated user
     public private(set) var signer: NDKPrivateKeySigner?
+
+    /// Whether biometric authentication is enabled for this user
+    public private(set) var isBiometricEnabled = false
 
     // MARK: - Sign In
 
@@ -85,17 +97,19 @@ public final class AuthManager {
         try storage.delete(for: StorageKey.nsec)
         try storage.delete(for: StorageKey.pubkey)
         try storage.delete(for: StorageKey.npub)
+        try storage.delete(for: StorageKey.biometricEnabled)
 
         // Clear state
         signer = nil
         currentUser = nil
         isAuthenticated = false
+        isBiometricEnabled = false
     }
 
     // MARK: - Session Restoration
 
     /// Restore session from stored credentials
-    /// - Throws: Error if restoration fails
+    /// - Throws: Error if restoration fails or biometric authentication fails
     public func restoreSession() async throws {
         // Try to retrieve stored credentials
         guard let storedNsec = try storage.retrieve(for: StorageKey.nsec),
@@ -106,7 +120,17 @@ public final class AuthManager {
             isAuthenticated = false
             currentUser = nil
             signer = nil
+            isBiometricEnabled = false
             return
+        }
+
+        // Check if biometric authentication is enabled
+        let biometricEnabled = (try? storage.retrieve(for: StorageKey.biometricEnabled)) == "true"
+        isBiometricEnabled = biometricEnabled
+
+        // If biometric is enabled, require authentication
+        if biometricEnabled {
+            _ = try await biometricAuthenticator.authenticate(reason: "Authenticate to restore your session")
         }
 
         // Create signer from stored nsec
@@ -132,6 +156,37 @@ public final class AuthManager {
         }
     }
 
+    // MARK: - Biometric Authentication
+
+    /// Enable biometric authentication for this session
+    /// - Throws: Error if not authenticated or biometric setup fails
+    public func enableBiometric() async throws {
+        // Ensure user is authenticated
+        guard isAuthenticated else {
+            throw AuthError.notAuthenticated
+        }
+
+        // Verify biometric is available
+        guard biometricAuthenticator.isBiometricAvailable else {
+            throw BiometricError.notAvailable
+        }
+
+        // Authenticate to confirm user consent
+        _ = try await biometricAuthenticator.authenticate(reason: "Enable biometric authentication")
+
+        // Store preference
+        try storage.save("true", for: StorageKey.biometricEnabled)
+        isBiometricEnabled = true
+    }
+
+    /// Disable biometric authentication
+    /// - Throws: Error if storage operations fail
+    public func disableBiometric() async throws {
+        // Clear preference
+        try storage.delete(for: StorageKey.biometricEnabled)
+        isBiometricEnabled = false
+    }
+
     // MARK: Private
 
     // MARK: - Keys
@@ -140,8 +195,28 @@ public final class AuthManager {
         static let nsec = "nsec"
         static let pubkey = "pubkey"
         static let npub = "npub"
+        static let biometricEnabled = "biometric_enabled"
     }
 
     /// Secure storage for credentials
     private let storage: SecureStorage
+
+    /// Biometric authenticator
+    private let biometricAuthenticator: BiometricAuthenticator
+}
+
+// MARK: - AuthError
+
+/// Authentication errors
+public enum AuthError: Error, LocalizedError {
+    case notAuthenticated
+
+    // MARK: Public
+
+    public var errorDescription: String? {
+        switch self {
+        case .notAuthenticated:
+            "User is not authenticated"
+        }
+    }
 }
