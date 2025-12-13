@@ -5,8 +5,8 @@
 //
 
 import Foundation
-import NDKSwiftCoreCore
-@testable import TENEXFeatures
+import NDKSwiftCore
+@testable import TENEXCore
 
 /// Mock NDK for testing subscriptions and publishing
 @MainActor
@@ -17,6 +17,8 @@ public final class MockNDK: NDKSubscribing, NDKPublishing, @unchecked Sendable {
     public init() {
         mockEvents = []
         publishedEvents = []
+        // Create a minimal NDK instance just for building events
+        helperNDK = NDK(relayURLs: [])
     }
 
     // MARK: Public
@@ -65,8 +67,12 @@ public final class MockNDK: NDKSubscribing, NDKPublishing, @unchecked Sendable {
         }
     }
 
-    /// Publish an event
-    public func publish(_ event: NDKEvent) async throws {
+    /// Publish an event using the builder pattern
+    /// Note: For testing, we create a simplified event since NDKEventBuilder.build() requires a signer
+    @discardableResult
+    public func publish(
+        _ builder: @Sendable (NDKEventBuilder) -> NDKEventBuilder
+    ) async throws -> (event: NDKEvent, relays: Set<NDKRelay>) {
         if publishDelay > 0 {
             try await Task.sleep(nanoseconds: UInt64(publishDelay * 1_000_000_000))
         }
@@ -75,11 +81,66 @@ public final class MockNDK: NDKSubscribing, NDKPublishing, @unchecked Sendable {
             throw MockError.publishFailed
         }
 
-        // Generate event ID if not present (simulate signing)
-        if event.id == nil || event.id?.isEmpty == true {
-            event.id = UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
-        }
+        // Create event from builder - extract tags and content via the builder's public properties
+        let eventBuilder = builder(NDKEventBuilder(ndk: helperNDK))
+
+        // Create a mock event directly (since builder.build() requires a signer)
+        let event = NDKEvent(
+            kind: eventBuilder.kind,
+            content: eventBuilder.content,
+            tags: eventBuilder.tags,
+            pubkey: "test-user",
+            createdAt: Timestamp(Date().timeIntervalSince1970)
+        )
 
         publishedEvents.append(event)
+
+        return (event: event, relays: [])
     }
+
+    /// Publish a reply to an event
+    /// Note: For testing, we create a simplified reply event
+    @discardableResult
+    public func publishReply(
+        to parentEvent: NDKEvent,
+        configure: @Sendable (NDKEventBuilder) -> NDKEventBuilder
+    ) async throws -> (event: NDKEvent, relays: Set<NDKRelay>) {
+        if publishDelay > 0 {
+            try await Task.sleep(nanoseconds: UInt64(publishDelay * 1_000_000_000))
+        }
+
+        if publishShouldFail {
+            throw MockError.publishFailed
+        }
+
+        // Create reply builder (simulate NDKEventBuilder.reply behavior)
+        let replyBuilder = NDKEventBuilder(ndk: helperNDK)
+            .kind(1111) // Generic reply
+
+        // Add reference to parent event
+        _ = replyBuilder.tag(["e", parentEvent.id])
+        _ = replyBuilder.tag(["k", String(parentEvent.kind)])
+        _ = replyBuilder.tag(["p", parentEvent.pubkey])
+
+        // Apply user configuration
+        let configuredBuilder = configure(replyBuilder)
+
+        // Create the reply event directly (since builder.build() requires a signer)
+        let replyEvent = NDKEvent(
+            kind: configuredBuilder.kind,
+            content: configuredBuilder.content,
+            tags: configuredBuilder.tags,
+            pubkey: "test-user",
+            createdAt: Timestamp(Date().timeIntervalSince1970)
+        )
+
+        publishedEvents.append(replyEvent)
+
+        return (event: replyEvent, relays: [])
+    }
+
+    // MARK: Private
+
+    /// Helper NDK used for creating event builders
+    private let helperNDK: NDK
 }
