@@ -51,29 +51,25 @@ public struct NavigationShell: View {
     // MARK: Private
 
     @Environment(AuthManager.self) private var authManager
+    @Environment(DataStore.self) private var dataStore
     @Environment(\.ndk) private var ndk
     @State private var router = NavigationRouter()
     @State private var showingSignOutConfirmation = false
     @State private var isSigningOut = false
-    @State private var projects: [Project] = []
 
     // MARK: - Root View
 
     private var rootView: some View {
         Group {
-            if let ndk, let userPubkey = authManager.currentUser?.pubkey {
+            if let dataStore {
                 ProjectListView(
                     viewModel: ProjectListViewModel(
-                        ndk: ndk,
-                        userPubkey: userPubkey
+                        dataStore: dataStore
                     )
                 )
             } else {
                 Text("Loading...")
             }
-        }
-        .task {
-            await loadProjects()
         }
     }
 
@@ -84,11 +80,11 @@ public struct NavigationShell: View {
             NavigationLink(value: AppRoute.settings) {
                 Label("Settings", systemImage: "gearshape")
             }
-            if let ndk {
-                NavigationLink(destination: AgentListView(ndk: ndk)) {
+            if let dataStore {
+                NavigationLink(destination: AgentListView(viewModel: AgentListViewModel(dataStore: dataStore))) {
                     Label("Agents", systemImage: "person.2")
                 }
-                NavigationLink(destination: MCPToolListView(ndk: ndk)) {
+                NavigationLink(destination: MCPToolListView(viewModel: MCPToolListViewModel(dataStore: dataStore))) {
                     Label("MCP Tools", systemImage: "hammer")
                 }
             }
@@ -131,11 +127,10 @@ public struct NavigationShell: View {
     private func destinationView(for route: AppRoute) -> some View {
         switch route {
         case .projectList:
-            if let ndk, let userPubkey = authManager.currentUser?.pubkey {
+            if let dataStore {
                 ProjectListView(
                     viewModel: ProjectListViewModel(
-                        ndk: ndk,
-                        userPubkey: userPubkey
+                        dataStore: dataStore
                     )
                 )
             } else {
@@ -143,7 +138,7 @@ public struct NavigationShell: View {
             }
 
         case let .project(id):
-            if let project = projects.first(where: { $0.id == id }) {
+            if let project = dataStore?.projects.first(where: { $0.id == id }) {
                 ProjectDetailView(project: project)
             } else {
                 ProjectDetailPlaceholder(projectID: id)
@@ -177,38 +172,7 @@ public struct NavigationShell: View {
         }
     }
 
-    // MARK: - Project Loading
-
-    private func loadProjects() async {
-        guard let ndk, let userPubkey = authManager.currentUser?.pubkey else {
-            return
-        }
-
-        do {
-            let filter = Project.filter(for: userPubkey)
-            let subscription = ndk.subscribeToEvents(filters: [filter])
-
-            var projectsByID: [String: Project] = [:]
-            var projectOrder: [String] = []
-
-            for try await event in subscription {
-                if let project = Project.from(event: event) {
-                    // Update projects map (handles replaceable events)
-                    if projectsByID[project.id] == nil {
-                        projectOrder.append(project.id)
-                    }
-                    projectsByID[project.id] = project
-
-                    // Update UI immediately as events arrive (maintaining order)
-                    projects = projectOrder.compactMap { projectsByID[$0] }
-                }
-            }
-
-            // Subscription finished (after EOSE)
-        } catch {
-            Logger().error("Failed to load projects: \(error.localizedDescription)")
-        }
-    }
+    // MARK: - Sign Out
 
     private func performSignOut() async {
         isSigningOut = true

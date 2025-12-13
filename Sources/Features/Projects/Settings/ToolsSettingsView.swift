@@ -28,7 +28,6 @@ struct ToolsSettingsView: View {
         }
         .navigationTitle("Tools")
         .sheet(isPresented: $showingToolPicker, content: toolPickerSheet)
-        .task { await loadAvailableTools() }
         .alert(
             "Project Updated",
             isPresented: $showingSuccessAlert,
@@ -48,9 +47,8 @@ struct ToolsSettingsView: View {
     private static let logger = Logger(subsystem: "com.tenex.ios", category: "ToolsSettings")
 
     @Environment(\.ndk) private var ndk
+    @Environment(DataStore.self) private var dataStore
     @State private var showingToolPicker = false
-    @State private var availableTools: [MCPTool] = []
-    @State private var isLoadingTools = false
     @State private var showingSuccessAlert = false
 
     @Bindable private var viewModel: ProjectSettingsViewModel
@@ -104,11 +102,11 @@ struct ToolsSettingsView: View {
 
     private func toolPickerSheet() -> some View {
         Group {
-            if let ndk {
+            if let dataStore {
                 NavigationStack {
                     MCPToolPickerView(
                         selectedToolIDs: $viewModel.selectedToolIDs,
-                        availableTools: $availableTools
+                        availableTools: .constant(dataStore.tools)
                     )
                 }
             }
@@ -129,31 +127,5 @@ struct ToolsSettingsView: View {
 
     private func errorAlertMessage() -> some View {
         Text(viewModel.saveError ?? "")
-    }
-
-    private func loadAvailableTools() async {
-        guard let ndk, !isLoadingTools else {
-            return
-        }
-
-        isLoadingTools = true
-        defer { isLoadingTools = false }
-
-        do {
-            // MCP tools are defined as kind:31990 events
-            let filter = NDKFilter(kinds: [31_990], limit: 100)
-            let subscription = ndk.subscribeToEvents(filters: [filter])
-            var tools: [MCPTool] = []
-
-            for try await event in subscription {
-                if let tool = MCPTool.from(event: event) {
-                    tools.append(tool)
-                }
-            }
-
-            availableTools = tools
-        } catch {
-            Self.logger.error("Failed to load tools: \(error.localizedDescription)")
-        }
     }
 }
