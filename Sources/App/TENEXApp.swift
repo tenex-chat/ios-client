@@ -60,9 +60,8 @@ struct TENEXApp: App {
                 "wss://tenex.chat",
             ]
         )
-        // Disable outbox model to query all connected relays
+        // NOTE: outbox model is disabled by default
         // (outbox requires NIP-65 relay metadata which we don't have yet)
-        ndk.outboxEnabled = false
         return ndk
     }()
 

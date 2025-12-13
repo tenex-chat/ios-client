@@ -57,7 +57,10 @@ struct AddLLMConfigSheet: View {
             .toolbar {
                 toolbarContent
             }
-            .alert("Error", isPresented: $showingError) {
+            .alert("Error", isPresented: .init(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )) {
                 Button("OK") {
                     errorMessage = nil
                 }
@@ -78,10 +81,6 @@ struct AddLLMConfigSheet: View {
     private let settingsViewModel: AISettingsViewModel
     private let onDismiss: () -> Void
     private let isEditing: Bool
-
-    private var showingError: Bool {
-        errorMessage != nil
-    }
 
     @ToolbarContentBuilder private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .cancellationAction) {

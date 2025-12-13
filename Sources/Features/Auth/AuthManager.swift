@@ -7,6 +7,7 @@
 import Foundation
 import NDKSwiftCore
 import Observation
+import TENEXCore
 
 // MARK: - AuthUser
 

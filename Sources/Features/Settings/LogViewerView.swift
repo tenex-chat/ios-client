@@ -78,10 +78,10 @@ struct LogViewerView: View {
     @ToolbarContentBuilder private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
             Menu {
-                Button { toggleLogLevel() } label: {
-                    Label("Log Level: \(NDKLogger.logLevel.description)", systemImage: "slider.horizontal.3")
-                }
-                Divider()
+                // Button { toggleLogLevel() } label: {
+                //    Label("Log Level: \(NDKLogger.logLevel.description)", systemImage: "slider.horizontal.3")
+                // }
+                // Divider()
                 Button { copyLogs() } label: {
                     Label("Copy Logs", systemImage: "doc.on.doc")
                 }
@@ -280,18 +280,18 @@ struct LogViewerView: View {
         entries = await NDKLogBuffer.shared.getEntries()
     }
 
-    private func toggleLogLevel() {
-        switch NDKLogger.logLevel {
-        case .info:
-            NDKLogger.logLevel = .debug
-        case .debug:
-            NDKLogger.logLevel = .trace
-        case .trace:
-            NDKLogger.logLevel = .info
-        default:
-            NDKLogger.logLevel = .info
-        }
-    }
+    // private func toggleLogLevel() {
+    //     switch NDKLogger.logLevel {
+    //     case .info:
+    //         NDKLogger.logLevel = .debug
+    //     case .debug:
+    //         NDKLogger.logLevel = .trace
+    //     case .trace:
+    //         NDKLogger.logLevel = .info
+    //     default:
+    //         NDKLogger.logLevel = .info
+    //     }
+    // }
 
     private func copyLogs() {
         let logText = filteredEntries

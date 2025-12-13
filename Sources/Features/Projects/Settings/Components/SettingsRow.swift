@@ -8,43 +8,36 @@ import SwiftUI
 
 // MARK: - SettingsRow
 
-/// Reusable row component for settings list
+/// Reusable row component for settings navigation
 struct SettingsRow: View {
-    // MARK: Lifecycle
-
-    init(icon: String, title: String, subtitle: String, color: Color? = nil) {
-        self.icon = icon
-        self.title = title
-        self.subtitle = subtitle
-        self.color = color
-    }
-
-    // MARK: Internal
+    let icon: String
+    let title: String
+    let subtitle: String
+    let color: Color
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 20))
-                .foregroundStyle(color ?? .blue)
-                .frame(width: 28)
+            // Icon with colored background
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(color.gradient)
+                    .frame(width: 32, height: 32)
 
+                Image(systemName: icon)
+                    .foregroundStyle(.white)
+                    .font(.system(size: 16, weight: .semibold))
+            }
+
+            // Title and subtitle
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.body)
-                    .foregroundStyle(.primary)
 
                 Text(subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .lineLimit(2)
             }
         }
-        .padding(.vertical, 4)
     }
-
-    // MARK: Private
-
-    private let icon: String
-    private let title: String
-    private let subtitle: String
-    private let color: Color?
 }

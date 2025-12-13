@@ -52,11 +52,13 @@ struct NetworkTrafficView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Spacer()
-            Toggle("", isOn: Binding(
-                get: { NDKLogger.logNetworkTraffic },
-                set: { NDKLogger.logNetworkTraffic = $0 }
-            ))
-            .labelsHidden()
+            // Toggle("", isOn: Binding(
+            //     get: { NDKLogger.logNetworkTraffic },
+            //     set: { NDKLogger.logNetworkTraffic = $0 }
+            // ))
+            // .labelsHidden()
+            Text("Disabled")
+                .foregroundStyle(.secondary)
         }
         .padding(.horizontal)
         .padding(.vertical, 8)
@@ -146,15 +148,17 @@ struct NetworkTrafficView: View {
     }
 
     @ViewBuilder private var contentView: some View {
-        if !NDKLogger.logNetworkTraffic {
-            disabledView
-        } else if isLoading {
-            loadingView
-        } else if filteredMessages.isEmpty {
-            emptyView
-        } else {
-            messageList
-        }
+        // Network logging temporarily disabled due to API changes
+        disabledView
+        // if !NDKLogger.logNetworkTraffic {
+        //    disabledView
+        // } else if isLoading {
+        //    loadingView
+        // } else if filteredMessages.isEmpty {
+        //    emptyView
+        // } else {
+        //    messageList
+        // }
     }
 
     private var disabledView: some View {

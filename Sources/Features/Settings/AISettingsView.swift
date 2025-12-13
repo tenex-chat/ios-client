@@ -39,13 +39,16 @@ public struct AISettingsView: View {
         .sheet(isPresented: $showingVoiceSelection) {
             voiceSelectionSheet
         }
-        .alert("Error", isPresented: $showingError) {
+        .alert("Error", isPresented: .init(
+            get: { viewModel.saveError != nil || viewModel.loadError != nil },
+            set: { if !$0 { viewModel.saveError = nil; viewModel.loadError = nil } }
+        )) {
             Button("OK") {
                 viewModel.saveError = nil
                 viewModel.loadError = nil
             }
         } message: {
-            Text(errorMessage)
+            Text(viewModel.saveError ?? viewModel.loadError ?? "")
         }
     }
 
@@ -55,14 +58,6 @@ public struct AISettingsView: View {
     @State private var showingAddLLMConfig = false
     @State private var showingVoiceSelection = false
     @State private var editingConfig: LLMConfig?
-
-    private var showingError: Bool {
-        viewModel.saveError != nil || viewModel.loadError != nil
-    }
-
-    private var errorMessage: String {
-        viewModel.saveError ?? viewModel.loadError ?? ""
-    }
 
     @ToolbarContentBuilder private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .topBarTrailing) {

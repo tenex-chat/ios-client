@@ -300,12 +300,17 @@ private struct RelayDetailView: View {
                     Button("Done") { dismiss() }
                 }
             }
-            .sheet(item: $selectedSubscription) { subscription in
-                NavigationStack {
-                    SubscriptionDetailView(
-                        relay: relay,
-                        subscription: subscription
-                    )
+            .sheet(isPresented: .init(
+                get: { selectedSubscription != nil },
+                set: { if !$0 { selectedSubscription = nil } }
+            )) {
+                if let subscription = selectedSubscription {
+                    NavigationStack {
+                        SubscriptionDetailView(
+                            relay: relay,
+                            subscription: subscription
+                        )
+                    }
                 }
             }
     }

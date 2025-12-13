@@ -89,14 +89,14 @@ struct DeveloperToolsView: View {
 
     private var infoSection: some View {
         Section("Info") {
-            LabeledContent("NDK Log Level") {
-                Text(NDKLogger.logLevel.description)
-                    .foregroundStyle(.secondary)
-            }
-            LabeledContent("Network Logging") {
-                Text(isNetworkLoggingEnabled ? "Enabled" : "Disabled")
-                    .foregroundStyle(isNetworkLoggingEnabled ? .green : .secondary)
-            }
+//            LabeledContent("NDK Log Level") {
+//                Text(NDKLogger.logLevel.description)
+//                    .foregroundStyle(.secondary)
+//            }
+//            LabeledContent("Network Logging") {
+//                Text(isNetworkLoggingEnabled ? "Enabled" : "Disabled")
+//                    .foregroundStyle(isNetworkLoggingEnabled ? .green : .secondary)
+//            }
         }
     }
 
@@ -121,15 +121,15 @@ struct DeveloperToolsView: View {
             Button { Task { await refreshStats(ndk: ndk) } } label: {
                 Label("Refresh Stats", systemImage: "arrow.clockwise")
             }
-            Button { toggleLogLevel() } label: {
-                Label("Toggle Log Level (\(NDKLogger.logLevel.description))", systemImage: "slider.horizontal.3")
-            }
-            Button { toggleNetworkLogging() } label: {
-                Label(
-                    isNetworkLoggingEnabled ? "Disable Network Logging" : "Enable Network Logging",
-                    systemImage: isNetworkLoggingEnabled ? "wifi.slash" : "wifi"
-                )
-            }
+            // Button { toggleLogLevel() } label: {
+            //     Label("Toggle Log Level (\(NDKLogger.logLevel.description))", systemImage: "slider.horizontal.3")
+            // }
+            // Button { toggleNetworkLogging() } label: {
+            //     Label(
+            //         isNetworkLoggingEnabled ? "Disable Network Logging" : "Enable Network Logging",
+            //         systemImage: isNetworkLoggingEnabled ? "wifi.slash" : "wifi"
+            //     )
+            // }
             if let pubkey = signerPubkey {
                 Button { copyPubkey(pubkey) } label: {
                     Label("Copy Pubkey", systemImage: "doc.on.doc")
@@ -139,7 +139,7 @@ struct DeveloperToolsView: View {
     }
 
     private func initialLoad(ndk: NDK) async {
-        isNetworkLoggingEnabled = NDKLogger.logNetworkTraffic
+        // isNetworkLoggingEnabled = NDKLogger.logNetworkTraffic
         await refreshStats(ndk: ndk)
     }
 
@@ -165,23 +165,23 @@ struct DeveloperToolsView: View {
         isLoading = false
     }
 
-    private func toggleLogLevel() {
-        switch NDKLogger.logLevel {
-        case .info:
-            NDKLogger.logLevel = .debug
-        case .debug:
-            NDKLogger.logLevel = .trace
-        case .trace:
-            NDKLogger.logLevel = .info
-        default:
-            NDKLogger.logLevel = .info
-        }
-    }
+    // private func toggleLogLevel() {
+    //     switch NDKLogger.logLevel {
+    //     case .info:
+    //         NDKLogger.logLevel = .debug
+    //     case .debug:
+    //         NDKLogger.logLevel = .trace
+    //     case .trace:
+    //         NDKLogger.logLevel = .info
+    //     default:
+    //         NDKLogger.logLevel = .info
+    //     }
+    // }
 
-    private func toggleNetworkLogging() {
-        isNetworkLoggingEnabled.toggle()
-        NDKLogger.logNetworkTraffic = isNetworkLoggingEnabled
-    }
+    // private func toggleNetworkLogging() {
+    //     isNetworkLoggingEnabled.toggle()
+    //     NDKLogger.logNetworkTraffic = isNetworkLoggingEnabled
+    // }
 
     private func copyPubkey(_ pubkey: String) {
         #if os(iOS)

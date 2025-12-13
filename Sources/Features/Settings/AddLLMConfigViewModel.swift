@@ -41,7 +41,7 @@ public final class AddLLMConfigViewModel {
         name = config.name
         provider = config.provider
         model = config.model
-        apiKey = apiKey
+        self.apiKey = apiKey
         baseURL = config.baseURL ?? ""
         configID = config.id
     }
