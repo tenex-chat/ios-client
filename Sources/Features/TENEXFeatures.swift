@@ -16,6 +16,12 @@ private struct NDKEnvironmentKey: EnvironmentKey {
     static let defaultValue: NDK? = nil
 }
 
+// MARK: - AIConfigEnvironmentKey
+
+private struct AIConfigEnvironmentKey: EnvironmentKey {
+    static let defaultValue: AIConfig? = nil
+}
+
 public extension EnvironmentValues {
     /// The NDK instance for the current environment
     ///
@@ -26,6 +32,17 @@ public extension EnvironmentValues {
     var ndk: NDK? {
         get { self[NDKEnvironmentKey.self] }
         set { self[NDKEnvironmentKey.self] = newValue }
+    }
+
+    /// The AI configuration for the current environment
+    ///
+    /// Use this to access the shared AI configuration from the environment:
+    /// ```swift
+    /// @Environment(\.aiConfig) private var aiConfig
+    /// ```
+    var aiConfig: AIConfig? {
+        get { self[AIConfigEnvironmentKey.self] }
+        set { self[AIConfigEnvironmentKey.self] = newValue }
     }
 }
 
