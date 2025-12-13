@@ -5,6 +5,7 @@
 //
 
 import Foundation
+@testable import TENEXCore
 @testable import TENEXFeatures
 
 /// In-memory implementation of SecureStorage for testing
