@@ -12,6 +12,7 @@ import Testing
 
 @Suite("ThreadListViewModel Tests")
 @MainActor
+// swiftlint:disable:next type_body_length
 struct ThreadListViewModelTests {
     // MARK: Internal
 
@@ -268,6 +269,57 @@ struct ThreadListViewModelTests {
 
         #expect(viewModel.threads.count == 1)
         #expect(viewModel.threads[0].title == "Inline Title")
+    }
+
+    @Test("ThreadListViewModel uses newer metadata when timestamps differ")
+    func usesNewerMetadataByTimestamp() async throws {
+        let mockNDK = MockNDK()
+
+        // Create a kind:11 thread
+        let threadEvent = createMockThreadEvent(
+            threadID: "thread-timestamp-test",
+            projectID: "test-project",
+            pubkey: "test-pubkey",
+            title: "Original Title"
+        )
+
+        // Create older metadata (timestamp: now - 100 seconds)
+        let olderMetadata = NDKEvent(
+            pubkey: "test-pubkey",
+            createdAt: Timestamp(Date().timeIntervalSince1970 - 100),
+            kind: 513,
+            tags: [
+                ["e", "thread-timestamp-test"],
+                ["title", "Older Title"],
+                ["summary", "Older Summary"],
+            ],
+            content: ""
+        )
+
+        // Create newer metadata (timestamp: now)
+        let newerMetadata = NDKEvent(
+            pubkey: "test-pubkey",
+            createdAt: Timestamp(Date().timeIntervalSince1970),
+            kind: 513,
+            tags: [
+                ["e", "thread-timestamp-test"],
+                ["title", "Newer Title"],
+                ["summary", "Newer Summary"],
+            ],
+            content: ""
+        )
+
+        // Send events: thread, newer metadata, then older metadata (out of order)
+        mockNDK.mockEvents = [threadEvent, newerMetadata, olderMetadata]
+
+        let viewModel = ThreadListViewModel(ndk: mockNDK, projectID: "test-project")
+
+        await viewModel.loadThreads()
+
+        // Should use newer metadata, ignoring the older one
+        #expect(viewModel.threads.count == 1)
+        #expect(viewModel.threads[0].title == "Newer Title")
+        #expect(viewModel.threads[0].summary == "Newer Summary")
     }
 
     // MARK: - kind:1111 Reply Counting Tests

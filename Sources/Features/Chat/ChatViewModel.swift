@@ -178,7 +178,7 @@ public final class ChatViewModel {
         // Create the event
         let event = NDKEvent(
             pubkey: userPubkey,
-            kind: 1111,
+            kind: 1111, // swiftlint:disable:this number_separator
             tags: tags,
             content: trimmedText
         )

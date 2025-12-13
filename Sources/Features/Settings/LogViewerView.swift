@@ -258,9 +258,11 @@ struct LogViewerView: View {
     }
 
     private func copyLogs() {
-        let logText = filteredEntries.map { entry in
-            "[\(formatTimestamp(entry.timestamp))] [\(entry.level)] [\(entry.category.rawValue)] \(entry.message)"
-        }.joined(separator: "\n")
+        let logText = filteredEntries
+            .map { entry in
+                "[\(formatTimestamp(entry.timestamp))] [\(entry.level)] [\(entry.category.rawValue)] \(entry.message)"
+            }
+            .joined(separator: "\n")
         #if os(iOS)
             UIPasteboard.general.string = logText
         #else
@@ -333,10 +335,13 @@ private struct FilterChip: View {
     // MARK: Private
 
     private var backgroundColor: Color {
+        if isActive {
+            return color.opacity(0.2)
+        }
         #if os(iOS)
-            isActive ? color.opacity(0.2) : Color(.tertiarySystemGroupedBackground)
+            return Color(.tertiarySystemGroupedBackground)
         #else
-            isActive ? color.opacity(0.2) : Color(nsColor: .controlBackgroundColor)
+            return Color(nsColor: .controlBackgroundColor)
         #endif
     }
 }

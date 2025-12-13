@@ -259,10 +259,13 @@ private struct TrafficFilterChip: View {
     // MARK: Private
 
     private var backgroundColor: Color {
+        if isActive {
+            return color.opacity(0.2)
+        }
         #if os(iOS)
-            isActive ? color.opacity(0.2) : Color(.tertiarySystemGroupedBackground)
+            return Color(.tertiarySystemGroupedBackground)
         #else
-            isActive ? color.opacity(0.2) : Color(nsColor: .controlBackgroundColor)
+            return Color(nsColor: .controlBackgroundColor)
         #endif
     }
 }

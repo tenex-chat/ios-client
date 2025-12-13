@@ -151,6 +151,12 @@ public final class ThreadListViewModel {
 
         case 513:
             if let metadata = ConversationMetadata.from(event: event) {
+                // Only use metadata if it's newer than what we already have
+                if let existing = metadataByThreadID[metadata.threadID] {
+                    guard metadata.createdAt > existing.createdAt else {
+                        return
+                    }
+                }
                 metadataByThreadID[metadata.threadID] = metadata
             }
 

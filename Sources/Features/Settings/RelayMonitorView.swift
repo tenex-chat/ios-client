@@ -73,9 +73,9 @@ struct RelayMonitorView: View {
     }
 
     private var connectedCount: Int {
-        relayStates.values.count(where: { state in
+        relayStates.values.count { state in
             state.connectionState == .connected || state.connectionState == .authenticated
-        })
+        }
     }
 
     private var disconnectedCount: Int {

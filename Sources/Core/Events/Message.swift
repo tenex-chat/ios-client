@@ -68,7 +68,7 @@ public struct Message: Identifiable, Sendable {
     /// - Returns: A Message instance, or nil if the event is invalid
     public static func from(event: NDKEvent) -> Self? {
         // Verify correct kind
-        guard event.kind == 1111 else {
+        guard event.kind == 1111 // swiftlint:disable:this number_separator else {
             return nil
         }
 
@@ -103,7 +103,7 @@ public struct Message: Identifiable, Sendable {
     /// - Returns: An NDKFilter configured for kind:1111 events
     public static func filter(for threadID: String) -> NDKFilter {
         NDKFilter(
-            kinds: [1111],
+            kinds: [1111] // swiftlint:disable:this number_separator,
             tags: ["a": [threadID]]
         )
     }
