@@ -25,7 +25,7 @@ struct ProjectArchiveTests {
             archiveStorage: archiveStorage
         )
 
-        await viewModel.loadProjects()
+        // Subscription starts automatically in init
         #expect(viewModel.projects.isEmpty)
 
         // Archive a non-existent project (should not crash)
@@ -43,7 +43,7 @@ struct ProjectArchiveTests {
             archiveStorage: archiveStorage
         )
 
-        await viewModel.loadProjects()
+        // Subscription starts automatically
         await viewModel.archiveProject(id: "test-project")
 
         // Verify storage was updated
@@ -59,7 +59,7 @@ struct ProjectArchiveTests {
             archiveStorage: archiveStorage
         )
 
-        await viewModel.loadProjects()
+        // Subscription starts automatically
 
         // Archive then unarchive
         await viewModel.archiveProject(id: "test-project")

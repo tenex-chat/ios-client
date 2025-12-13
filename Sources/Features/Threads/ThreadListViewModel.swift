@@ -28,6 +28,11 @@ public final class ThreadListViewModel {
     public init(ndk: NDK, projectID: String) {
         self.ndk = ndk
         self.projectID = projectID
+
+        // Start continuous subscription in background
+        Task {
+            await subscribeAndProcessEvents()
+        }
     }
 
     // MARK: Public
@@ -38,97 +43,62 @@ public final class ThreadListViewModel {
     /// Map of thread ID to original NDKEvent (needed for ChatView navigation)
     public private(set) var threadEvents: [String: NDKEvent] = [:]
 
-    /// Whether threads are currently being loaded
-    public private(set) var isLoading = false
-
     /// The current error message, if any
     public private(set) var errorMessage: String?
-
-    /// Load threads from Nostr
-    public func loadThreads() async {
-        // Clear error
-        errorMessage = nil
-
-        // Start loading
-        isLoading = true
-
-        defer {
-            // Always stop loading when done
-            isLoading = false
-        }
-
-        do {
-            try await subscribeAndProcessEvents()
-        } catch {
-            // Set error message
-            errorMessage = "Failed to load threads. Please try again."
-        }
-    }
-
-    /// Refresh the thread list
-    public func refresh() async {
-        // Cancel existing subscription
-        cancelSubscription()
-        // Clear seen events for fresh subscription
-        seenEventIDs.removeAll()
-        // Reload threads
-        await loadThreads()
-    }
-
-    /// Cancel the active subscription
-    public func cancelSubscription() {
-        subscriptionTask?.cancel()
-        subscriptionTask = nil
-    }
 
     // MARK: Private
 
     private let ndk: NDK
     private let projectID: String
-    private var subscriptionTask: Task<Void, Never>?
     private var seenEventIDs: Set<String> = []
 
     // MARK: - Private Helpers
 
     /// Subscribe to thread events and process them as they arrive
-    private func subscribeAndProcessEvents() async throws {
-        NSLog("[ThreadListVM] ProjectID being queried: '\(projectID)'")
-        let filters = createSubscriptionFilters()
-        NSLog("[ThreadListVM] Starting subscription with filters: \(filters)")
-        let subscription = ndk.subscribeToEvents(filters: filters)
+    /// This runs continuously in the background
+    private func subscribeAndProcessEvents() async {
+        do {
+            NSLog("[ThreadListVM] ProjectID being queried: '\(projectID)'")
+            let filters = createSubscriptionFilters()
+            NSLog("[ThreadListVM] Starting subscription with filters: \(filters)")
+            let subscription = ndk.subscribeToEvents(filters: filters)
 
-        // State for building threads
-        var threadsByID: [String: NostrThread] = [:]
-        var threadEventsByID: [String: NDKEvent] = [:]
-        var metadataByThreadID: [String: ConversationMetadata] = [:]
-        var replyCountsByThreadID: [String: Int] = [:]
+            // State for building threads
+            var threadsByID: [String: NostrThread] = [:]
+            var threadEventsByID: [String: NDKEvent] = [:]
+            var metadataByThreadID: [String: ConversationMetadata] = [:]
+            var replyCountsByThreadID: [String: Int] = [:]
 
-        for try await event in subscription {
-            NSLog("[ThreadListVM] Received event: kind=\(event.kind) id=\(event.id)")
+            for try await event in subscription {
+                NSLog("[ThreadListVM] Received event: kind=\(event.kind) id=\(event.id)")
 
-            // Deduplicate events by ID
-            guard !seenEventIDs.contains(event.id) else {
-                NSLog("[ThreadListVM] Skipping duplicate event: \(event.id)")
-                continue
+                // Deduplicate events by ID
+                guard !seenEventIDs.contains(event.id) else {
+                    NSLog("[ThreadListVM] Skipping duplicate event: \(event.id)")
+                    continue
+                }
+                seenEventIDs.insert(event.id)
+
+                // Process event and update state
+                processEvent(
+                    event,
+                    threadsByID: &threadsByID,
+                    threadEventsByID: &threadEventsByID,
+                    metadataByThreadID: &metadataByThreadID,
+                    replyCountsByThreadID: &replyCountsByThreadID
+                )
+
+                // Update UI with current state
+                updateThreads(
+                    threadsByID: threadsByID,
+                    threadEventsByID: threadEventsByID,
+                    metadataByThreadID: metadataByThreadID,
+                    replyCountsByThreadID: replyCountsByThreadID
+                )
             }
-            seenEventIDs.insert(event.id)
-
-            // Process event and update state
-            processEvent(
-                event,
-                threadsByID: &threadsByID,
-                threadEventsByID: &threadEventsByID,
-                metadataByThreadID: &metadataByThreadID,
-                replyCountsByThreadID: &replyCountsByThreadID
-            )
-
-            // Update UI with current state
-            updateThreads(
-                threadsByID: threadsByID,
-                threadEventsByID: threadEventsByID,
-                metadataByThreadID: metadataByThreadID,
-                replyCountsByThreadID: replyCountsByThreadID
-            )
+        } catch {
+            // Set error message if subscription fails
+            errorMessage = "Failed to subscribe to threads."
         }
     }
 

@@ -23,6 +23,7 @@ public struct Message: Identifiable, Sendable {
     ///   - createdAt: When the message was created
     ///   - replyTo: Optional parent message ID
     ///   - status: The status of the message
+    ///   - isStreaming: Whether this is a synthetic streaming message
     public init(
         id: String,
         pubkey: String,
@@ -30,7 +31,8 @@ public struct Message: Identifiable, Sendable {
         content: String,
         createdAt: Date,
         replyTo: String?,
-        status: MessageStatus? = nil
+        status: MessageStatus? = nil,
+        isStreaming: Bool = false
     ) {
         self.id = id
         self.pubkey = pubkey
@@ -39,6 +41,7 @@ public struct Message: Identifiable, Sendable {
         self.createdAt = createdAt
         self.replyTo = replyTo
         self.status = status
+        self.isStreaming = isStreaming
     }
 
     // MARK: Public
@@ -64,16 +67,36 @@ public struct Message: Identifiable, Sendable {
     /// The status of the message (for optimistic UI updates)
     public let status: MessageStatus?
 
+    /// Whether this is a synthetic streaming message (content still being received)
+    public let isStreaming: Bool
+
     /// Create a Message from a Nostr event
-    /// - Parameter event: The NDKEvent (must be kind:1111)
+    /// - Parameter event: The NDKEvent (must be kind:11 or kind:1111)
     /// - Returns: A Message instance, or nil if the event is invalid
     public static func from(event: NDKEvent) -> Self? {
-        // Verify correct kind
+        // Handle kind:11 (thread event - the original post)
+        if event.kind == 11 {
+            // For kind:11, the thread ID is the event's own ID
+            // and there's no parent (replyTo is nil)
+            let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
+
+            return Self(
+                id: event.id,
+                pubkey: event.pubkey,
+                threadID: event.id,
+                content: event.content,
+                createdAt: createdAt,
+                replyTo: nil,
+                status: nil
+            )
+        }
+
+        // Handle kind:1111 (GenericReply - replies to the thread)
         guard event.kind == 1111 else {
             return nil
         }
 
-        // Extract thread ID from 'a' tag (required)
+        // Extract thread ID from 'a' tag (required for replies)
         guard let aTag = event.tags(withName: "a").first,
               aTag.count > 1,
               !aTag[1].isEmpty
@@ -100,12 +123,12 @@ public struct Message: Identifiable, Sendable {
     }
 
     /// Create a filter for fetching messages by thread
-    /// - Parameter threadId: The thread identifier
-    /// - Returns: An NDKFilter configured for kind:1111 events
+    /// - Parameter threadId: The thread identifier (conversation ID)
+    /// - Returns: An NDKFilter configured for kind:1111 events with 'e' tag
     public static func filter(for threadID: String) -> NDKFilter {
         NDKFilter(
             kinds: [1111],
-            tags: ["a": Set([threadID])]
+            tags: ["e": Set([threadID])]
         )
     }
 
@@ -120,7 +143,8 @@ public struct Message: Identifiable, Sendable {
             content: content,
             createdAt: createdAt,
             replyTo: replyTo,
-            status: status
+            status: status,
+            isStreaming: isStreaming
         )
     }
 
@@ -135,7 +159,8 @@ public struct Message: Identifiable, Sendable {
             content: content,
             createdAt: createdAt,
             replyTo: replyTo,
-            status: status
+            status: status,
+            isStreaming: isStreaming
         )
     }
 }

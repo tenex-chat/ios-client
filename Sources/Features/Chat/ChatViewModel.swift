@@ -33,120 +33,71 @@ public final class ChatViewModel {
         self.threadEvent = threadEvent
         self.projectReference = projectReference
         self.userPubkey = userPubkey
+
+        // Add the thread event (kind:11) as the first message
+        // Thread events are kind:11, not kind:1111, so we add them directly
+        if let threadMessage = Message.from(event: threadEvent) {
+            conversationState.addOptimisticMessage(threadMessage)
+        }
+
+        // Start continuous subscription in background
+        Task {
+            await subscribeToAllEvents()
+        }
     }
 
     // MARK: Public
 
-    /// The list of messages
-    public private(set) var messages: [Message] = []
-
-    /// Whether messages are currently being loaded
-    public private(set) var isLoading = false
+    /// The conversation state managing messages, streaming, and typing
+    public let conversationState = ConversationState()
 
     /// The current error message, if any
     public private(set) var errorMessage: String?
 
-    /// Accumulated streaming content by message ID
-    public private(set) var streamingContent: [String: String] = [:]
+    /// The most recent thread title from kind:513 metadata
+    public private(set) var threadTitle: String?
+
+    /// The display messages (final + streaming synthetic), sorted by time
+    public var displayMessages: [Message] {
+        conversationState.displayMessages
+    }
 
     /// Set of pubkeys of users who are currently typing
-    public private(set) var typingUsers: Set<String> = []
+    public var typingUsers: Set<String> {
+        Set(conversationState.typingIndicators.keys)
+    }
 
     /// The thread ID derived from the thread event
     public var threadID: String {
         threadEvent.id
     }
 
-    /// Load messages from Nostr
-    public func loadMessages() async {
-        // Clear error
-        errorMessage = nil
-
-        // Start loading
-        isLoading = true
-
-        defer {
-            // Always stop loading when done
-            isLoading = false
-        }
-
+    /// Subscribe to thread metadata (kind:513) to get the most recent title
+    public func subscribeToThreadMetadata() async {
         do {
-            // Create filter for messages in this thread (uses project reference as the 'a' tag)
-            let filter = Message.filter(for: projectReference)
-
-            // Subscribe to messages
-            var fetchedMessages: [Message] = []
+            // Create filter for metadata for this thread
+            let filter = ConversationMetadata.filter(for: threadID)
 
             let subscription = ndk.subscribeToEvents(filters: [filter])
 
-            for try await event in subscription {
-                // Try to parse as Message
-                if let message = Message.from(event: event) {
-                    fetchedMessages.append(message)
-                }
-            }
-
-            // Sort by creation date (oldest first for chat display)
-            messages = fetchedMessages.sorted { $0.createdAt < $1.createdAt }
-        } catch {
-            // Set error message
-            errorMessage = "Failed to load messages. Please try again."
-        }
-    }
-
-    /// Subscribe to streaming deltas for real-time message updates
-    public func subscribeToStreamingDeltas() async {
-        do {
-            // Subscribe to all streaming deltas for messages in this thread
-            // Messages reference the project via the 'a' tag
-            let filter = NDKFilter(
-                kinds: [21_111],
-                tags: ["a": [projectReference]]
-            )
-
-            let subscription = ndk.subscribeToEvents(filters: [filter])
+            var latestMetadata: ConversationMetadata?
 
             for try await event in subscription {
-                // Try to parse as StreamingDelta
-                if let delta = StreamingDelta.from(event: event) {
-                    // Accumulate delta content
-                    let currentContent = streamingContent[delta.messageID] ?? ""
-                    streamingContent[delta.messageID] = currentContent + delta.delta
-                }
-            }
-        } catch {
-            // Silently fail for streaming deltas (non-critical)
-        }
-    }
-
-    /// Subscribe to typing indicators for real-time typing status
-    public func subscribeToTypingIndicators() async {
-        do {
-            // Create filter for typing indicators in this thread
-            let filter = TypingIndicator.filter(for: threadID)
-
-            let subscription = ndk.subscribeToEvents(filters: [filter])
-
-            for try await event in subscription {
-                // Try to parse as TypingIndicator
-                if let indicator = TypingIndicator.from(event: event) {
-                    if indicator.isTyping {
-                        // Add to typing users
-                        typingUsers.insert(indicator.pubkey)
-                    } else {
-                        // Remove from typing users
-                        typingUsers.remove(indicator.pubkey)
+                // Try to parse as ConversationMetadata
+                if let metadata = ConversationMetadata.from(event: event) {
+                    // Only use metadata if it's newer than what we already have
+                    if let existing = latestMetadata {
+                        guard metadata.createdAt > existing.createdAt else {
+                            continue
+                        }
                     }
+                    latestMetadata = metadata
+                    threadTitle = metadata.title
                 }
             }
         } catch {
-            // Silently fail for typing indicators (non-critical)
+            // Silently fail for metadata (non-critical)
         }
-    }
-
-    /// Refresh the messages list
-    public func refresh() async {
-        await loadMessages()
     }
 
     /// Send a new message to the thread
@@ -174,8 +125,8 @@ public final class ChatViewModel {
             status: .sending
         )
 
-        // Add to messages immediately (optimistic update)
-        messages.append(optimisticMessage)
+        // Add to conversation state immediately (optimistic update)
+        conversationState.addOptimisticMessage(optimisticMessage)
 
         // Capture values for sendable closure
         let projectRef = projectReference
@@ -217,17 +168,15 @@ public final class ChatViewModel {
             }
 
             // Update message with sent status and event ID
-            if let index = messages.firstIndex(where: { $0.id == tempID }) {
-                messages[index] = optimisticMessage
-                    .with(id: event.id)
-                    .with(status: .sent)
-            }
+            let sentMessage = optimisticMessage
+                .with(id: event.id)
+                .with(status: .sent)
+            conversationState.replaceOptimisticMessage(tempID: tempID, with: sentMessage)
         } catch {
             // Update message with failed status
-            if let index = messages.firstIndex(where: { $0.id == tempID }) {
-                messages[index] = optimisticMessage
-                    .with(status: .failed(error: error.localizedDescription))
-            }
+            let failedMessage = optimisticMessage
+                .with(status: .failed(error: error.localizedDescription))
+            conversationState.replaceOptimisticMessage(tempID: tempID, with: failedMessage)
         }
     }
 
@@ -235,11 +184,11 @@ public final class ChatViewModel {
     /// - Parameter message: The message to retry
     public func retrySendMessage(_ message: Message) async {
         // Remove the failed message
-        messages.removeAll { $0.id == message.id }
+        conversationState.removeMessage(id: message.id)
 
         // Send it again
         let parentMessage = message.replyTo.flatMap { replyToID in
-            messages.first { $0.id == replyToID }
+            displayMessages.first { $0.id == replyToID }
         }
         await sendMessage(text: message.content, replyTo: parentMessage)
     }
@@ -250,4 +199,30 @@ public final class ChatViewModel {
     private let threadEvent: NDKEvent
     private let projectReference: String
     private let userPubkey: String
+
+    /// Subscribe to all event types and route through ConversationState
+    private func subscribeToAllEvents() async {
+        do {
+            // Create unified filter for all event types:
+            // - kind 1111: final messages
+            // - kind 21111: streaming deltas
+            // - kind 24111: typing start
+            // - kind 24112: typing stop
+            // All filtered by the thread's 'e' tag
+            let filter = NDKFilter(
+                kinds: [1111, 21_111, 24_111, 24_112],
+                tags: ["e": Set([threadID])]
+            )
+
+            let subscription = ndk.subscribeToEvents(filters: [filter])
+
+            // Continuous subscription - runs forever
+            for try await event in subscription {
+                conversationState.processEvent(event)
+            }
+        } catch {
+            // Set error message if subscription fails
+            errorMessage = "Failed to subscribe to messages."
+        }
+    }
 }

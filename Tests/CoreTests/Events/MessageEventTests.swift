@@ -12,6 +12,32 @@ import Testing
 
 @Suite("Message Event Tests")
 struct MessageEventTests {
+    @Test("Parse valid kind:11 thread event into Message model")
+    func parseValidThreadEvent() throws {
+        // Given: A valid kind:11 thread event (original post)
+        let pubkey = "npub1testpubkey1234567890abcdef"
+        let content = "This is the original post starting the thread"
+        let createdAt = Timestamp(Date().timeIntervalSince1970)
+
+        let event = NDKEvent.test(
+            kind: 11,
+            content: content,
+            tags: [],
+            pubkey: pubkey,
+            createdAt: createdAt
+        )
+
+        // When: Converting event to Message
+        let message = try #require(Message.from(event: event))
+
+        // Then: Message properties match event data
+        #expect(message.pubkey == pubkey)
+        #expect(message.threadID == event.id) // Thread ID is the event's own ID
+        #expect(message.content == content)
+        #expect(message.createdAt.timeIntervalSince1970 == TimeInterval(createdAt))
+        #expect(message.replyTo == nil) // Original post has no parent
+    }
+
     @Test("Parse valid kind:1111 event into Message model")
     func parseValidMessageEvent() throws {
         // Given: A valid kind:1111 event
@@ -212,14 +238,14 @@ struct MessageEventTests {
 
     @Test("Create filter for fetching messages by thread")
     func createFilterForMessages() {
-        // Given: A thread ID
-        let threadID = "11:pubkey:my-thread"
+        // Given: A thread ID (conversation ID)
+        let threadID = "conversation-event-id-123"
 
         // When: Creating filter for messages
         let filter = Message.filter(for: threadID)
 
-        // Then: Filter has correct parameters
+        // Then: Filter has correct parameters (uses 'e' tag for thread/conversation ID)
         #expect(filter.kinds == [1111])
-        #expect(filter.tags?["a"] == [threadID])
+        #expect(filter.tags?["e"] == [threadID])
     }
 }

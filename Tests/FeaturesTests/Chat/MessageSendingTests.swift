@@ -32,8 +32,9 @@ struct MessageSendingTests {
         // When: Attempting to send an empty message
         await viewModel.sendMessage(text: "")
 
-        // Then: No message is sent
-        #expect(viewModel.messages.isEmpty)
+        // Then: Only the thread event is present (no new message was sent)
+        #expect(viewModel.displayMessages.count == 1)
+        #expect(viewModel.displayMessages.first?.id == threadEvent.id)
     }
 
     @Test("Send whitespace-only message is rejected")
@@ -52,7 +53,8 @@ struct MessageSendingTests {
         // When: Attempting to send a whitespace-only message
         await viewModel.sendMessage(text: "   \n\t  ")
 
-        // Then: No message is sent
-        #expect(viewModel.messages.isEmpty)
+        // Then: Only the thread event is present (no new message was sent)
+        #expect(viewModel.displayMessages.count == 1)
+        #expect(viewModel.displayMessages.first?.id == threadEvent.id)
     }
 }
