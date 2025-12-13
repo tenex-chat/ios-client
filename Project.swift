@@ -173,6 +173,7 @@ let project = Project(
                 .target(name: "TENEXCore"),
                 .external(name: "NDKSwiftCore"),
                 .external(name: "NDKSwiftNostrDB"),
+                .external(name: "NDKSwiftTesting"),
             ]
         ),
 
@@ -186,6 +187,7 @@ let project = Project(
             dependencies: [
                 .target(name: "TENEXFeatures"),
                 .target(name: "TENEXCore"),
+                .external(name: "NDKSwiftTesting"),
             ]
         ),
 
@@ -214,6 +216,7 @@ let project = Project(
                 .target(name: "TENEXCore"),
                 .external(name: "NDKSwiftCore"),
                 .external(name: "NDKSwiftNostrDB"),
+                .external(name: "NDKSwiftTesting"),
             ]
         ),
 
@@ -227,6 +230,7 @@ let project = Project(
             dependencies: [
                 .target(name: "TENEXFeatures"),
                 .target(name: "TENEXCore"),
+                .external(name: "NDKSwiftTesting"),
             ]
         ),
 
