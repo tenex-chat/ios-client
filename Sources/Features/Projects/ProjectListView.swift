@@ -50,6 +50,7 @@ public struct ProjectListView: View {
     // MARK: Private
 
     @State private var viewModel: ProjectListViewModel
+    @State private var showingCreateWizard = false
 
     private var projectList: some View {
         List {
@@ -72,6 +73,20 @@ public struct ProjectListView: View {
             }
         }
         .listStyle(.plain)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button(action: { showingCreateWizard = true }) {
+                    Label("New Project", systemImage: "plus")
+                }
+            }
+        }
+        .sheet(isPresented: $showingCreateWizard) {
+            if let ndk = viewModel.ndk {
+                CreateProjectWizardView(ndk: ndk)
+            } else {
+                Text("Error: NDK not available")
+            }
+        }
     }
 
     private var emptyView: some View {
@@ -87,6 +102,19 @@ public struct ProjectListView: View {
             Text("You don't have any projects yet")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+
+            Button("Create New Project") {
+                showingCreateWizard = true
+            }
+            .buttonStyle(.borderedProminent)
+            .padding(.top)
+        }
+        .sheet(isPresented: $showingCreateWizard) {
+            if let ndk = viewModel.ndk {
+                CreateProjectWizardView(ndk: ndk)
+            } else {
+                Text("Error: NDK not available")
+            }
         }
     }
 }
