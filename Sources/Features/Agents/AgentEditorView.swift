@@ -34,23 +34,25 @@ public struct AgentEditorView: View {
             }
         }
         .navigationTitle("New Agent")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel") {
-                    dismiss()
-                }
-            }
-
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Create") {
-                    Task {
-                        await createAgent()
+        #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+        #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
                     }
                 }
-                .disabled(name.isEmpty || isPublishing)
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Create") {
+                        Task {
+                            await createAgent()
+                        }
+                    }
+                    .disabled(name.isEmpty || isPublishing)
+                }
             }
-        }
     }
 
     // MARK: Private
