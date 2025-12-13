@@ -85,8 +85,9 @@ struct DangerZoneView: View {
     // MARK: Private
 
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var viewModel: ProjectSettingsViewModel
     @State private var showingDeleteConfirmation = false
     @State private var isDeleting = false
     @State private var deleteError: String?
+
+    @Bindable private var viewModel: ProjectSettingsViewModel
 }

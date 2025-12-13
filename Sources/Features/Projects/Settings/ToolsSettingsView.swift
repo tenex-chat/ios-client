@@ -48,11 +48,12 @@ struct ToolsSettingsView: View {
     private static let logger = Logger(subsystem: "com.tenex.ios", category: "ToolsSettings")
 
     @Environment(\.ndk) private var ndk
-    @ObservedObject private var viewModel: ProjectSettingsViewModel
     @State private var showingToolPicker = false
     @State private var availableTools: [MCPTool] = []
     @State private var isLoadingTools = false
     @State private var showingSuccessAlert = false
+
+    @Bindable private var viewModel: ProjectSettingsViewModel
 
     private var toolsSection: some View {
         Section(header: Text("Assigned Tools")) {

@@ -68,6 +68,7 @@ struct GeneralSettingsView: View {
 
     // MARK: Private
 
-    @ObservedObject private var viewModel: ProjectSettingsViewModel
     @State private var showingSuccessAlert = false
+
+    @Bindable private var viewModel: ProjectSettingsViewModel
 }

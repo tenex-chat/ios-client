@@ -48,11 +48,12 @@ struct AgentsSettingsView: View {
     private static let logger = Logger(subsystem: "com.tenex.ios", category: "AgentsSettings")
 
     @Environment(\.ndk) private var ndk
-    @ObservedObject private var viewModel: ProjectSettingsViewModel
     @State private var showingAgentPicker = false
     @State private var availableAgents: [AgentDefinition] = []
     @State private var isLoadingAgents = false
     @State private var showingSuccessAlert = false
+
+    @Bindable private var viewModel: ProjectSettingsViewModel
 
     private var agentsSection: some View {
         Section(header: Text("Assigned Agents")) {
