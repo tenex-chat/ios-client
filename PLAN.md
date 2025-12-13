@@ -1,8 +1,8 @@
 # TENEX iOS/macOS Implementation Plan
 
-> **Last Updated:** 2025-12-12
-> **Current Milestone:** 1 - Authentication & Project List
-> **Status:** Starting Milestone 1 implementation
+> **Last Updated:** 2025-12-13
+> **Current Milestone:** 2 - Thread List & Basic Navigation
+> **Status:** Thread model and subscription complete
 
 ## Overview
 
@@ -469,8 +469,10 @@ Reference: `/Users/pablofernandez/10x/tenex-ios-mockups/iphone.html` (Screen 1: 
 ### Deliverables
 
 #### 2.1 Thread List
-- [ ] Thread model matching kind:11 schema
-- [ ] Thread subscription per project
+- [x] Thread model matching kind:11 schema ✅ 2025-12-13
+- [x] Thread subscription per project ✅ 2025-12-13
+- [x] ConversationMetadata model (kind:513) for thread enrichment ✅ 2025-12-13
+- [x] Reply counting from kind:1111 messages ✅ 2025-12-13
 - [ ] Thread list view with tabs (Threads/Docs/Agents/Feed)
 - [ ] Icon toolbar matching web app design
 - [ ] Project header with colored tint
@@ -523,8 +525,40 @@ Reference: `/Users/pablofernandez/10x/tenex-ios-mockups/iphone.html` (Screen 2: 
 
 ### Status Log
 ```
-[YYYY-MM-DD HH:MM] <agent>
-- Status updates go here
+[2025-12-13 07:45] claude-code (Thread model and subscription implementation)
+- Created Thread model (kind:11) at Sources/Core/Events/Thread.swift
+- Implemented Thread.from(event:) parser with validation
+- Added Thread.filter(for:) for project-based subscriptions
+- Created ThreadEventTests.swift with comprehensive test coverage (9 tests)
+- Thread model includes: id, pubkey, projectId, title, summary, createdAt, replyCount, phase
+- All Thread tests passing ✅
+
+[2025-12-13 07:55] claude-code (ConversationMetadata model for thread enrichment)
+- Created ConversationMetadata model (kind:513) at Sources/Core/Events/ConversationMetadata.swift
+- Kind:513 events e-tag kind:11 threads to provide title/summary metadata
+- Implemented ConversationMetadata.from(event:) parser
+- Added ConversationMetadata.filter(for:) for thread-based subscriptions
+- Created ConversationMetadataTests.swift with 5 tests (parsing, validation, filters)
+- All ConversationMetadata tests passing ✅
+
+[2025-12-13 08:15] claude-code (ThreadListViewModel with multi-kind subscription)
+- Implemented ThreadListViewModel with simultaneous subscription to:
+  * kind:11 - Thread events (the threads themselves)
+  * kind:513 - Conversation metadata (title/summary enrichment)
+  * kind:1111 - Messages with uppercase "E" tag (reply counting)
+- Threads enriched by merging kind:513 metadata and counting kind:1111 replies
+- UI updates incrementally as events arrive (no loading spinners)
+- Created ThreadListViewModelTests.swift with comprehensive coverage:
+  * Initial state tests (3 tests)
+  * Thread loading tests (2 tests)
+  * Error handling tests (2 tests)
+  * Refresh tests (2 tests)
+  * Loading state tests (1 test)
+  * kind:513 metadata enrichment tests (2 tests)
+  * kind:1111 reply counting tests (2 tests)
+- All 14 ThreadListViewModel tests passing ✅
+- Thread List 2.1: 4/10 items complete
+- Next: Thread list UI with tabs (Threads/Docs/Agents/Feed)
 ```
 
 ---
