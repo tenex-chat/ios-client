@@ -99,6 +99,7 @@ let project = Project(
             dependencies: [
                 .external(name: "NDKSwiftCore"),
                 .external(name: "NDKSwiftNostrDB"),
+                .external(name: "WhisperKit"),
                 .target(name: "TENEXShared"),
             ]
         ),

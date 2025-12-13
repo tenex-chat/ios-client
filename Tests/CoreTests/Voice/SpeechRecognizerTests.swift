@@ -12,12 +12,13 @@ import Testing
 @Suite struct SpeechRecognizerTests {
 
     @Test func testInitialization() {
-        let recognizer = SpeechRecognizer()
+        let recognizer = SFSpeechRecognizerWrapper()
         #expect(recognizer.isRecording == false)
     }
 
-    // Similar to TTS, SFSpeechRecognizer is hard to test in unit tests without extensive mocking.
-    // We would need to mock SFSpeechRecognizer, SFSpeechAudioBufferRecognitionRequest, and AVAudioEngine.
-    // Given the constraints and the goal to implement the feature, I will focus on the logic structure.
-
+    @Test func testFactory() {
+        let recognizer = SpeechRecognizerFactory.make()
+        // Should return a valid instance
+        #expect(recognizer.isRecording == false)
+    }
 }

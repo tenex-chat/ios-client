@@ -27,21 +27,22 @@ class MockTTSManager: TTSManagerProtocol {
 }
 
 // Mock for SpeechRecognizer
-class MockSpeechRecognizer: SpeechRecognizer {
+class MockSpeechRecognizer: SpeechRecognizerProtocol {
+    var delegate: SpeechRecognizerDelegate?
     var mockIsRecording = false
-    override var isRecording: Bool {
+    var isRecording: Bool {
         return mockIsRecording
     }
 
-    override func requestAuthorization() async -> Bool {
+    func requestAuthorization() async -> Bool {
         return true
     }
 
-    override func startRecording() throws {
+    func startRecording() async throws {
         mockIsRecording = true
     }
 
-    override func stopRecording() {
+    func stopRecording() {
         mockIsRecording = false
     }
 }
@@ -57,39 +58,41 @@ class MockSpeechRecognizer: SpeechRecognizer {
         #expect(viewModel.transcription.isEmpty)
     }
 
-    @Test func testStartListening() {
+    @Test func testStartListening() async {
         let mockRecognizer = MockSpeechRecognizer()
         let viewModel = VoiceModeViewModel(
             speechRecognizer: mockRecognizer,
             ttsManager: MockTTSManager()
         )
 
-        // We can't easily test the async startSession -> startListening flow in synchronous test without Task handling
-        // But we can test toggleListening
-
+        // Use await to allow Task to complete
         viewModel.toggleListening()
 
+        // Allow brief time for Task to execute
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
         #expect(mockRecognizer.isRecording == true)
-        // State update happens async or directly? In implementation it's inside startListening which is called by toggleListening.
-        // But startListening calls recognizer.startRecording() which is mocked.
-        // Wait, startListening sets state = .listening
         #expect(viewModel.state == .listening)
     }
 
-    @Test func testStopListening() {
+    @Test func testStopListening() async {
         let mockRecognizer = MockSpeechRecognizer()
         let viewModel = VoiceModeViewModel(
             speechRecognizer: mockRecognizer,
             ttsManager: MockTTSManager()
         )
 
-        // Manually set to recording
+        // Start
         viewModel.toggleListening()
+        try? await Task.sleep(nanoseconds: 100_000_000)
         #expect(viewModel.state == .listening)
 
+        // Stop
         viewModel.toggleListening()
+        // No async op for stop usually, but let's yield just in case
+        try? await Task.sleep(nanoseconds: 10_000_000)
+
         #expect(mockRecognizer.isRecording == false)
-        // State should go to idle if transcription is empty
         #expect(viewModel.state == .idle)
     }
 }

@@ -25,11 +25,11 @@ public final class VoiceModeViewModel: SpeechRecognizerDelegate {
     public var transcription: String = ""
     public var waveformSamples: [Float] = Array(repeating: 0.1, count: 10)
 
-    private let speechRecognizer: SpeechRecognizer
+    private let speechRecognizer: SpeechRecognizerProtocol
     private let ttsManager: TTSManagerProtocol
 
     // In a real app we would inject these
-    public init(speechRecognizer: SpeechRecognizer = SpeechRecognizer(),
+    public init(speechRecognizer: SpeechRecognizerProtocol = SpeechRecognizerFactory.make(),
                 ttsManager: TTSManagerProtocol = TTSManager()) {
         self.speechRecognizer = speechRecognizer
         self.ttsManager = ttsManager
@@ -63,17 +63,23 @@ public final class VoiceModeViewModel: SpeechRecognizerDelegate {
         if speechRecognizer.isRecording {
             stopListening()
         } else {
-            startListening()
+            Task {
+                await startListening()
+            }
         }
     }
 
-    private func startListening() {
+    private func startListening() async {
         do {
-            try speechRecognizer.startRecording()
-            state = .listening
-            transcription = ""
+            try await speechRecognizer.startRecording()
+            await MainActor.run {
+                state = .listening
+                transcription = ""
+            }
         } catch {
-            state = .error(error.localizedDescription)
+            await MainActor.run {
+                state = .error(error.localizedDescription)
+            }
         }
     }
 
@@ -104,7 +110,7 @@ public final class VoiceModeViewModel: SpeechRecognizerDelegate {
 
     // MARK: - SpeechRecognizerDelegate
 
-    public func speechRecognizer(_ recognizer: SpeechRecognizer, didRecognizeText text: String, isFinal: Bool) {
+    public func speechRecognizer(_ recognizer: SpeechRecognizerProtocol, didRecognizeText text: String, isFinal: Bool) {
         self.transcription = text
 
         // Update waveform (simulated for now)
@@ -118,15 +124,15 @@ public final class VoiceModeViewModel: SpeechRecognizerDelegate {
         }
     }
 
-    public func speechRecognizer(_ recognizer: SpeechRecognizer, didFailWithError error: Error) {
+    public func speechRecognizer(_ recognizer: SpeechRecognizerProtocol, didFailWithError error: Error) {
         state = .error(error.localizedDescription)
     }
 
-    public func speechRecognizerDidDetectVoice(_ recognizer: SpeechRecognizer) {
+    public func speechRecognizerDidDetectVoice(_ recognizer: SpeechRecognizerProtocol) {
         // Can update UI to show voice detected
     }
 
-    public func speechRecognizerDidStopRecording(_ recognizer: SpeechRecognizer) {
+    public func speechRecognizerDidStopRecording(_ recognizer: SpeechRecognizerProtocol) {
         if case .listening = state {
             state = .idle
         }

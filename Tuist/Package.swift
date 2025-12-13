@@ -22,5 +22,6 @@ let package = Package(
     name: "TENEXDependencies",
     dependencies: [
         .package(url: "https://github.com/pablof7z/NDKSwift.git", branch: "master"),
+        .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "0.9.0"),
     ]
 )

@@ -1,5 +1,5 @@
 //
-//  SpeechRecognizer.swift
+//  SFSpeechRecognizerWrapper.swift
 //  TENEX
 //
 //  Created by Jules on 2024.
@@ -8,21 +8,7 @@
 import Speech
 import AVFoundation
 
-public enum SpeechRecognizerError: Error {
-    case permissionDenied
-    case deviceNotSupported
-    case recognitionFailed
-    case audioSessionFailed
-}
-
-public protocol SpeechRecognizerDelegate: AnyObject {
-    func speechRecognizer(_ recognizer: SpeechRecognizer, didRecognizeText text: String, isFinal: Bool)
-    func speechRecognizer(_ recognizer: SpeechRecognizer, didFailWithError error: Error)
-    func speechRecognizerDidDetectVoice(_ recognizer: SpeechRecognizer)
-    func speechRecognizerDidStopRecording(_ recognizer: SpeechRecognizer)
-}
-
-public class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
+public class SFSpeechRecognizerWrapper: NSObject, SpeechRecognizerProtocol, SFSpeechRecognizerDelegate {
 
     public weak var delegate: SpeechRecognizerDelegate?
 
@@ -36,7 +22,6 @@ public class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
     }
 
     public override init() {
-        // Default to user's locale
         self.speechRecognizer = SFSpeechRecognizer()
         super.init()
         self.speechRecognizer?.delegate = self
@@ -50,7 +35,7 @@ public class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
         }
     }
 
-    public func startRecording() throws {
+    public func startRecording() async throws {
         if recognitionTask != nil {
             recognitionTask?.cancel()
             recognitionTask = nil
@@ -74,7 +59,7 @@ public class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
 
         recognitionRequest.shouldReportPartialResults = true
 
-        // Keep speech recognition data on device for privacy if possible (iOS 13+)
+        // Use on-device recognition if available (iOS 13+)
         if #available(iOS 13, *) {
             recognitionRequest.requiresOnDeviceRecognition = true
         }
@@ -85,7 +70,9 @@ public class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
             var isFinal = false
 
             if let result = result {
-                self.delegate?.speechRecognizer(self, didRecognizeText: result.bestTranscription.formattedString, isFinal: result.isFinal)
+                DispatchQueue.main.async {
+                    self.delegate?.speechRecognizer(self, didRecognizeText: result.bestTranscription.formattedString, isFinal: result.isFinal)
+                }
                 isFinal = result.isFinal
             }
 
@@ -97,9 +84,18 @@ public class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
                 self.recognitionTask = nil
 
                 if let error = error {
-                     self.delegate?.speechRecognizer(self, didFailWithError: error)
+                    // Ignore cancellation errors
+                    let nsError = error as NSError
+                    if nsError.domain == "kAFAssistantErrorDomain" && nsError.code == 216 { // User cancelled
+                        return
+                    }
+                    DispatchQueue.main.async {
+                        self.delegate?.speechRecognizer(self, didFailWithError: error)
+                    }
                 } else {
-                    self.delegate?.speechRecognizerDidStopRecording(self)
+                    DispatchQueue.main.async {
+                        self.delegate?.speechRecognizerDidStopRecording(self)
+                    }
                 }
             }
         }
@@ -112,7 +108,9 @@ public class SpeechRecognizer: NSObject, SFSpeechRecognizerDelegate {
         audioEngine.prepare()
         try audioEngine.start()
 
-        delegate?.speechRecognizerDidDetectVoice(self)
+        DispatchQueue.main.async {
+            self.delegate?.speechRecognizerDidDetectVoice(self)
+        }
     }
 
     public func stopRecording() {
