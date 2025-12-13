@@ -6,7 +6,6 @@
 
 import Foundation
 @testable import TENEXCore
-@testable import TENEXFeatures
 import Testing
 
 // MARK: - TestError
