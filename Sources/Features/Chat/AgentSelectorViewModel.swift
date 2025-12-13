@@ -6,73 +6,59 @@
 
 import Foundation
 import Observation
-
-// MARK: - AgentInfo
-
-/// Information about an agent
-public struct AgentInfo: Identifiable, Equatable {
-    // MARK: Lifecycle
-
-    /// Initialize agent info
-    /// - Parameters:
-    ///   - id: The agent identifier
-    ///   - name: The agent name
-    ///   - icon: The icon name (SF Symbol)
-    public init(id: String, name: String, icon: String) {
-        self.id = id
-        self.name = name
-        self.icon = icon
-    }
-
-    // MARK: Public
-
-    /// The agent identifier
-    public let id: String
-
-    /// The agent name
-    public let name: String
-
-    /// The icon name (SF Symbol)
-    public let icon: String
-}
+import TENEXCore
 
 // MARK: - AgentSelectorViewModel
 
 /// View model for agent selector
+/// Uses ProjectAgent from ProjectStatus (kind:24010) for online agents
 @MainActor
 @Observable
 public final class AgentSelectorViewModel {
     // MARK: Lifecycle
 
     /// Initialize the agent selector view model
-    /// - Parameter availableAgents: List of available agents
-    public init(availableAgents: [AgentInfo]) {
-        self.availableAgents = availableAgents
+    /// - Parameters:
+    ///   - agents: List of online agents from ProjectStatus
+    ///   - defaultAgentPubkey: Optional default agent pubkey to preselect
+    public init(agents: [ProjectAgent], defaultAgentPubkey: String? = nil) {
+        self.agents = agents
+        selectedAgentPubkey = defaultAgentPubkey ?? agents.first?.pubkey
     }
 
     // MARK: Public
 
-    /// List of available agents
-    public let availableAgents: [AgentInfo]
+    /// List of online agents from ProjectStatus
+    public var agents: [ProjectAgent]
 
-    /// The currently selected agent ID
-    public private(set) var selectedAgentID: String?
+    /// The currently selected agent pubkey
+    public private(set) var selectedAgentPubkey: String?
 
     /// Whether the selector sheet is presented
     public var isPresented = false
 
-    /// Get the currently selected agent info
-    public var selectedAgent: AgentInfo? {
-        guard let selectedAgentID else {
+    /// Get the currently selected agent
+    public var selectedAgent: ProjectAgent? {
+        guard let selectedAgentPubkey else {
             return nil
         }
-        return availableAgents.first { $0.id == selectedAgentID }
+        return agents.first { $0.pubkey == selectedAgentPubkey }
     }
 
-    /// Select an agent
-    /// - Parameter agentId: The agent identifier
-    public func selectAgent(_ agentID: String) {
-        selectedAgentID = agentID
+    /// Select an agent by pubkey
+    /// - Parameter pubkey: The agent's Nostr pubkey
+    public func selectAgent(_ pubkey: String) {
+        selectedAgentPubkey = pubkey
+    }
+
+    /// Update the list of available agents
+    /// - Parameter newAgents: Updated list of online agents
+    public func updateAgents(_ newAgents: [ProjectAgent]) {
+        agents = newAgents
+        // Clear selection if selected agent is no longer available
+        if let selectedAgentPubkey, !newAgents.contains(where: { $0.pubkey == selectedAgentPubkey }) {
+            self.selectedAgentPubkey = newAgents.first?.pubkey
+        }
     }
 
     /// Present the agent selector sheet

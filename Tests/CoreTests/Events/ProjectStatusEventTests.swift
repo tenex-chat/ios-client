@@ -14,11 +14,9 @@ import Testing
 struct ProjectStatusEventTests {
     @Test("Parse valid kind:24_010 event into ProjectStatus model")
     func parseValidProjectStatusEvent() throws {
-        // Given: A valid kind:24_010 event
+        // Given: A valid kind:24_010 event with agent tags
         let projectID = "my-awesome-project"
         let pubkey = "npub1testpubkey1234567890abcdef"
-        let agent1 = "agent1pubkey"
-        let agent2 = "agent2pubkey"
         let createdAt = Timestamp(Date().timeIntervalSince1970)
 
         let event = NDKEvent.test(
@@ -26,8 +24,8 @@ struct ProjectStatusEventTests {
             content: "",
             tags: [
                 ["d", projectID],
-                ["agent", agent1],
-                ["agent", agent2],
+                ["agent", "agent1pubkey", "Claude"],
+                ["agent", "agent2pubkey", "GPT-4"],
             ],
             pubkey: pubkey,
             createdAt: createdAt
@@ -39,26 +37,20 @@ struct ProjectStatusEventTests {
         // Then: ProjectStatus properties match event data
         #expect(status.projectID == projectID)
         #expect(status.pubkey == pubkey)
-        #expect(status.onlineAgents.count == 2)
-        #expect(status.onlineAgents.contains(agent1))
-        #expect(status.onlineAgents.contains(agent2))
+        #expect(status.agents.count == 2)
         #expect(status.createdAt.timeIntervalSince1970 == TimeInterval(createdAt))
     }
 
-    @Test("Extract online agents from tags")
-    func extractOnlineAgentsFromTags() throws {
-        // Given: Event with multiple agent tags
-        let agent1 = "agent1"
-        let agent2 = "agent2"
-        let agent3 = "agent3"
+    @Test("Parse agents with name and pubkey from tags")
+    func parseAgentsFromTags() throws {
+        // Given: Event with agent tags containing pubkey and name
         let event = NDKEvent.test(
             kind: 24_010,
             content: "",
             tags: [
                 ["d", "test-project"],
-                ["agent", agent1],
-                ["agent", agent2],
-                ["agent", agent3],
+                ["agent", "abc123", "Claude"],
+                ["agent", "def456", "GPT-4"],
             ],
             pubkey: "testpubkey"
         )
@@ -66,11 +58,91 @@ struct ProjectStatusEventTests {
         // When: Converting to ProjectStatus
         let status = try #require(ProjectStatus.from(event: event))
 
-        // Then: All agents are extracted
-        #expect(status.onlineAgents.count == 3)
-        #expect(status.onlineAgents.contains(agent1))
-        #expect(status.onlineAgents.contains(agent2))
-        #expect(status.onlineAgents.contains(agent3))
+        // Then: Agents have correct pubkey and name
+        #expect(status.agents.count == 2)
+        let claude = status.agents.first { $0.name == "Claude" }
+        let gpt = status.agents.first { $0.name == "GPT-4" }
+        #expect(claude?.pubkey == "abc123")
+        #expect(gpt?.pubkey == "def456")
+    }
+
+    @Test("Parse global agents from tags")
+    func parseGlobalAgents() throws {
+        // Given: Event with global and non-global agents
+        let event = NDKEvent.test(
+            kind: 24_010,
+            content: "",
+            tags: [
+                ["d", "test-project"],
+                ["agent", "abc123", "Claude", "global"],
+                ["agent", "def456", "GPT-4"],
+            ],
+            pubkey: "testpubkey"
+        )
+
+        // When: Converting to ProjectStatus
+        let status = try #require(ProjectStatus.from(event: event))
+
+        // Then: Global flag is correctly parsed
+        let claude = status.agents.first { $0.name == "Claude" }
+        let gpt = status.agents.first { $0.name == "GPT-4" }
+        #expect(claude?.isGlobal == true)
+        #expect(gpt?.isGlobal == false)
+    }
+
+    @Test("Associate models with agents by name")
+    func associateModelsWithAgents() throws {
+        // Given: Event with agent and model tags
+        let event = NDKEvent.test(
+            kind: 24_010,
+            content: "",
+            tags: [
+                ["d", "test-project"],
+                ["agent", "abc123", "Claude"],
+                ["agent", "def456", "GPT-4"],
+                ["model", "claude-sonnet-4", "Claude"],
+                ["model", "gpt-4-turbo", "GPT-4"],
+            ],
+            pubkey: "testpubkey"
+        )
+
+        // When: Converting to ProjectStatus
+        let status = try #require(ProjectStatus.from(event: event))
+
+        // Then: Models are associated with correct agents
+        let claude = status.agents.first { $0.name == "Claude" }
+        let gpt = status.agents.first { $0.name == "GPT-4" }
+        #expect(claude?.model == "claude-sonnet-4")
+        #expect(gpt?.model == "gpt-4-turbo")
+    }
+
+    @Test("Associate tools with agents by name")
+    func associateToolsWithAgents() throws {
+        // Given: Event with agent and tool tags
+        let event = NDKEvent.test(
+            kind: 24_010,
+            content: "",
+            tags: [
+                ["d", "test-project"],
+                ["agent", "abc123", "Claude"],
+                ["agent", "def456", "GPT-4"],
+                ["tool", "web-search", "Claude", "GPT-4"],
+                ["tool", "code-interpreter", "Claude"],
+            ],
+            pubkey: "testpubkey"
+        )
+
+        // When: Converting to ProjectStatus
+        let status = try #require(ProjectStatus.from(event: event))
+
+        // Then: Tools are associated with correct agents
+        let claude = status.agents.first { $0.name == "Claude" }
+        let gpt = status.agents.first { $0.name == "GPT-4" }
+        #expect(claude?.tools.count == 2)
+        #expect(claude?.tools.contains("web-search") == true)
+        #expect(claude?.tools.contains("code-interpreter") == true)
+        #expect(gpt?.tools.count == 1)
+        #expect(gpt?.tools.contains("web-search") == true)
     }
 
     @Test("Handle no online agents gracefully")
@@ -88,8 +160,31 @@ struct ProjectStatusEventTests {
         // When: Converting to ProjectStatus
         let status = try #require(ProjectStatus.from(event: event))
 
-        // Then: Online agents array is empty
-        #expect(status.onlineAgents.isEmpty)
+        // Then: Agents array is empty
+        #expect(status.agents.isEmpty)
+    }
+
+    @Test("Skip malformed agent tags")
+    func skipMalformedAgentTags() throws {
+        // Given: Event with valid and malformed agent tags
+        let event = NDKEvent.test(
+            kind: 24_010,
+            content: "",
+            tags: [
+                ["d", "test-project"],
+                ["agent", "abc123", "Claude"], // Valid
+                ["agent", "def456"], // Missing name - should skip
+                ["agent", "", "Ghost"], // Empty pubkey - should skip
+            ],
+            pubkey: "testpubkey"
+        )
+
+        // When: Converting to ProjectStatus
+        let status = try #require(ProjectStatus.from(event: event))
+
+        // Then: Only valid agent is parsed
+        #expect(status.agents.count == 1)
+        #expect(status.agents[0].name == "Claude")
     }
 
     @Test("Return nil for wrong kind")
@@ -100,7 +195,7 @@ struct ProjectStatusEventTests {
             content: "",
             tags: [
                 ["d", "test-project"],
-                ["agent", "agent1"],
+                ["agent", "agent1", "Claude"],
             ],
             pubkey: "testpubkey"
         )
@@ -119,7 +214,7 @@ struct ProjectStatusEventTests {
             kind: 24_010,
             content: "",
             tags: [
-                ["agent", "agent1"],
+                ["agent", "agent1", "Claude"],
             ],
             pubkey: "testpubkey"
         )

@@ -10,6 +10,7 @@ let packageSettings = PackageSettings(
         "NDKSwiftCore": .framework,
         "NDKSwiftNostrDB": .framework,
         "NDKSwiftTesting": .framework,
+        // Note: NDKSwiftUI excluded due to upstream bug (relayUrls: vs relayURLs:)
     ]
 )
 #endif
