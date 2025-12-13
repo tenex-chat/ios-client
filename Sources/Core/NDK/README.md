@@ -24,7 +24,7 @@ import NDKSwift
 
 let cache = NDKInMemoryCache()
 let ndk = NDK(
-    relayUrls: [
+    relayURLs: [
         "wss://relay.damus.io",
         "wss://nos.lol"
     ],
@@ -40,7 +40,7 @@ import NDKSwift
 do {
     let cache = try NDKFileCache(path: "tenex-cache")
     let ndk = NDK(
-        relayUrls: [
+        relayURLs: [
             "wss://relay.damus.io",
             "wss://nos.lol",
             "wss://relay.nostr.band"
@@ -60,7 +60,7 @@ import NDKSwift
 // From nsec string
 let signer = try NDKPrivateKeySigner(nsec: "nsec1...")
 let ndk = NDK(
-    relayUrls: ["wss://relay.damus.io"],
+    relayURLs: ["wss://relay.damus.io"],
     signer: signer,
     cache: NDKInMemoryCache()
 )
@@ -222,14 +222,14 @@ do {
 ### Publish to Specific Relays
 
 ```swift
-let relayUrls: Set<String> = [
+let relayURLs: Set<String> = [
     "wss://relay.damus.io",
     "wss://nos.lol"
 ]
 
 let publishedRelays = try await ndk.publish(
     event: event,
-    to: relayUrls
+    to: relayURLs
 )
 ```
 
@@ -526,7 +526,7 @@ struct TENEXExample {
         let cache = NDKInMemoryCache()
         let signer = try! NDKPrivateKeySigner(nsec: "nsec1...")
         let ndk = NDK(
-            relayUrls: [
+            relayURLs: [
                 "wss://relay.damus.io",
                 "wss://nos.lol"
             ],
