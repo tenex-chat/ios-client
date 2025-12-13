@@ -150,7 +150,7 @@ struct SubscriptionDetailView: View {
             }
 
             await MainActor.run {
-                events = fetchedEvents.sorted { ($0.createdAt ?? 0) > ($1.createdAt ?? 0) }
+                events = fetchedEvents.sorted { $0.createdAt > $1.createdAt }
                 isLoading = false
             }
         } catch {
@@ -274,19 +274,15 @@ private struct EventRow: View {
 
                 Spacer()
 
-                if let createdAt = event.createdAt {
-                    Text(FormattingUtilities.relative(Date(timeIntervalSince1970: TimeInterval(createdAt))))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
+                Text(FormattingUtilities.relative(Date(timeIntervalSince1970: TimeInterval(event.createdAt))))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
 
-            if let eventID = event.id {
-                Text(eventID)
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
+            Text(event.id)
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
 
             Text(event.pubkey.prefix(16) + "...")
                 .font(.system(.caption2, design: .monospaced))
