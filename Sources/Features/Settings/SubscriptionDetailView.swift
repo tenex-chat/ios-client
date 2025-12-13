@@ -142,7 +142,12 @@ struct SubscriptionDetailView: View {
         error = nil
 
         do {
-            let fetchedEvents = try await ndk.fetchEvents(filters: subscription.filters)
+            let ndkSubscription = ndk.subscribeToEvents(filters: subscription.filters)
+            var fetchedEvents: [NDKEvent] = []
+
+            for try await event in ndkSubscription {
+                fetchedEvents.append(event)
+            }
 
             await MainActor.run {
                 events = fetchedEvents.sorted { ($0.createdAt ?? 0) > ($1.createdAt ?? 0) }
@@ -213,13 +218,19 @@ private struct FilterView: View {
 
     @ViewBuilder private var sinceRow: some View {
         if let since = filter.since {
-            filterDetail(label: "Since", value: FormattingUtilities.shortDateTime(Date(timeIntervalSince1970: since)))
+            filterDetail(
+                label: "Since",
+                value: FormattingUtilities.shortDateTime(Date(timeIntervalSince1970: TimeInterval(since)))
+            )
         }
     }
 
     @ViewBuilder private var untilRow: some View {
         if let until = filter.until {
-            filterDetail(label: "Until", value: FormattingUtilities.shortDateTime(Date(timeIntervalSince1970: until)))
+            filterDetail(
+                label: "Until",
+                value: FormattingUtilities.shortDateTime(Date(timeIntervalSince1970: TimeInterval(until)))
+            )
         }
     }
 
@@ -264,7 +275,7 @@ private struct EventRow: View {
                 Spacer()
 
                 if let createdAt = event.createdAt {
-                    Text(FormattingUtilities.relative(Date(timeIntervalSince1970: createdAt)))
+                    Text(FormattingUtilities.relative(Date(timeIntervalSince1970: TimeInterval(createdAt))))
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
