@@ -54,6 +54,26 @@ public struct AgentDefinition: Identifiable, Sendable, Equatable {
     /// When the agent was created
     public let createdAt: Date
 
+    /// Equatable conformance (required due to named tuple in phases)
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.id == rhs.id &&
+            lhs.pubkey == rhs.pubkey &&
+            lhs.name == rhs.name &&
+            lhs.description == rhs.description &&
+            lhs.role == rhs.role &&
+            lhs.instructions == rhs.instructions &&
+            lhs.model == rhs.model &&
+            lhs.picture == rhs.picture &&
+            lhs.version == rhs.version &&
+            lhs.slug == rhs.slug &&
+            lhs.tools == rhs.tools &&
+            lhs.mcpServers == rhs.mcpServers &&
+            lhs.useCriteria == rhs.useCriteria &&
+            lhs.phases.count == rhs.phases.count &&
+            zip(lhs.phases, rhs.phases).allSatisfy { $0.name == $1.name && $0.instructions == $1.instructions } &&
+            lhs.createdAt == rhs.createdAt
+    }
+
     /// Create an AgentDefinition from a Nostr event
     /// - Parameter event: The NDKEvent (must be kind:4199)
     /// - Returns: An AgentDefinition instance, or nil if the event is invalid
