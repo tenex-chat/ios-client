@@ -96,7 +96,11 @@ public final class ProjectSettingsViewModel {
     public func deleteProject() async throws {
         // Create deletion event (kind:5 with project coordinate)
         let tags = [["a", originalProject.coordinate]]
-        let event = NDKEvent(kind: 5, content: "", tags: tags, pubkey: "", createdAt: nil)
+        let event = try await NDKEventBuilder(ndk: ndk)
+            .kind(5)
+            .setTags(tags)
+            .content("")
+            .build()
         try await ndk.publish(event)
     }
 
@@ -140,7 +144,11 @@ public final class ProjectSettingsViewModel {
             content = "{}"
         }
 
-        let event = NDKEvent(kind: 31_933, content: content, tags: tags, pubkey: "", createdAt: nil)
+        let event = try await NDKEventBuilder(ndk: ndk)
+            .kind(31_933)
+            .setTags(tags)
+            .content(content)
+            .build()
         try await ndk.publish(event)
     }
 }

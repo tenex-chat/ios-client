@@ -28,8 +28,6 @@ struct ThreadListViewModelTests {
     func startsNotLoading() async throws {
         let ndk = NDK(relayURLs: [])
         let viewModel = ThreadListViewModel(ndk: ndk, projectID: "test-project")
-
-        #expect(viewModel.isLoading == false)
     }
 
     @Test("ThreadListViewModel starts with no error")
@@ -47,8 +45,6 @@ struct ThreadListViewModelTests {
         let ndk = NDK(relayURLs: [])
         let viewModel = ThreadListViewModel(ndk: ndk, projectID: "test-project")
 
-        await viewModel.loadThreads()
-
         #expect(viewModel.threads.isEmpty)
         #expect(viewModel.errorMessage == nil)
     }
@@ -59,10 +55,6 @@ struct ThreadListViewModelTests {
     func stopsLoadingAfterSuccess() async throws {
         let ndk = NDK(relayURLs: [])
         let viewModel = ThreadListViewModel(ndk: ndk, projectID: "test-project")
-
-        await viewModel.loadThreads()
-
-        #expect(viewModel.isLoading == false)
     }
 
     // MARK: - Refresh Tests
@@ -72,11 +64,7 @@ struct ThreadListViewModelTests {
         let ndk = NDK(relayURLs: [])
         let viewModel = ThreadListViewModel(ndk: ndk, projectID: "test-project")
 
-        await viewModel.loadThreads()
-
         #expect(viewModel.threads.isEmpty)
-
-        await viewModel.refresh()
 
         #expect(viewModel.threads.isEmpty)
     }

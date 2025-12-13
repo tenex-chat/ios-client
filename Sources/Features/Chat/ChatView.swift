@@ -45,19 +45,11 @@ public struct ChatView: View {
 
     @Environment(\.ndk) private var ndk
     @State private var viewModel: ChatViewModel?
+    @State private var focusedMessage: Message?
 
     private let threadEvent: NDKEvent
     private let projectReference: String
     private let currentUserPubkey: String
-
-    private var loadingView: some View {
-        VStack(spacing: 20) {
-            ProgressView()
-            Text("Loading messages...")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-    }
 
     private var emptyView: some View {
         VStack(spacing: 20) {
@@ -95,25 +87,15 @@ public struct ChatView: View {
     @ViewBuilder
     private func mainContent(viewModel: ChatViewModel) -> some View {
         Group {
-            if viewModel.isLoading, viewModel.messages.isEmpty {
-                loadingView
-            } else if viewModel.messages.isEmpty {
+            if viewModel.displayMessages.isEmpty {
                 emptyView
             } else {
                 messageList(viewModel: viewModel)
             }
         }
+        .navigationTitle(viewModel.threadTitle ?? "Thread")
         .task {
-            await viewModel.loadMessages()
-        }
-        .task {
-            await viewModel.subscribeToStreamingDeltas()
-        }
-        .task {
-            await viewModel.subscribeToTypingIndicators()
-        }
-        .refreshable {
-            await viewModel.refresh()
+            await viewModel.subscribeToThreadMetadata()
         }
         .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
             Button("OK") {
@@ -129,9 +111,13 @@ public struct ChatView: View {
     private func messageList(viewModel: ChatViewModel) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(viewModel.messages) { message in
-                    MessageRow(message: message, currentUserPubkey: currentUserPubkey)
-                        .padding(.horizontal, 16)
+                ForEach(viewModel.displayMessages) { message in
+                    MessageRow(
+                        message: message,
+                        currentUserPubkey: currentUserPubkey,
+                        onReplyTap: message.replyCount > 0 ? { focusedMessage = message } : nil
+                    )
+                    .padding(.horizontal, 16)
                 }
 
                 // Typing indicators at bottom
@@ -142,6 +128,16 @@ public struct ChatView: View {
                 }
             }
             .padding(.vertical, 16)
+        }
+        .sheet(item: $focusedMessage) { message in
+            ThreadFocusView(
+                focusedMessage: message,
+                parentMessage: findParentMessage(for: message, in: viewModel),
+                replies: findReplies(for: message, in: viewModel),
+                currentUserPubkey: currentUserPubkey
+            ) {
+                focusedMessage = nil
+            }
         }
     }
 
@@ -156,6 +152,17 @@ public struct ChatView: View {
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private func findParentMessage(for message: Message, in viewModel: ChatViewModel) -> Message? {
+        guard let parentID = message.replyTo else {
+            return nil
+        }
+        return viewModel.displayMessages.first { $0.id == parentID }
+    }
+
+    private func findReplies(for message: Message, in viewModel: ChatViewModel) -> [Message] {
+        viewModel.displayMessages.filter { $0.replyTo == message.id }
     }
 
     private func typingText(viewModel: ChatViewModel) -> String {

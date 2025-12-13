@@ -8,6 +8,10 @@ import NDKSwiftCore
 import SwiftUI
 import TENEXShared
 
+// MARK: - NDKRelaySubscriptionInfo + @retroactive Identifiable
+
+extension NDKRelaySubscriptionInfo: @retroactive Identifiable {}
+
 // MARK: - RelayMonitorView
 
 /// View for monitoring relay connectivity and statistics
@@ -300,7 +304,7 @@ private struct RelayDetailView: View {
                     Button("Done") { dismiss() }
                 }
             }
-            .sheet(isPresented: .init(
+            .sheet(isPresented: Binding(
                 get: { selectedSubscription != nil },
                 set: { if !$0 { selectedSubscription = nil } }
             )) {

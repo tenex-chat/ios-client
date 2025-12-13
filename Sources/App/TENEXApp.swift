@@ -55,13 +55,14 @@ struct TENEXApp: App {
     @State private var dataStore: DataStore?
     @State private var aiConfig: AIConfig?
     @State private var ndk: NDK = {
+        // Disable outbox model to query all connected relays
+        // (outbox requires NIP-65 relay metadata which we don't have yet)
         let ndk = NDK(
             relayURLs: [
                 "wss://tenex.chat",
-            ]
+            ],
+            outboxEnabled: false
         )
-        // NOTE: outbox model is disabled by default
-        // (outbox requires NIP-65 relay metadata which we don't have yet)
         return ndk
     }()
 

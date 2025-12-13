@@ -47,7 +47,8 @@ struct ThreadEventTests {
         let thread = try #require(NostrThread.from(event: event))
 
         // Then: Thread properties match event data
-        #expect(thread.id == threadID)
+        // Note: thread.id is the event ID, not the 'd' tag
+        #expect(thread.id == event.id)
         #expect(thread.pubkey == pubkey)
         #expect(thread.projectID == projectID)
         #expect(thread.title == title)
@@ -207,9 +208,9 @@ struct ThreadEventTests {
         #expect(thread.phase == phase)
     }
 
-    @Test("Return nil for missing d tag")
-    func returnNilForMissingDTag() {
-        // Given: Event without d tag
+    @Test("Thread without d tag still parses successfully")
+    func threadWithoutDTag() throws {
+        // Given: Event without d tag (d tag is not required - thread uses event.id)
         let event = NDKEvent.test(
             kind: 11,
             content: "{}",
@@ -221,10 +222,11 @@ struct ThreadEventTests {
         )
 
         // When: Converting to Thread
-        let thread = NostrThread.from(event: event)
+        let thread = try #require(NostrThread.from(event: event))
 
-        // Then: Returns nil
-        #expect(thread == nil)
+        // Then: Thread is created with event.id as its ID
+        #expect(thread.id == event.id)
+        #expect(thread.title == "Test")
     }
 
     @Test("Return nil for missing a tag")

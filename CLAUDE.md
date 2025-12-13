@@ -1,0 +1,1 @@
+- the svelte reference implementation client (which matches what we're building in this ios client is /Users/pablofernandez/10x/TENEX-Web-Svelte-ow3jsn/main/ -- the backend we communicate with from the ios and svelte clients is /Users/pablofernandez/10x/TENEX-ff3ssq/master/

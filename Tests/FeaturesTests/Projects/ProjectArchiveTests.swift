@@ -19,14 +19,14 @@ struct ProjectArchiveTests {
     @Test("ProjectListViewModel archive removes project from visible list")
     func archiveRemovesProjectFromList() async throws {
         let ndk = NDK(relayURLs: [])
+        let dataStore = DataStore(ndk: ndk)
         let archiveStorage = InMemoryArchiveStorage()
         let viewModel = ProjectListViewModel(
-            ndk: ndk,
-            userPubkey: "test-pubkey",
+            dataStore: dataStore,
             archiveStorage: archiveStorage
         )
 
-        await viewModel.loadProjects()
+        // Subscription starts automatically in init
         #expect(viewModel.projects.isEmpty)
 
         // Archive a non-existent project (should not crash)
@@ -38,14 +38,14 @@ struct ProjectArchiveTests {
     @Test("ProjectListViewModel archive persists to storage")
     func archivePersistsToStorage() async throws {
         let ndk = NDK(relayURLs: [])
+        let dataStore = DataStore(ndk: ndk)
         let archiveStorage = InMemoryArchiveStorage()
         let viewModel = ProjectListViewModel(
-            ndk: ndk,
-            userPubkey: "test-pubkey",
+            dataStore: dataStore,
             archiveStorage: archiveStorage
         )
 
-        await viewModel.loadProjects()
+        // Subscription starts automatically
         await viewModel.archiveProject(id: "test-project")
 
         // Verify storage was updated
@@ -55,14 +55,14 @@ struct ProjectArchiveTests {
     @Test("ProjectListViewModel unarchive restores project")
     func unarchiveRestoresProject() async throws {
         let ndk = NDK(relayURLs: [])
+        let dataStore = DataStore(ndk: ndk)
         let archiveStorage = InMemoryArchiveStorage()
         let viewModel = ProjectListViewModel(
-            ndk: ndk,
-            userPubkey: "test-pubkey",
+            dataStore: dataStore,
             archiveStorage: archiveStorage
         )
 
-        await viewModel.loadProjects()
+        // Subscription starts automatically
 
         // Archive then unarchive
         await viewModel.archiveProject(id: "test-project")

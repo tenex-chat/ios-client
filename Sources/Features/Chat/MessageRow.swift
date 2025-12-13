@@ -4,6 +4,8 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftCore
+import NDKSwiftUI
 import SwiftUI
 import TENEXCore
 
@@ -17,9 +19,15 @@ public struct MessageRow: View {
     /// - Parameters:
     ///   - message: The message to display
     ///   - currentUserPubkey: The current user's pubkey (to differentiate user vs agent)
-    public init(message: Message, currentUserPubkey: String?) {
+    ///   - onReplyTap: Optional action when reply indicator is tapped
+    public init(
+        message: Message,
+        currentUserPubkey: String?,
+        onReplyTap: (() -> Void)? = nil
+    ) {
         self.message = message
         self.currentUserPubkey = currentUserPubkey
+        self.onReplyTap = onReplyTap
         isAgent = currentUserPubkey != nil && message.pubkey != currentUserPubkey
     }
 
@@ -34,9 +42,15 @@ public struct MessageRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 // Author and timestamp
                 HStack(spacing: 8) {
-                    Text(authorName)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(isAgent ? .blue : .primary)
+                    if let ndk, isAgent {
+                        NDKUIUsername(ndk: ndk, pubkey: message.pubkey)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.blue)
+                    } else {
+                        Text("You")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.primary)
+                    }
 
                     Text(message.createdAt, style: .relative)
                         .font(.system(size: 12))
@@ -45,6 +59,16 @@ public struct MessageRow: View {
 
                 // Message content with markdown support
                 messageContent
+
+                // Reply indicator (if message has replies)
+                if message.replyCount > 0, let onReplyTap {
+                    ReplyIndicatorView(
+                        replyCount: message.replyCount,
+                        authorPubkeys: message.replyAuthorPubkeys,
+                        onTap: onReplyTap
+                    )
+                    .padding(.top, 4)
+                }
             }
 
             Spacer()
@@ -54,17 +78,13 @@ public struct MessageRow: View {
 
     // MARK: Private
 
+    @Environment(\.ndk) private var ndk
+    @State private var cursorVisible = false
+
     private let message: Message
     private let currentUserPubkey: String?
+    private let onReplyTap: (() -> Void)?
     private let isAgent: Bool
-
-    private var authorName: String {
-        if isAgent {
-            "Agent"
-        } else {
-            "You"
-        }
-    }
 
     private var markdownText: AttributedString {
         do {
@@ -83,7 +103,10 @@ public struct MessageRow: View {
 
     private var messageContent: some View {
         Group {
-            if message.content.contains("```") {
+            if message.isStreaming {
+                // Streaming message with blinking cursor
+                streamingContent
+            } else if message.content.contains("```") {
                 // Contains code blocks - render with special formatting
                 codeBlockContent
             } else {
@@ -94,6 +117,26 @@ public struct MessageRow: View {
                     .foregroundStyle(.primary)
                     .textSelection(.enabled)
             }
+        }
+    }
+
+    private var streamingContent: some View {
+        HStack(alignment: .bottom, spacing: 2) {
+            Text(markdownText)
+                .font(.system(size: 16))
+                .lineSpacing(1.4)
+                .foregroundStyle(.primary)
+
+            // Blinking cursor
+            Rectangle()
+                .fill(.primary)
+                .frame(width: 2, height: 16)
+                .opacity(cursorVisible ? 1 : 0)
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
+                        cursorVisible = true
+                    }
+                }
         }
     }
 
