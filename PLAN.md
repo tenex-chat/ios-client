@@ -442,6 +442,16 @@ Reference: `/Users/pablofernandez/10x/tenex-ios-mockups/iphone.html` (Screen 1: 
   * Tests cover: route parsing, navigation stack, deep linking, state restoration
 - Navigation pattern is NavigationStack-based (not tab-based)
 - ProjectDetailView has internal tabs (Threads/Docs/Agents/Feed), not root-level tabs
+
+[2025-12-13 07:30] claude-code (ProjectListView UI refinements)
+- Refined ProjectListView UI to match Telegram-like design from mockup
+- Changed list style from .insetGrouped to .plain for flat appearance (removed card-style margins)
+- Removed default row insets and separators with .listRowInsets and .listRowSeparator(.hidden)
+- Updated ProjectRow padding to match mockup specifications: 12px top, 20px horizontal
+- Added divider to content area (not between rows) matching mockup separator style
+- Removed redundant Spacer causing layout issues
+- Build succeeded with 0 SwiftLint violations
+- UI now matches the compact, flat, Telegram-style chat list design from iphone.html mockup
 - Navigation Shell (1.3): 4/4 items complete ✅
 - Remaining for Milestone 1: NIP-46 Bunker, unread badges, online indicators
 ```

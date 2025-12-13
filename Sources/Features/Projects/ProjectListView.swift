@@ -23,9 +23,7 @@ public struct ProjectListView: View {
 
     public var body: some View {
         Group {
-            if viewModel.isLoading, viewModel.projects.isEmpty {
-                loadingView
-            } else if viewModel.projects.isEmpty {
+            if viewModel.projects.isEmpty {
                 emptyView
             } else {
                 projectList
@@ -56,23 +54,24 @@ public struct ProjectListView: View {
     private var projectList: some View {
         List {
             ForEach(viewModel.projects) { project in
-                ProjectRow(project: project)
+                NavigationLink(value: AppRoute.project(id: project.id)) {
+                    ProjectRow(project: project)
+                }
+                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                .listRowSeparator(.hidden)
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    Button(role: .destructive) {
+                        Task {
+                            await viewModel.archiveProject(id: project.id)
+                        }
+                    } label: {
+                        Label("Archive", systemImage: "archivebox")
+                    }
+                    .tint(.orange)
+                }
             }
         }
-        #if os(iOS)
-        .listStyle(.insetGrouped)
-        #else
-        .listStyle(.inset)
-        #endif
-    }
-
-    private var loadingView: some View {
-        VStack(spacing: 20) {
-            ProgressView()
-            Text("Loading projects...")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
+        .listStyle(.plain)
     }
 
     private var emptyView: some View {
@@ -116,7 +115,7 @@ struct ProjectRow: View {
                         .foregroundStyle(.white)
                 }
 
-            // Project info
+            // Project info with separator
             VStack(alignment: .leading, spacing: 4) {
                 Text(project.title)
                     .font(.system(size: 17, weight: .semibold))
@@ -129,10 +128,15 @@ struct ProjectRow: View {
                         .lineLimit(2)
                 }
             }
-
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.bottom, 12)
+            .overlay(alignment: .bottom) {
+                Divider()
+            }
         }
-        .padding(.vertical, 8)
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .contentShape(Rectangle())
     }
 
     // MARK: Private
