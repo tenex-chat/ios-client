@@ -150,6 +150,13 @@ public struct NavigationShell: View {
                 Text("Loading...")
             }
 
+        case let .agentProfile(agent):
+            if let ndk {
+                AgentProfileView(viewModel: AgentProfileViewModel(ndk: ndk, projectAgent: agent))
+            } else {
+                Text("Loading...")
+            }
+
         case .settings:
             SettingsView()
         }
