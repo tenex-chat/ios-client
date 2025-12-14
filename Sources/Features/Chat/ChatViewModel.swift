@@ -72,6 +72,9 @@ public final class ChatViewModel {
 
     // MARK: Public
 
+    /// Conversation settings for debugging display options
+    public var conversationSettings = ConversationSettings()
+
     /// The conversation state managing messages, streaming, and typing
     public private(set) var conversationState: ConversationState
 

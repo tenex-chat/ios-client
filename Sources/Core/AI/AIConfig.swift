@@ -219,6 +219,28 @@ public struct STTSettings: Codable, Sendable, Equatable {
     public var fallbackChain: [STTProvider]
 }
 
+// MARK: - DebuggingSettings
+
+/// Debugging settings for AI interactions
+public struct DebuggingSettings: Codable, Sendable, Equatable {
+    // MARK: Lifecycle
+
+    public init(
+        showReasoningBlocks: Bool = false,
+        showToolCalls: Bool = false
+    ) {
+        self.showReasoningBlocks = showReasoningBlocks
+        self.showToolCalls = showToolCalls
+    }
+
+    // MARK: Public
+
+    /// Whether to show reasoning blocks in AI responses
+    public var showReasoningBlocks: Bool
+    /// Whether to show tool calls in AI responses
+    public var showToolCalls: Bool
+}
+
 // MARK: - AIConfig
 
 /// Main container for all AI configuration

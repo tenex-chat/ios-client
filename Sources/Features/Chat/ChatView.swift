@@ -4,6 +4,8 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+// swiftformat:disable organizeDeclarations
+
 import NDKSwiftCore
 import SwiftUI
 import TENEXCore
@@ -23,7 +25,6 @@ private struct ScrollOffsetPreferenceKey: PreferenceKey {
 
 /// Main chat view displaying messages in a thread
 public struct ChatView: View { // swiftlint:disable:this type_body_length
-
     // MARK: Lifecycle
 
     /// Initialize the chat view
@@ -66,6 +67,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     @State private var availableModels: [String] = []
     @State private var availableTools: [String] = []
     @State private var availableBranches: [String] = []
+    @State private var isShowingSettings = false
 
     // Scroll management state
     @State private var shouldAutoScroll = true
@@ -187,6 +189,27 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
         }
         .navigationTitle(navigationTitle(viewModel: viewModel))
         .navigationBarBackButtonHidden(isShowingFocusedView)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    isShowingSettings = true
+                } label: {
+                    Image(systemName: "gear")
+                }
+            }
+        }
+        .sheet(isPresented: $isShowingSettings) {
+            NavigationView {
+                ConversationSettingsView(settings: $viewModel.conversationSettings)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("Done") {
+                                isShowingSettings = false
+                            }
+                        }
+                    }
+            }
+        }
         .task {
             // Only subscribe to metadata for existing threads
             if !viewModel.isNewThread {
@@ -276,8 +299,18 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
 
     @ViewBuilder
     private func messageRows(viewModel: ChatViewModel, messages: [Message]) -> some View {
-        ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
-            messageRowView(viewModel: viewModel, message: message, index: index, messages: messages)
+        let filteredMessages = messages.filter { message in
+            if !viewModel.conversationSettings.showReasoning, message.isReasoning {
+                return false
+            }
+            if !viewModel.conversationSettings.showToolCalls, message.isToolCall {
+                return false
+            }
+            return true
+        }
+
+        ForEach(Array(filteredMessages.enumerated()), id: \.element.id) { index, message in
+            messageRowView(viewModel: viewModel, message: message, index: index, messages: filteredMessages)
         }
     }
 
@@ -359,7 +392,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
 
     private func handleMessageCountChange(proxy: ScrollViewProxy, newCount: Int) {
         // Only auto-scroll if user is near bottom and new messages were added
-        if shouldAutoScroll && newCount > lastMessageCount {
+        if shouldAutoScroll, newCount > lastMessageCount {
             withAnimation {
                 proxy.scrollTo("bottom", anchor: .bottom)
             }
