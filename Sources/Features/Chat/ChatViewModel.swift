@@ -33,6 +33,7 @@ public final class ChatViewModel {
         self.threadEvent = threadEvent
         self.projectReference = projectReference
         self.userPubkey = userPubkey
+        conversationState = ConversationState(rootEventID: threadEvent.id)
 
         // Add the thread event (kind:11) as the first message
         // Thread events are kind:11, not kind:1111, so we add them directly
@@ -49,7 +50,7 @@ public final class ChatViewModel {
     // MARK: Public
 
     /// The conversation state managing messages, streaming, and typing
-    public let conversationState = ConversationState()
+    public let conversationState: ConversationState
 
     /// The current error message, if any
     public private(set) var errorMessage: String?
@@ -58,8 +59,14 @@ public final class ChatViewModel {
     public private(set) var threadTitle: String?
 
     /// The display messages (final + streaming synthetic), sorted by time
+    /// Only includes root and direct replies to root (nested replies are hidden)
     public var displayMessages: [Message] {
         conversationState.displayMessages
+    }
+
+    /// All messages in the thread (for finding nested replies)
+    public var allMessages: [String: Message] {
+        conversationState.messages
     }
 
     /// Set of pubkeys of users who are currently typing
@@ -194,10 +201,11 @@ public final class ChatViewModel {
             // - kind 21111: streaming deltas
             // - kind 24111: typing start
             // - kind 24112: typing stop
-            // All filtered by the thread's 'e' tag
+            // Use uppercase 'E' tag to get ALL events in the thread
+            // (lowercase 'e' = direct parent, uppercase 'E' = root thread reference)
             let filter = NDKFilter(
                 kinds: [1111, 21_111, 24_111, 24_112],
-                tags: ["e": Set([threadID])]
+                tags: ["E": Set([threadID])]
             )
 
             let subscription = ndk.subscribeToEvents(filters: [filter])

@@ -45,13 +45,28 @@ public struct ChatView: View {
 
     @Environment(\.ndk) private var ndk
     @State private var viewModel: ChatViewModel?
-    @State private var focusedMessage: Message?
+    @State private var focusStack: [Message] = [] // Stack of focused messages for navigation
     @State private var inputViewModel = ChatInputViewModel()
     @State private var onlineAgents: [ProjectAgent] = []
 
     private let threadEvent: NDKEvent
     private let projectReference: String
     private let currentUserPubkey: String
+
+    /// The currently focused message (nil = showing root level)
+    private var focusedMessage: Message? {
+        focusStack.last
+    }
+
+    /// The ID we're currently focused on (root thread ID if not focused on anything)
+    private var focusedEventID: String {
+        focusedMessage?.id ?? threadEvent.id
+    }
+
+    /// Whether we're showing a focused (non-root) view
+    private var isShowingFocusedView: Bool {
+        !focusStack.isEmpty
+    }
 
     /// Extract project d-tag from projectReference (format: "31933:pubkey:d-tag")
     private var projectDTag: String {
@@ -74,6 +89,25 @@ public struct ChatView: View {
         }
     }
 
+    private var backButton: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Button(action: navigateBack) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.left")
+                        Text("Back")
+                    }
+                    .foregroundColor(.accentColor)
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+                Spacer()
+            }
+            .background(Color(uiColor: .systemBackground))
+            Divider()
+        }
+    }
+
     @ViewBuilder
     private func contentView(ndk: NDK) -> some View {
         let vm = viewModel ?? ChatViewModel(
@@ -93,46 +127,20 @@ public struct ChatView: View {
 
     @ViewBuilder
     private func mainContent(viewModel: ChatViewModel) -> some View {
-        VStack(spacing: 0) {
-            // Messages area (scrollable)
-            Group {
-                if viewModel.displayMessages.isEmpty {
-                    emptyView
-                } else {
-                    messageList(viewModel: viewModel)
-                }
-            }
+        let displayedMessages = messagesForCurrentFocus(viewModel: viewModel)
 
-            // Input bar at bottom
-            if let ndk {
-                Divider()
-                ChatInputView(
-                    viewModel: inputViewModel,
-                    agents: onlineAgents,
-                    ndk: ndk
-                ) { text, agentPubkey, mentions in
-                    Task {
-                        await viewModel.sendMessage(
-                            text: text,
-                            targetAgentPubkey: agentPubkey,
-                            mentionedPubkeys: mentions,
-                            replyTo: nil
-                        )
-                    }
-                }
+        VStack(spacing: 0) {
+            if isShowingFocusedView {
+                backButton
             }
+            messagesArea(viewModel: viewModel, messages: displayedMessages)
+            inputBar(viewModel: viewModel)
         }
-        .navigationTitle(viewModel.threadTitle ?? "Thread")
-        .task {
-            await viewModel.subscribeToThreadMetadata()
-        }
-        .task {
-            await subscribeToProjectStatus()
-        }
+        .navigationTitle(navigationTitle(viewModel: viewModel))
+        .task { await viewModel.subscribeToThreadMetadata() }
+        .task { await subscribeToProjectStatus() }
         .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
-            Button("OK") {
-                // Error message will be cleared on next load
-            }
+            Button("OK") {}
         } message: {
             if let errorMessage = viewModel.errorMessage {
                 Text(errorMessage)
@@ -140,15 +148,45 @@ public struct ChatView: View {
         }
     }
 
-    private func messageList(viewModel: ChatViewModel) -> some View {
+    @ViewBuilder
+    private func messagesArea(viewModel: ChatViewModel, messages: [Message]) -> some View {
+        if messages.isEmpty {
+            emptyView
+        } else {
+            messageList(viewModel: viewModel, messages: messages)
+        }
+    }
+
+    @ViewBuilder
+    private func inputBar(viewModel: ChatViewModel) -> some View {
+        if let ndk {
+            Divider()
+            ChatInputView(
+                viewModel: inputViewModel,
+                agents: onlineAgents,
+                ndk: ndk
+            ) { text, agentPubkey, mentions in
+                Task {
+                    await viewModel.sendMessage(
+                        text: text,
+                        targetAgentPubkey: agentPubkey,
+                        mentionedPubkeys: mentions,
+                        replyTo: focusedMessage
+                    )
+                }
+            }
+        }
+    }
+
+    private func messageList(viewModel: ChatViewModel, messages: [Message]) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(viewModel.displayMessages) { message in
+                ForEach(messages) { message in
                     NavigationLink(value: AppRoute.agentProfile(pubkey: message.pubkey)) {
                         MessageRow(
                             message: message,
                             currentUserPubkey: currentUserPubkey,
-                            onReplyTap: message.replyCount > 0 ? { focusedMessage = message } : nil,
+                            onReplyTap: message.replyCount > 0 ? { focusOnMessage(message) } : nil,
                             onRetry: makeRetryAction(for: message, viewModel: viewModel),
                             onAgentTap: message.pubkey != currentUserPubkey ? {} : nil
                         )
@@ -166,16 +204,6 @@ public struct ChatView: View {
             }
             .padding(.vertical, 16)
         }
-        .sheet(item: $focusedMessage) { message in
-            ThreadFocusView(
-                focusedMessage: message,
-                parentMessage: findParentMessage(for: message, in: viewModel),
-                replies: findReplies(for: message, in: viewModel),
-                currentUserPubkey: currentUserPubkey
-            ) {
-                focusedMessage = nil
-            }
-        }
     }
 
     private func typingIndicator(viewModel: ChatViewModel) -> some View {
@@ -191,15 +219,61 @@ public struct ChatView: View {
         }
     }
 
-    private func findParentMessage(for message: Message, in viewModel: ChatViewModel) -> Message? {
-        guard let parentID = message.replyTo else {
-            return nil
+    /// Get messages to display based on current focus
+    /// - Shows focused message + direct replies to focused message
+    private func messagesForCurrentFocus(viewModel: ChatViewModel) -> [Message] {
+        if !isShowingFocusedView {
+            // At root level, use the normal display messages
+            return viewModel.displayMessages
         }
-        return viewModel.displayMessages.first { $0.id == parentID }
+
+        // For focused view, show:
+        // 1. The focused message itself
+        // 2. Direct replies to the focused message
+        var result: [Message] = []
+
+        // Add focused message
+        if let focused = focusedMessage {
+            result.append(focused)
+        }
+
+        // Add direct replies to focused message
+        let directReplies = viewModel.allMessages.values
+            .filter { $0.replyTo == focusedEventID }
+            .sorted { $0.createdAt < $1.createdAt }
+
+        // Compute reply counts for each direct reply
+        for reply in directReplies {
+            let nestedReplies = viewModel.allMessages.values.filter { $0.replyTo == reply.id }
+            if nestedReplies.isEmpty {
+                result.append(reply)
+            } else {
+                let uniquePubkeys = Array(Set(nestedReplies.map(\.pubkey)).prefix(3))
+                result.append(reply.with(replyCount: nestedReplies.count, replyAuthorPubkeys: uniquePubkeys))
+            }
+        }
+
+        return result
     }
 
-    private func findReplies(for message: Message, in viewModel: ChatViewModel) -> [Message] {
-        viewModel.displayMessages.filter { $0.replyTo == message.id }
+    /// Navigate into a message's replies
+    private func focusOnMessage(_ message: Message) {
+        focusStack.append(message)
+    }
+
+    /// Navigate back to parent
+    private func navigateBack() {
+        guard !focusStack.isEmpty else {
+            return
+        }
+        focusStack.removeLast()
+    }
+
+    private func navigationTitle(viewModel: ChatViewModel) -> String {
+        if isShowingFocusedView {
+            return "Replies"
+        }
+        return viewModel.threadTitle ?? "Thread"
     }
 
     private func typingText(viewModel: ChatViewModel) -> String {

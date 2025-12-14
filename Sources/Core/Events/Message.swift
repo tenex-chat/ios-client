@@ -360,11 +360,11 @@ public struct Message: Identifiable, Sendable {
 
     /// Create a filter for fetching messages by thread
     /// - Parameter threadId: The thread identifier (conversation ID)
-    /// - Returns: An NDKFilter configured for kind:1111 events with 'e' tag
+    /// - Returns: An NDKFilter configured for kind:1111 events with uppercase 'E' tag (root reference)
     public static func filter(for threadID: String) -> NDKFilter {
         NDKFilter(
             kinds: [1111],
-            tags: ["e": Set([threadID])]
+            tags: ["E": Set([threadID])]
         )
     }
 
