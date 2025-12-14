@@ -131,6 +131,8 @@ let project = Project(
                 .target(name: "TENEXCore"),
                 .target(name: "TENEXShared"),
                 .external(name: "NDKSwiftUI"),
+                .external(name: "ElevenLabsSwift"),
+                .external(name: "WhisperKit"),
             ]
         ),
 
