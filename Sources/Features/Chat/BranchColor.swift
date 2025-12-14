@@ -12,10 +12,10 @@ enum BranchColor {
     /// - Parameter branchName: The branch name to generate a color for
     /// - Returns: A Color with consistent hue based on the branch name hash
     static func color(for branchName: String) -> Color {
-        // Simple hash function
+        // djb2 hash with wrapping arithmetic to prevent overflow crashes
         var hash = 0
         for char in branchName.unicodeScalars {
-            hash = Int(char.value) + ((hash << 5) - hash)
+            hash = hash &* 31 &+ Int(char.value)
         }
 
         // Convert to hue (0-360)

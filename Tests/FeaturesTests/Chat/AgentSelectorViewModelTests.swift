@@ -25,7 +25,7 @@ struct AgentSelectorViewModelTests {
 
     @Test("Initialize with agents auto-selects first")
     func initializeWithAgents() {
-        // Given: List of agents
+        // Given: List of agents (alphabetically ordered, no PM)
         let agents = [
             ProjectAgent(pubkey: "abc123", name: "Claude", isGlobal: false),
             ProjectAgent(pubkey: "def456", name: "GPT-4", isGlobal: false),
@@ -34,9 +34,33 @@ struct AgentSelectorViewModelTests {
         // When: Creating view model
         let viewModel = AgentSelectorViewModel(agents: agents)
 
-        // Then: View model has agents and first is auto-selected
+        // Then: View model has agents sorted alphabetically and first is auto-selected
         #expect(viewModel.agents.count == 2)
+        #expect(viewModel.agents[0].name == "Claude") // Alphabetically first
+        #expect(viewModel.agents[1].name == "GPT-4")
         #expect(viewModel.selectedAgentPubkey == "abc123")
+    }
+
+    @Test("Agents are sorted PM first then alphabetically")
+    func agentsAreSortedPMFirstThenAlphabetically() {
+        // Given: List of agents with PM not first
+        let agents = [
+            ProjectAgent(pubkey: "def456", name: "Zulu", isGlobal: false, isPM: false),
+            ProjectAgent(pubkey: "ghi789", name: "Alpha", isGlobal: false, isPM: false),
+            ProjectAgent(pubkey: "abc123", name: "PM Agent", isGlobal: false, isPM: true),
+            ProjectAgent(pubkey: "jkl012", name: "Beta", isGlobal: false, isPM: false),
+        ]
+
+        // When: Creating view model
+        let viewModel = AgentSelectorViewModel(agents: agents)
+
+        // Then: PM is first, rest are alphabetically sorted
+        #expect(viewModel.agents.count == 4)
+        #expect(viewModel.agents[0].name == "PM Agent") // PM first
+        #expect(viewModel.agents[0].isPM == true)
+        #expect(viewModel.agents[1].name == "Alpha") // Then alphabetical
+        #expect(viewModel.agents[2].name == "Beta")
+        #expect(viewModel.agents[3].name == "Zulu")
     }
 
     @Test("Initialize with default agent pubkey")
@@ -124,8 +148,33 @@ struct AgentSelectorViewModelTests {
         ]
         viewModel.updateAgents(newAgents)
 
-        // Then: Selection falls back to first agent
+        // Then: Selection falls back to first agent (alphabetically)
         #expect(viewModel.selectedAgentPubkey == "abc123")
+        #expect(viewModel.agents[0].name == "Claude") // Alphabetically first
+        #expect(viewModel.agents[1].name == "Gemini")
+    }
+
+    @Test("Update agents maintains sorting")
+    func updateAgentsMaintainsSorting() {
+        // Given: View model with agents
+        let agents = [
+            ProjectAgent(pubkey: "abc123", name: "Zulu", isGlobal: false, isPM: false),
+        ]
+        let viewModel = AgentSelectorViewModel(agents: agents)
+
+        // When: Updating with unsorted agents including PM
+        let newAgents = [
+            ProjectAgent(pubkey: "def456", name: "Zulu", isGlobal: false, isPM: false),
+            ProjectAgent(pubkey: "ghi789", name: "Alpha", isGlobal: false, isPM: false),
+            ProjectAgent(pubkey: "jkl012", name: "PM Agent", isGlobal: false, isPM: true),
+        ]
+        viewModel.updateAgents(newAgents)
+
+        // Then: Agents are sorted PM first, then alphabetically
+        #expect(viewModel.agents.count == 3)
+        #expect(viewModel.agents[0].name == "PM Agent") // PM first
+        #expect(viewModel.agents[1].name == "Alpha") // Then alphabetical
+        #expect(viewModel.agents[2].name == "Zulu")
     }
 
     @Test("Update agents keeps valid selection")

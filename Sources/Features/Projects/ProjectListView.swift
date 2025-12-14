@@ -264,12 +264,12 @@ struct ProjectRow: View {
     var isOnline = false
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             avatarView
             projectInfo
         }
-        .padding(.horizontal, 20)
-        .padding(.top, 12)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 4)
         .contentShape(Rectangle())
         #if os(iOS)
             .hoverEffect(.highlight)
@@ -282,8 +282,8 @@ struct ProjectRow: View {
     // MARK: Private
 
     /// Dynamic Type scaling for avatar size
-    @ScaledMetric(relativeTo: .title) private var avatarSize: CGFloat = 56
-    @ScaledMetric(relativeTo: .title) private var avatarFontSize: CGFloat = 24
+    @ScaledMetric(relativeTo: .body) private var avatarSize: CGFloat = 40
+    @ScaledMetric(relativeTo: .body) private var avatarFontSize: CGFloat = 16
 
     private var avatarView: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -316,19 +316,18 @@ struct ProjectRow: View {
     }
 
     private var projectInfo: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 1) {
             Text(project.title)
-                .font(.system(size: 17, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.primary)
 
             if let description = project.description {
                 Text(description)
-                    .font(.system(size: 15))
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .lineLimit(1)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.bottom, 12)
     }
 }

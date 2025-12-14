@@ -251,7 +251,8 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                 projectReference: projectReference,
                 availableModels: availableModels,
                 availableTools: availableTools,
-                availableBranches: availableBranches
+                availableBranches: availableBranches,
+                defaultAgentPubkey: mostRecentAgentPubkey(from: viewModel.displayMessages)
             ) { text, agentPubkey, mentions in
                 Task {
                     await viewModel.sendMessage(
@@ -265,6 +266,18 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                 }
             }
         }
+    }
+
+    /// Find the most recent agent that wrote a message in the conversation
+    /// - Parameter messages: The display messages from the conversation
+    /// - Returns: The pubkey of the most recent agent, or nil if no agent messages exist
+    private func mostRecentAgentPubkey(from messages: [Message]) -> String? {
+        // Iterate from the end (most recent) to find the first agent message
+        // Agent messages are those where the pubkey is in the onlineAgents list
+        let agentPubkeys = Set(onlineAgents.map(\.pubkey))
+        return messages.last { message in
+            agentPubkeys.contains(message.pubkey)
+        }?.pubkey
     }
 
     private func messageList(viewModel: ChatViewModel, messages: [Message]) -> some View {

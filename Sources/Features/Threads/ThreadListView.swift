@@ -149,47 +149,47 @@ struct ThreadRow: View {
     // MARK: Internal
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 3) {
             // Thread title
             Text(thread.title)
-                .font(.system(size: 17, weight: .semibold))
+                .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.primary)
 
             // Thread summary (if available)
             if let summary = thread.summary {
                 Text(summary)
-                    .font(.system(size: 15))
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    .lineLimit(1)
             }
 
             // Thread metadata
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 // Reply count
                 Label("\(thread.replyCount)", systemImage: "bubble.left.fill")
-                    .font(.system(size: 13))
+                    .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
 
                 // Phase badge (if available)
                 if let phase = thread.phase {
                     Text(phase)
-                        .font(.system(size: 11, weight: .medium))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                        .font(.system(size: 9, weight: .medium))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
                         .background(Color.blue.opacity(0.15))
                         .foregroundStyle(.blue)
-                        .cornerRadius(6)
+                        .cornerRadius(3)
                 }
 
                 Spacer()
 
                 // Creation date
                 Text(thread.createdAt, style: .relative)
-                    .font(.system(size: 13))
+                    .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
             }
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 3)
         .contentShape(Rectangle())
         #if os(iOS)
             .hoverEffect(.highlight)

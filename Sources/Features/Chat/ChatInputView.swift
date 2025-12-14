@@ -59,6 +59,7 @@ public struct ChatInputView: View {
     ///   - availableModels: Available models for agent config
     ///   - availableTools: Available tools for agent config
     ///   - availableBranches: Available git branches
+    ///   - defaultAgentPubkey: Optional default agent pubkey (e.g., most recent message author)
     ///   - onSend: Callback when message is sent
     public init(
         viewModel: ChatInputViewModel,
@@ -69,6 +70,7 @@ public struct ChatInputView: View {
         availableModels: [String] = [],
         availableTools: [String] = [],
         availableBranches: [String] = [],
+        defaultAgentPubkey: String? = nil,
         onSend: @escaping (String, String?, [String]) -> Void
     ) {
         self.ndk = ndk
@@ -79,7 +81,9 @@ public struct ChatInputView: View {
         self.availableBranches = availableBranches
         self.onSend = onSend
         _viewModel = State(initialValue: viewModel)
-        _agentSelectorVM = State(initialValue: AgentSelectorViewModel(agents: agents))
+        _agentSelectorVM = State(
+            initialValue: AgentSelectorViewModel(agents: agents, defaultAgentPubkey: defaultAgentPubkey)
+        )
         _mentionVM = State(initialValue: MentionAutocompleteViewModel(agents: agents))
         self.agents = agents
     }
