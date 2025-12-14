@@ -26,15 +26,24 @@ public final class ConversationState {
     // MARK: Lifecycle
 
     /// Creates a new conversation state for a specific root event.
-    /// - Parameter rootEventId: The ID of the root event (kind:11 thread)
-    public init(rootEventID: String) {
+    /// - Parameters:
+    ///   - rootEventID: The ID of the root event (kind:11 thread)
+    ///   - onAgentMessage: Optional callback when a final agent message arrives
+    public init(
+        rootEventID: String,
+        onAgentMessage: ((Message) -> Void)? = nil
+    ) {
         self.rootEventID = rootEventID
+        self.onAgentMessage = onAgentMessage
     }
 
     // MARK: Public
 
     /// The ID of the root event (kind:11 thread) - used to filter display messages
     public let rootEventID: String
+
+    /// Callback when a final agent message arrives (for auto-TTS)
+    public let onAgentMessage: ((Message) -> Void)?
 
     /// Final messages keyed by event ID (for deduplication)
     public private(set) var messages: [String: Message] = [:]
@@ -139,6 +148,9 @@ public final class ConversationState {
             status: .sent
         )
         messages[event.id] = message
+
+        // Trigger callback for agent messages (for auto-TTS)
+        onAgentMessage?(message)
 
         // Clear typing indicator immediately
         typingIndicators.removeValue(forKey: event.pubkey)

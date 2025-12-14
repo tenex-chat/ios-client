@@ -45,6 +45,8 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
 
     @Environment(\.ndk) private var ndk
     @Environment(\.dataStore) private var dataStore
+    @Environment(\.aiConfigStorage) private var aiConfigStorage
+    @Environment(\.audioService) private var audioService
     @State private var viewModel: ChatViewModel?
     @State private var focusStack: [Message] = [] // Stack of focused messages for navigation
     @State private var inputViewModel = ChatInputViewModel()
@@ -137,7 +139,9 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
             ndk: ndk,
             threadEvent: threadEvent,
             projectReference: projectReference,
-            userPubkey: currentUserPubkey
+            userPubkey: currentUserPubkey,
+            aiConfigStorage: aiConfigStorage,
+            audioService: audioService
         )
 
         mainContent(viewModel: vm)

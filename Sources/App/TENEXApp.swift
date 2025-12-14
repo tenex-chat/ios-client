@@ -28,11 +28,13 @@ struct TENEXApp: App {
     var body: some Scene {
         WindowGroup {
             Group {
-                if let authManager, let ndk {
+                if let authManager, let ndk, let aiConfigStorage, let audioService {
                     ContentView()
                         .environment(authManager)
                         .environment(\.ndk, ndk)
                         .environment(\.aiConfig, aiConfig)
+                        .environment(\.aiConfigStorage, aiConfigStorage)
+                        .environment(\.audioService, audioService)
                         .onChange(of: authManager.activePubkey) { oldPubkey, newPubkey in
                             handleAuthChange(oldPubkey: oldPubkey, newPubkey: newPubkey)
                         }
@@ -55,6 +57,8 @@ struct TENEXApp: App {
     @State private var authManager: NDKAuthManager?
     @State private var dataStore: DataStore?
     @State private var aiConfig: AIConfig?
+    @State private var aiConfigStorage: AIConfigStorage?
+    @State private var audioService: AudioService?
 
     // MARK: - Helpers
 
@@ -139,7 +143,12 @@ struct TENEXApp: App {
     private func loadAIConfig() async {
         let keychain = KeychainStorage(service: "com.tenex.ai")
         let storage = UserDefaultsAIConfigStorage(keychain: keychain)
+        aiConfigStorage = storage
         aiConfig = try? storage.load()
+
+        // Initialize AudioService
+        let capabilityDetector = DefaultAICapabilityDetector()
+        audioService = AudioService(storage: storage, capabilityDetector: capabilityDetector)
     }
 }
 
