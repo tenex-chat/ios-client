@@ -14,6 +14,7 @@ public enum AppRoute: Hashable, Codable {
     case project(id: String)
     case threadList(projectID: String)
     case thread(projectID: String, threadID: String)
+    case voiceMode(projectID: String, threadID: String?)
     case agents(projectID: String)
     case agentProfile(pubkey: String)
     case agentList
