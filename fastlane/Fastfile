@@ -25,14 +25,21 @@ platform :ios do
     )
     # -------------------------------------------------------------------------
 
-    # Update code signing settings for app target only (frameworks use automatic signing)
+    # Update code signing settings
+    # Set all targets to use Distribution certificate
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "TENEX.xcodeproj",
+      code_sign_identity: "Apple Distribution"
+    )
+
+    # Only the app target gets a provisioning profile (frameworks don't use them)
     update_code_signing_settings(
       use_automatic_signing: false,
       targets: ["TENEX"],
       path: "TENEX.xcodeproj",
-      code_sign_identity: "Apple Distribution",
-      bundle_identifier: "chat.tenex.ios",
-      profile_name: "match AppStore chat.tenex.ios"
+      profile_name: "match AppStore chat.tenex.ios",
+      code_sign_identity: "Apple Distribution"
     )
 
     # Build the app
