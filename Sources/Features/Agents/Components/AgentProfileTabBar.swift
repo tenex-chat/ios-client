@@ -80,7 +80,7 @@ private struct TabItem: View {
                     .padding(.vertical, 8)
 
                 Rectangle()
-                    .fill(.accentColor)
+                    .fill(Color.accentColor)
                     .frame(height: 2)
                     .opacity(isSelected ? 1 : 0)
             }
