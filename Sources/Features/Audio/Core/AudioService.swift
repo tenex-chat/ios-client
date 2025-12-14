@@ -6,6 +6,7 @@
 
 import Foundation
 import Observation
+import TENEXCore
 
 /// Main audio service coordinator
 /// Orchestrates TTS, STT, recording, and playback with automatic fallbacks
@@ -22,7 +23,7 @@ final class AudioService {
         // Initialize TTS services
         // Primary: ElevenLabs (if API key available)
         // Fallback: System
-        if let apiKey = storage.loadAPIKey(for: "elevenlabs"), !apiKey.isEmpty {
+        if let apiKey = try? storage.loadAPIKey(for: "elevenlabs"), !apiKey.isEmpty {
             ttsService = ElevenLabsTTSService(apiKey: apiKey)
         } else {
             ttsService = SystemTTSService()
@@ -33,8 +34,9 @@ final class AudioService {
         // Primary: SpeechTranscriber (iOS 18+) or WhisperKit (fallback)
         // Fallback: WhisperKit
         if #available(iOS 18.0, macOS 15.0, *),
-           capabilityDetector.isSpeechTranscriberAvailable() {
-            sttService = SpeechTranscriberSTT()
+           capabilityDetector.isSpeechTranscriberAvailable(),
+           let speechTranscriber = SpeechTranscriberSTT() {
+            sttService = speechTranscriber
         } else {
             sttService = WhisperKitSTT()
         }

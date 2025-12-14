@@ -5,7 +5,7 @@
 //
 
 import Foundation
-import Speech
+@preconcurrency import Speech
 
 /// Primary STT service using iOS 18+ on-device speech recognition
 @available(iOS 18.0, macOS 15.0, *)
@@ -34,32 +34,48 @@ final class SpeechTranscriberSTT: STTService {
     func transcribe(audioURL: URL) async throws -> String {
         // Check authorization
         let authStatus = SFSpeechRecognizer.authorizationStatus()
-        guard authStatus == .authorized else {
-            if authStatus == .notDetermined {
-                // Request permission
-                let granted = await SFSpeechRecognizer.requestAuthorization() == .authorized
-                guard granted else {
-                    throw AudioError.permissionDenied
-                }
-            } else {
+        if authStatus == .notDetermined {
+            let granted = await requestAuthorization()
+            if !granted {
                 throw AudioError.permissionDenied
             }
+        } else if authStatus != .authorized {
+            throw AudioError.permissionDenied
         }
 
         guard recognizer.isAvailable else {
             throw AudioError.serviceUnavailable("SpeechRecognizer")
         }
 
-        do {
-            // Use new iOS 18 async API
-            let transcription = try await recognizer.transcription(from: audioURL)
-            return transcription.formattedString
-        } catch {
-            throw AudioError.transcriptionFailed(error)
+        // Create recognition request
+        let request = SFSpeechURLRecognitionRequest(url: audioURL)
+        request.shouldReportPartialResults = false
+
+        return try await withCheckedThrowingContinuation { continuation in
+            recognizer.recognitionTask(with: request) { result, error in
+                if let error {
+                    continuation.resume(throwing: AudioError.transcriptionFailed(error))
+                    return
+                }
+
+                guard let result, result.isFinal else {
+                    return
+                }
+
+                continuation.resume(returning: result.bestTranscription.formattedString)
+            }
         }
     }
 
     // MARK: Private
 
     private let recognizer: SFSpeechRecognizer
+
+    private func requestAuthorization() async -> Bool {
+        await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { status in
+                continuation.resume(returning: status == .authorized)
+            }
+        }
+    }
 }

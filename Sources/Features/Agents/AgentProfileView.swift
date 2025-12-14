@@ -29,7 +29,7 @@ public struct AgentProfileView: View {
             Group {
                 switch selectedTab {
                 case .feed:
-                    FeedTabView(viewModel: viewModel)
+                    AgentFeedTabView(viewModel: viewModel)
                 case .settings:
                     SettingsTabView(pubkey: pubkey)
                 }
@@ -37,8 +37,8 @@ public struct AgentProfileView: View {
         }
         .navigationTitle(viewModel.agentName ?? "Agent Profile")
         .navigationBarTitleDisplayMode(.inline)
-        .task {
-            await viewModel.loadAgentInfo()
+        .onAppear {
+            viewModel.startSubscriptions()
         }
     }
 
@@ -50,20 +50,17 @@ public struct AgentProfileView: View {
     private let pubkey: String
 }
 
-// MARK: - FeedTabView
+// MARK: - AgentFeedTabView
 
 /// Feed tab showing all events from the agent's pubkey
-private struct FeedTabView: View {
+private struct AgentFeedTabView: View {
     // MARK: Internal
 
     let viewModel: AgentProfileViewModel
 
     var body: some View {
         Group {
-            if viewModel.isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if viewModel.events.isEmpty {
+            if viewModel.events.isEmpty {
                 emptyView
             } else {
                 eventList
@@ -101,7 +98,7 @@ private struct FeedTabView: View {
         }
         .listStyle(.plain)
         .refreshable {
-            await viewModel.refreshEvents()
+            viewModel.refresh()
         }
     }
 }
@@ -117,7 +114,7 @@ private struct EventRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Kind \(event.kind.rawValue)")
+                Text("Kind \(event.kind)")
                     .font(.caption)
                     .fontWeight(.medium)
                     .padding(.horizontal, 8)
@@ -151,9 +148,10 @@ private struct EventRow: View {
     // MARK: Private
 
     private var formattedDate: String {
+        let date = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
-        return formatter.localizedString(for: event.createdDate, relativeTo: Date())
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
 }
 

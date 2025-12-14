@@ -20,11 +20,7 @@ final class AudioPlayer: NSObject {
         super.init()
     }
 
-    // MARK: - Cleanup
-
-    deinit {
-        stop()
-    }
+    // Note: cleanup handled by stop() called by AudioService
 
     // MARK: Internal
 

@@ -5,6 +5,7 @@
 //
 
 import Foundation
+import TENEXCore
 
 // MARK: - TTSService
 

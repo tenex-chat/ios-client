@@ -28,9 +28,6 @@ public final class FeedTabViewModel {
 
     // MARK: Public
 
-    /// All events from the feed
-    public var events: [NDKEvent] = []
-
     /// Search query
     public var searchQuery = ""
 
@@ -39,6 +36,11 @@ public final class FeedTabViewModel {
 
     /// Whether to group threads
     public var groupThreads = false
+
+    /// All events from the feed (filtered to exclude unwanted kinds)
+    public var events: [NDKEvent] {
+        subscription?.data.filter { shouldIncludeEvent($0) } ?? []
+    }
 
     /// Filtered and sorted events based on search, author, and thread grouping
     public var filteredEvents: [NDKEvent] {
@@ -70,31 +72,19 @@ public final class FeedTabViewModel {
     }
 
     /// Subscribe to project events
-    public func subscribe() async {
-        do {
-            let filter = NDKFilter(tags: ["a": [projectID]])
-            let subscription = ndk.subscribeToEvents(filters: [filter])
-
-            for try await event in subscription {
-                // Deduplicate by event ID
-                guard !seenEventIDs.contains(event.id) else { continue }
-                seenEventIDs.insert(event.id)
-
-                // Filter out unwanted events
-                guard shouldIncludeEvent(event) else { continue }
-
-                events.append(event)
-            }
-        } catch {
-            // Silently fail for feed (non-critical)
-        }
+    public func subscribe() {
+        let filter = NDKFilter(tags: ["a": [projectID]])
+        subscription = ndk.subscribe(filter: filter)
     }
+
+    // MARK: Internal
+
+    private(set) var subscription: NDKSubscription<NDKEvent>?
 
     // MARK: Private
 
     private let ndk: NDK
     private let projectID: String
-    private var seenEventIDs: Set<String> = []
 
     /// Check if an event should be included in the feed
     private func shouldIncludeEvent(_ event: NDKEvent) -> Bool {

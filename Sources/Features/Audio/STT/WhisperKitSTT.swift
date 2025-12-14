@@ -43,8 +43,9 @@ final class WhisperKitSTT: STTService {
 
         do {
             // Transcribe audio file
-            let result = try await whisperKit.transcribe(audioPath: audioURL.path)
-            return result?.text ?? ""
+            let results = try await whisperKit.transcribe(audioPath: audioURL.path)
+            // Combine all transcription segments
+            return results.map(\.text).joined(separator: " ")
         } catch {
             throw AudioError.transcriptionFailed(error)
         }

@@ -28,152 +28,59 @@ public final class ThreadListViewModel {
     public init(ndk: NDK, projectID: String) {
         self.ndk = ndk
         self.projectID = projectID
-
-        // Start continuous subscription in background
-        Task {
-            await subscribeAndProcessEvents()
-        }
     }
 
     // MARK: Public
 
-    /// The list of threads
-    public private(set) var threads: [NostrThread] = []
-
     /// Map of thread ID to original NDKEvent (needed for ChatView navigation)
     public private(set) var threadEvents: [String: NDKEvent] = [:]
 
-    /// The current error message, if any
-    public private(set) var errorMessage: String?
+    /// The list of threads, enriched with metadata and reply counts
+    public var threads: [NostrThread] {
+        let threadEvents = threadEventsSubscription?.data ?? []
+        let metadataEvents = metadataSubscription?.data ?? []
+        let messageEvents = messagesSubscription?.data ?? []
 
-    // MARK: Private
+        // Build threads from kind:11 events
+        var threadsByID: [String: NostrThread] = [:]
+        var threadEventsByID: [String: NDKEvent] = [:]
 
-    private let ndk: NDK
-    private let projectID: String
-    private var seenEventIDs: Set<String> = []
-
-    // MARK: - Private Helpers
-
-    /// Subscribe to thread events and process them as they arrive
-    /// This runs continuously in the background
-    private func subscribeAndProcessEvents() async {
-        do {
-            NSLog("[ThreadListVM] ProjectID being queried: '\(projectID)'")
-            let filters = createSubscriptionFilters()
-            NSLog("[ThreadListVM] Starting subscription with filters: \(filters)")
-            let subscription = ndk.subscribeToEvents(filters: filters)
-
-            // State for building threads
-            var threadsByID: [String: NostrThread] = [:]
-            var threadEventsByID: [String: NDKEvent] = [:]
-            var metadataByThreadID: [String: ConversationMetadata] = [:]
-            var replyCountsByThreadID: [String: Int] = [:]
-
-            for try await event in subscription {
-                NSLog("[ThreadListVM] Received event: kind=\(event.kind) id=\(event.id)")
-
-                // Deduplicate events by ID
-                guard !seenEventIDs.contains(event.id) else {
-                    NSLog("[ThreadListVM] Skipping duplicate event: \(event.id)")
-                    continue
-                }
-                seenEventIDs.insert(event.id)
-
-                // Process event and update state
-                processEvent(
-                    event,
-                    threadsByID: &threadsByID,
-                    threadEventsByID: &threadEventsByID,
-                    metadataByThreadID: &metadataByThreadID,
-                    replyCountsByThreadID: &replyCountsByThreadID
-                )
-
-                // Update UI with current state
-                updateThreads(
-                    threadsByID: threadsByID,
-                    threadEventsByID: threadEventsByID,
-                    metadataByThreadID: metadataByThreadID,
-                    replyCountsByThreadID: replyCountsByThreadID
-                )
-            }
-        } catch {
-            // Set error message if subscription fails
-            errorMessage = "Failed to subscribe to threads."
-        }
-    }
-
-    /// Create subscription filters for threads, metadata, and messages
-    private func createSubscriptionFilters() -> [NDKFilter] {
-        let threadFilter = NostrThread.filter(for: projectID)
-        let metadataFilter = NDKFilter(kinds: [513])
-        let messagesFilter = NDKFilter(
-            kinds: [1111],
-            tags: ["a": Set([projectID])]
-        )
-        return [threadFilter, metadataFilter, messagesFilter]
-    }
-
-    /// Process an individual event and update state dictionaries
-    private func processEvent(
-        _ event: NDKEvent,
-        threadsByID: inout [String: NostrThread],
-        threadEventsByID: inout [String: NDKEvent],
-        metadataByThreadID: inout [String: ConversationMetadata],
-        replyCountsByThreadID: inout [String: Int]
-    ) {
-        switch event.kind {
-        case 11:
-            NSLog("[ThreadListVM] Processing kind:11 thread event")
+        for event in threadEvents {
             if let thread = NostrThread.from(event: event) {
-                NSLog("[ThreadListVM] Successfully parsed thread: id=\(thread.id) title=\(thread.title)")
                 threadsByID[thread.id] = thread
-                threadEventsByID[thread.id] = event // Store original event for navigation
-            } else {
-                NSLog("[ThreadListVM] Failed to parse thread from event: \(event.id)")
+                threadEventsByID[thread.id] = event
             }
+        }
 
-        case 513:
+        // Build metadata map from kind:513 events
+        var metadataByThreadID: [String: ConversationMetadata] = [:]
+        for event in metadataEvents {
             if let metadata = ConversationMetadata.from(event: event) {
                 // Only use metadata if it's newer than what we already have
                 if let existing = metadataByThreadID[metadata.threadID] {
                     guard metadata.createdAt > existing.createdAt else {
-                        return
+                        continue
                     }
                 }
                 metadataByThreadID[metadata.threadID] = metadata
             }
+        }
 
-        case 1111:
+        // Build reply counts from kind:1111 events
+        var replyCountsByThreadID: [String: Int] = [:]
+        for event in messageEvents {
             // Messages reference their thread root via uppercase "E" tag (NIP-22)
             if let threadID = event.tags(withName: "E").first?[safe: 1] {
                 replyCountsByThreadID[threadID, default: 0] += 1
             }
-
-        default:
-            break
         }
-    }
 
-    /// Update the threads array by merging data from kind:11, kind:513, and kind:1111
-    private func updateThreads(
-        threadsByID: [String: NostrThread],
-        threadEventsByID: [String: NDKEvent],
-        metadataByThreadID: [String: ConversationMetadata],
-        replyCountsByThreadID: [String: Int]
-    ) {
-        NSLog("[ThreadListVM] updateThreads called with \(threadsByID.count) threads")
-
-        // Build enriched threads
+        // Merge everything into enriched threads
         var enrichedThreads: [NostrThread] = []
-
         for (threadID, thread) in threadsByID {
-            // Get metadata if available
             let metadata = metadataByThreadID[threadID]
-
-            // Get reply count if available
             let replyCount = replyCountsByThreadID[threadID] ?? 0
 
-            // Create enriched thread
             let enrichedThread = NostrThread(
                 id: thread.id,
                 pubkey: thread.pubkey,
@@ -188,10 +95,46 @@ public final class ThreadListViewModel {
             enrichedThreads.append(enrichedThread)
         }
 
-        // Sort by creation date (newest first)
-        threads = enrichedThreads.sorted { $0.createdAt > $1.createdAt }
         // Store thread events for navigation
-        threadEvents = threadEventsByID
-        NSLog("[ThreadListVM] Final threads array count: \(threads.count)")
+        self.threadEvents = threadEventsByID
+
+        // Sort by creation date (newest first)
+        return enrichedThreads.sorted { $0.createdAt > $1.createdAt }
     }
+
+    /// The current error message, if any
+    public var errorMessage: String? {
+        threadEventsSubscription?.error?.localizedDescription ??
+            metadataSubscription?.error?.localizedDescription ??
+            messagesSubscription?.error?.localizedDescription
+    }
+
+    /// Subscribe to all thread-related events
+    public func subscribe() {
+        // Subscribe to thread events (kind:11)
+        let threadFilter = NostrThread.filter(for: projectID)
+        threadEventsSubscription = ndk.subscribe(filter: threadFilter)
+
+        // Subscribe to metadata events (kind:513)
+        let metadataFilter = NDKFilter(kinds: [513])
+        metadataSubscription = ndk.subscribe(filter: metadataFilter)
+
+        // Subscribe to message events (kind:1111)
+        let messagesFilter = NDKFilter(
+            kinds: [1111],
+            tags: ["a": Set([projectID])]
+        )
+        messagesSubscription = ndk.subscribe(filter: messagesFilter)
+    }
+
+    // MARK: Internal
+
+    private(set) var threadEventsSubscription: NDKSubscription<NDKEvent>?
+    private(set) var metadataSubscription: NDKSubscription<NDKEvent>?
+    private(set) var messagesSubscription: NDKSubscription<NDKEvent>?
+
+    // MARK: Private
+
+    private let ndk: NDK
+    private let projectID: String
 }

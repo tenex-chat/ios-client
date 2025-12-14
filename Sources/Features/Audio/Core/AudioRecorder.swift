@@ -45,15 +45,13 @@ final class AudioRecorder {
     func startRecording() async throws -> URL {
         // Check permission
         let permission = AVAudioSession.sharedInstance().recordPermission
-        guard permission == .granted else {
-            if permission == .undetermined {
-                let granted = await requestPermission()
-                guard granted else {
-                    throw AudioError.permissionDenied
-                }
-            } else {
+        if permission == .undetermined {
+            let granted = await requestPermission()
+            if !granted {
                 throw AudioError.permissionDenied
             }
+        } else if permission != .granted {
+            throw AudioError.permissionDenied
         }
 
         // Configure audio session

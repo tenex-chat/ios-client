@@ -6,6 +6,7 @@
 
 import AVFoundation
 import Foundation
+import TENEXCore
 
 // MARK: - SystemTTSService
 

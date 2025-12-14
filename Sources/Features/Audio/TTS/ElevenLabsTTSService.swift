@@ -6,6 +6,7 @@
 
 import ElevenlabsSwift
 import Foundation
+import TENEXCore
 
 /// Primary TTS service using ElevenLabs API
 final class ElevenLabsTTSService: TTSService {

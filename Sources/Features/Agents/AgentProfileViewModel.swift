@@ -6,11 +6,11 @@
 
 import Foundation
 import NDKSwiftCore
-import OSLog
 
 // MARK: - AgentProfileViewModel
 
 /// ViewModel for agent profile view
+@MainActor
 @Observable
 final class AgentProfileViewModel {
     // MARK: Lifecycle
@@ -22,85 +22,66 @@ final class AgentProfileViewModel {
 
     // MARK: Internal
 
-    private(set) var agentName: String?
-    private(set) var agentRole: String?
-    private(set) var events: [NDKEvent] = []
-    private(set) var isLoading = false
+    private(set) var profileSubscription: NDKSubscription<NDKEvent>?
+    private(set) var eventsSubscription: NDKSubscription<NDKEvent>?
 
-    func loadAgentInfo() async {
-        isLoading = true
-        defer { isLoading = false }
-
-        do {
-            guard let publicKey = PublicKey(hex: pubkey) else {
-                Logger().error("Invalid pubkey format: \(pubkey)")
-                return
-            }
-
-            let filter = Filter(
-                authors: [publicKey],
-                kinds: [.custom(4199)]
-            )
-
-            let events = try await ndk.fetch(filter: filter)
-
-            if let agentEvent = events.first {
-                extractAgentInfo(from: agentEvent)
-            }
-
-            await loadEvents()
-        } catch {
-            Logger().error("Failed to load agent info: \(error.localizedDescription)")
-        }
+    /// Computed properties from profile subscription
+    var agentName: String? {
+        guard let event = profileSubscription?.data.first,
+              let data = event.content.data(using: .utf8),
+              let metadata = try? JSONDecoder().decode(ProfileMetadata.self, from: data)
+        else { return nil }
+        return metadata.name
     }
 
-    func refreshEvents() async {
-        await loadEvents()
+    var agentAbout: String? {
+        guard let event = profileSubscription?.data.first,
+              let data = event.content.data(using: .utf8),
+              let metadata = try? JSONDecoder().decode(ProfileMetadata.self, from: data)
+        else { return nil }
+        return metadata.about
+    }
+
+    var agentPicture: String? {
+        guard let event = profileSubscription?.data.first,
+              let data = event.content.data(using: .utf8),
+              let metadata = try? JSONDecoder().decode(ProfileMetadata.self, from: data)
+        else { return nil }
+        return metadata.picture
+    }
+
+    /// Events are already deduplicated and managed by NDKSubscription
+    var events: [NDKEvent] {
+        eventsSubscription?.data.sorted { $0.createdAt > $1.createdAt } ?? []
+    }
+
+    func startSubscriptions() {
+        // Subscribe to agent's profile (kind:0)
+        profileSubscription = ndk.subscribe(
+            filter: NDKFilter(authors: [pubkey], kinds: [0], limit: 1)
+        )
+
+        // Subscribe to all events from this agent
+        eventsSubscription = ndk.subscribe(
+            filter: NDKFilter(authors: [pubkey], limit: 50)
+        )
+    }
+
+    func refresh() {
+        // Just restart subscriptions - NDK will fetch fresh data
+        startSubscriptions()
     }
 
     // MARK: Private
 
     private let pubkey: String
     private let ndk: NDK
+}
 
-    private func extractAgentInfo(from event: NDKEvent) {
-        for tag in event.tags {
-            switch tag.id {
-            case "title",
-                 "name":
-                if let name = tag.value {
-                    agentName = name
-                }
-            case "role":
-                if let role = tag.value {
-                    agentRole = role
-                }
-            default:
-                break
-            }
-        }
+// MARK: - ProfileMetadata
 
-        if agentName == nil, !event.content.isEmpty {
-            agentName = "Agent"
-        }
-    }
-
-    private func loadEvents() async {
-        do {
-            guard let publicKey = PublicKey(hex: pubkey) else {
-                Logger().error("Invalid pubkey format: \(pubkey)")
-                return
-            }
-
-            let filter = Filter(
-                authors: [publicKey],
-                limit: 50
-            )
-
-            let fetchedEvents = try await ndk.fetch(filter: filter)
-            events = fetchedEvents.sorted { $0.createdDate > $1.createdDate }
-        } catch {
-            Logger().error("Failed to load events: \(error.localizedDescription)")
-        }
-    }
+private struct ProfileMetadata: Codable {
+    let name: String?
+    let about: String?
+    let picture: String?
 }

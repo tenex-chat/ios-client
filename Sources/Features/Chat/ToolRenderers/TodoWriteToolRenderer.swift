@@ -68,10 +68,16 @@ public struct TodoWriteToolRenderer: View {
                 .foregroundStyle(.green)
 
         case .inProgress:
-            Image(systemName: "arrow.circlepath")
-                .font(.system(size: 14))
-                .foregroundStyle(.blue)
-                .symbolEffect(.rotate, options: .repeating)
+            if #available(iOS 18.0, macOS 15.0, *) {
+                Image(systemName: "arrow.circlepath")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.blue)
+                    .symbolEffect(.rotate, options: .repeating)
+            } else {
+                Image(systemName: "arrow.circlepath")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.blue)
+            }
 
         case .pending:
             Image(systemName: "circle")

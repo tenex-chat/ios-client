@@ -7,7 +7,6 @@
 import Foundation
 import NDKSwiftCore
 import Observation
-import OSLog
 import TENEXCore
 
 // MARK: - AgentsTabViewModel
@@ -32,61 +31,38 @@ public final class AgentsTabViewModel {
     // MARK: Public
 
     /// Online agents from ProjectStatus
-    public private(set) var agents: [ProjectAgent] = []
+    public var agents: [ProjectAgent] {
+        // Get the latest ProjectStatus event and extract agents
+        subscription?.data.first?.agents ?? []
+    }
 
     /// Whether initial load is in progress
-    public private(set) var isLoading = false
+    public var isLoading: Bool {
+        subscription?.isLoading ?? false
+    }
 
     /// Error message if subscription failed
-    public private(set) var errorMessage: String?
-
-    /// Whether subscription is active
-    public private(set) var isSubscribed = false
+    public var errorMessage: String? {
+        subscription?.error?.localizedDescription
+    }
 
     /// Start subscribing to ProjectStatus events
     /// Continuously updates agents as new events arrive
-    public func subscribe() async {
-        guard !isSubscribed else {
-            return
-        }
-
-        isLoading = true
-        isSubscribed = true
-        errorMessage = nil
-
-        do {
-            let filter = ProjectStatus.filter(for: projectID)
-            let subscription = ndk.subscribeToEvents(filters: [filter])
-
-            // Continuously process events - no break, real-time updates
-            for try await event in subscription {
-                if let status = ProjectStatus.from(event: event) {
-                    agents = status.agents
-                    // First event received, no longer in initial loading state
-                    if isLoading {
-                        isLoading = false
-                    }
-                }
-            }
-
-            // Subscription ended (e.g., EOSE or cancelled)
-            isSubscribed = false
-        } catch {
-            Logger().error("Failed to subscribe to agents: \(error.localizedDescription)")
-            errorMessage = "Failed to load agents"
-            isLoading = false
-            isSubscribed = false
+    public func subscribe() {
+        let filter = ProjectStatus.filter(for: projectID)
+        subscription = ndk.subscribe(filter: filter) { event in
+            ProjectStatus.from(event: event)
         }
     }
 
     /// Refresh agents by restarting subscription
-    public func refresh() async {
-        isSubscribed = false
-        agents = []
-        await subscribe()
+    public func refresh() {
+        subscribe()
     }
 
     // MARK: Internal
+
+    private(set) var subscription: NDKSubscription<ProjectStatus>?
 
     let ndk: NDK
 
