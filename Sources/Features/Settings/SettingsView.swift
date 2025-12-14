@@ -20,6 +20,8 @@ public struct SettingsView: View {
 
     public var body: some View {
         List {
+            accountSection
+
             Section("General") {
                 NavigationLink(destination: aiSettingsView) {
                     SettingsRow(
@@ -46,9 +48,53 @@ public struct SettingsView: View {
         #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
         #endif
+            .confirmationDialog(
+                "Are you sure you want to sign out?",
+                isPresented: $showingSignOutConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Sign Out", role: .destructive) {
+                    authManager.logout()
+                }
+                Button("Cancel", role: .cancel) {}
+            }
     }
 
     // MARK: Private
+
+    @Environment(NDKAuthManager.self) private var authManager
+    @State private var showingSignOutConfirmation = false
+
+    private var npub: String? {
+        guard let pubkey = authManager.activePubkey else {
+            return nil
+        }
+        return try? String.toNpub(pubkey)
+    }
+
+    private var accountSection: some View {
+        Section("Account") {
+            if let npub {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Logged in as")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(npub)
+                        .font(.footnote)
+                        .fontDesign(.monospaced)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                .padding(.vertical, 4)
+            }
+
+            Button(role: .destructive) {
+                showingSignOutConfirmation = true
+            } label: {
+                Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
+            }
+        }
+    }
 
     @ViewBuilder private var aiSettingsView: some View {
         let keychain = KeychainStorage(service: "com.tenex.ai")

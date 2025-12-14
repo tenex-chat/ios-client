@@ -29,17 +29,11 @@ public struct NavigationShell: View {
                 .toolbar {
                     #if os(iOS)
                         ToolbarItem(placement: .topBarTrailing) {
-                            HStack(spacing: 16) {
-                                settingsButton
-                                signOutButton
-                            }
+                            settingsButton
                         }
                     #else
                         ToolbarItem(placement: .primaryAction) {
-                            HStack(spacing: 16) {
-                                settingsButton
-                                signOutButton
-                            }
+                            settingsButton
                         }
                     #endif
                 }
@@ -55,8 +49,6 @@ public struct NavigationShell: View {
     @Environment(DataStore.self) private var dataStore: DataStore?
     @Environment(\.ndk) private var ndk
     @State private var router = NavigationRouter()
-    @State private var showingSignOutConfirmation = false
-    @State private var isSigningOut = false
 
     // MARK: - Root View
 
@@ -91,34 +83,6 @@ public struct NavigationShell: View {
             }
         } label: {
             Label("Menu", systemImage: "ellipsis.circle")
-        }
-    }
-
-    // MARK: - Sign Out
-
-    private var signOutButton: some View {
-        Button {
-            showingSignOutConfirmation = true
-        } label: {
-            if isSigningOut {
-                ProgressView()
-                    .progressViewStyle(.circular)
-            } else {
-                Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
-            }
-        }
-        .disabled(isSigningOut)
-        .confirmationDialog(
-            "Are you sure you want to sign out?",
-            isPresented: $showingSignOutConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Sign Out", role: .destructive) {
-                Task {
-                    await performSignOut()
-                }
-            }
-            Button("Cancel", role: .cancel) {}
         }
     }
 
@@ -200,17 +164,5 @@ public struct NavigationShell: View {
         } catch {
             Logger().error("Failed to handle deep link: \(error.localizedDescription)")
         }
-    }
-
-    // MARK: - Sign Out
-
-    private func performSignOut() async {
-        isSigningOut = true
-
-        defer {
-            isSigningOut = false
-        }
-
-        authManager.logout()
     }
 }
