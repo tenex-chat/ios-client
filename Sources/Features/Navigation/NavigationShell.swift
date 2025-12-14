@@ -151,6 +151,9 @@ public struct NavigationShell: View {
         case let .thread(projectID, threadID):
             ThreadDetailPlaceholder(projectID: projectID, threadID: threadID)
 
+        case let .voiceMode(projectID, threadID):
+            VoiceModePlaceholder(projectID: projectID, threadID: threadID)
+
         case let .agents(projectID):
             if let ndk {
                 AgentsTabView(viewModel: AgentsTabViewModel(ndk: ndk, projectID: projectID))
@@ -319,5 +322,40 @@ struct ThreadDetailPlaceholder: View {
                 .foregroundStyle(.secondary)
         }
         .navigationTitle("Chat")
+    }
+}
+
+// MARK: - VoiceModePlaceholder
+
+struct VoiceModePlaceholder: View {
+    let projectID: String
+    let threadID: String?
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "waveform.circle.fill")
+                .font(.system(size: 80))
+                .foregroundStyle(.blue)
+
+            Text("Voice Mode")
+                .font(.title)
+                .fontWeight(.semibold)
+
+            Text("Project: \(projectID)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if let threadID {
+                Text("Thread: \(threadID)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Text("Voice conversation with AI agents")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .navigationTitle("Voice Mode")
+        .preferredColorScheme(.dark)
     }
 }
