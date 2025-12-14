@@ -71,7 +71,7 @@ public final class AddLLMConfigViewModel {
 
     /// Whether the form is valid
     public var isValid: Bool {
-        !name.isEmpty && !model.isEmpty && !apiKey.isEmpty && validate()
+        validate()
     }
 
     /// Whether base URL is required for the selected provider
