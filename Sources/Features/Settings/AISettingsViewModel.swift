@@ -206,6 +206,48 @@ public final class AISettingsViewModel {
         try storage.loadAPIKey(for: configID)
     }
 
+    // MARK: - TTS Configuration
+
+    /// Save TTS provider API key
+    /// - Parameters:
+    ///   - key: The API key to save
+    ///   - provider: The TTS provider
+    public func saveTTSAPIKey(_ key: String, for provider: TTSProvider) throws {
+        try storage.saveTTSAPIKey(key, for: provider)
+    }
+
+    /// Get TTS provider API key
+    /// - Parameter provider: The TTS provider
+    /// - Returns: The API key, or nil if not found
+    public func getTTSAPIKey(for provider: TTSProvider) throws -> String? {
+        try storage.loadTTSAPIKey(for: provider)
+    }
+
+    /// Check if TTS provider has an API key configured
+    /// - Parameter provider: The TTS provider
+    /// - Returns: True if API key is configured
+    public func hasTTSAPIKey(for provider: TTSProvider) -> Bool {
+        (try? storage.loadTTSAPIKey(for: provider)) != nil
+    }
+
+    /// Add a voice configuration
+    /// - Parameter voice: The voice to add
+    public func addVoiceConfig(_ voice: VoiceConfig) {
+        guard config.ttsSettings.voiceConfigs.count < 10 else {
+            return
+        }
+        guard !config.ttsSettings.voiceConfigs.contains(where: { $0.voiceID == voice.voiceID }) else {
+            return
+        }
+        config.ttsSettings.voiceConfigs.append(voice)
+    }
+
+    /// Remove a voice configuration
+    /// - Parameter id: The voice config ID to remove
+    public func removeVoiceConfig(id: String) {
+        config.ttsSettings.voiceConfigs.removeAll { $0.id == id }
+    }
+
     // MARK: Private
 
     private let storage: AIConfigStorage

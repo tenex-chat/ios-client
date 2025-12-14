@@ -163,11 +163,13 @@ public struct TTSSettings: Codable, Sendable, Equatable {
 
     public init(
         enabled: Bool = false,
+        provider: TTSProvider = .elevenlabs,
         voiceConfigs: [VoiceConfig] = [],
         speed: Double = 1.0,
         autoSpeak: Bool = false
     ) {
         self.enabled = enabled
+        self.provider = provider
         self.voiceConfigs = voiceConfigs
         self.speed = speed
         self.autoSpeak = autoSpeak
@@ -177,6 +179,8 @@ public struct TTSSettings: Codable, Sendable, Equatable {
 
     /// Whether TTS is enabled
     public var enabled: Bool
+    /// The TTS provider to use
+    public var provider: TTSProvider
     /// Configured voices (up to 10)
     public var voiceConfigs: [VoiceConfig]
     /// Speech speed (0.5 - 2.0)
