@@ -180,26 +180,17 @@ public struct ProjectListView: View {
         if usesSelection {
             // Split view mode: use selection binding
             List(viewModel.projects, selection: $selectedProjectID) { project in
-                let isOnline = dataStore?.isProjectOnline(projectCoordinate: project.coordinate) ?? false
-                ProjectRow(project: project, isOnline: isOnline)
+                projectRowContent(for: project)
                     .tag(project.coordinate)
-                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-                    .listRowSeparator(.hidden)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        archiveButton(for: project)
-                    }
-                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                        if !isOnline {
-                            startButton(for: project)
-                        }
-                    }
             }
             .listStyle(.plain)
         } else {
             // Stack navigation mode: use NavigationLink
             List {
                 ForEach(viewModel.projects) { project in
-                    projectRow(for: project)
+                    NavigationLink(value: AppRoute.project(id: project.id)) {
+                        projectRowContent(for: project)
+                    }
                 }
             }
             .listStyle(.plain)
@@ -229,21 +220,19 @@ public struct ProjectListView: View {
     }
 
     @ViewBuilder
-    private func projectRow(for project: Project) -> some View {
+    private func projectRowContent(for project: Project) -> some View {
         let isOnline = dataStore?.isProjectOnline(projectCoordinate: project.coordinate) ?? false
-        NavigationLink(value: AppRoute.project(id: project.id)) {
-            ProjectRow(project: project, isOnline: isOnline)
-        }
-        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-        .listRowSeparator(.hidden)
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            archiveButton(for: project)
-        }
-        .swipeActions(edge: .leading, allowsFullSwipe: true) {
-            if !isOnline {
-                startButton(for: project)
+        ProjectRow(project: project, isOnline: isOnline)
+            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+            .listRowSeparator(.hidden)
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                archiveButton(for: project)
             }
-        }
+            .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                if !isOnline {
+                    startButton(for: project)
+                }
+            }
     }
 
     private func archiveButton(for project: Project) -> some View {

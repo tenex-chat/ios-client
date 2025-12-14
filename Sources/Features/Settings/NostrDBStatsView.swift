@@ -173,7 +173,7 @@ struct NostrDBStatsView: View {
         let hasOtherKinds = !stats.otherKinds.isEmpty
 
         return Section("Events by Kind") {
-            ForEach(Array(NdbCommonKind.allCases.enumerated()), id: \.offset) { _, kind in
+            ForEach(NdbCommonKind.allCases, id: \.self) { kind in
                 if let counts = stats.commonKinds[kind], !counts.isEmpty {
                     KindStatRow(kind: kind, counts: counts)
                 }
@@ -197,7 +197,7 @@ struct NostrDBStatsView: View {
 
     private func databaseIndexesSection(_ stats: NdbStat) -> some View {
         Section("Database Indexes") {
-            ForEach(Array(NdbDatabase.allCases.enumerated()), id: \.offset) { _, db in
+            ForEach(NdbDatabase.allCases, id: \.self) { db in
                 if let counts = stats.databases[db], !counts.isEmpty {
                     DatabaseStatRow(database: db, counts: counts)
                 }

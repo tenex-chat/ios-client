@@ -16,7 +16,7 @@ struct SplitViewProjectDetail: View {
     @Binding var selectedThreadID: String?
 
     @Environment(\.ndk) private var ndk
-    @Environment(AuthManager.self) private var authManager
+    @Environment(NDKAuthManager.self) private var authManager
 
     var body: some View {
         TabView {
@@ -34,7 +34,7 @@ struct SplitViewProjectDetail: View {
     private var threadsTab: some View {
         SplitViewThreadList(
             projectID: project.coordinate,
-            userPubkey: authManager.currentUser?.pubkey,
+            userPubkey: authManager.activePubkey,
             selectedThreadID: $selectedThreadID
         )
         .tabItem {
@@ -92,7 +92,8 @@ struct SplitViewThreadList: View {
                 if let viewModel {
                     threadListContent(viewModel: viewModel)
                 } else {
-                    emptyView
+                    // Show nothing while ViewModel initializes (no loading spinners per PLAN.md)
+                    Color.clear
                         .task {
                             let vm = ThreadListViewModel(ndk: ndk, projectID: projectID)
                             viewModel = vm
@@ -235,6 +236,9 @@ struct SplitViewChatDetail: View {
     @State private var subscription: NDKSubscription<NDKEvent>?
 
     private func startSubscription() {
+        // Cancel previous subscription when threadID changes
+        subscription?.stop()
+
         guard let ndk else {
             return
         }
