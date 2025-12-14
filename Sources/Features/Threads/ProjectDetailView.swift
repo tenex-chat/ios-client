@@ -55,6 +55,13 @@ public struct ProjectDetailView: View {
                 }
             }
 
+            // Show filter button only on threads tab
+            if selectedTab == 0 {
+                ToolbarItem(placement: .secondaryAction) {
+                    filterMenu
+                }
+            }
+
             ToolbarItem(placement: .secondaryAction) {
                 Button {
                     showingSettings = true
@@ -74,13 +81,15 @@ public struct ProjectDetailView: View {
     @Environment(NDKAuthManager.self) private var authManager
     @State private var showingSettings = false
     @State private var selectedTab = 0
+    @State private var filtersStore = ThreadFiltersStore()
 
     private let project: Project
 
     private var threadsTab: some View {
         ThreadListView(
             projectID: project.coordinate,
-            userPubkey: authManager.activePubkey
+            userPubkey: authManager.activePubkey,
+            filtersStore: filtersStore
         )
         .navigationTitle(project.title)
         .tabItem {
@@ -122,5 +131,54 @@ public struct ProjectDetailView: View {
             .tabItem {
                 Label("Feed", systemImage: "list.bullet")
             }
+    }
+
+    @ViewBuilder private var filterMenu: some View {
+        let activeFilter = filtersStore.getFilter(for: project.coordinate)
+
+        Menu {
+            // Clear filter button
+            Button {
+                filtersStore.setFilter(nil, for: project.coordinate)
+            } label: {
+                Label("All conversations", systemImage: "circle")
+            }
+
+            Divider()
+
+            // Activity filters section
+            Section("Activity filters") {
+                ForEach([ThreadFilter.oneHour, .fourHours, .oneDay], id: \.self) { filter in
+                    Button {
+                        filtersStore.setFilter(filter, for: project.coordinate)
+                    } label: {
+                        Label(filter.displayName, systemImage: filter.systemImage)
+                    }
+                }
+            }
+
+            Divider()
+
+            // Needs response filters section
+            Section("Response filters") {
+                ForEach(
+                    [ThreadFilter.needsResponseOneHour, .needsResponseFourHours, .needsResponseOneDay],
+                    id: \.self
+                ) { filter in
+                    Button {
+                        filtersStore.setFilter(filter, for: project.coordinate)
+                    } label: {
+                        Label(filter.displayName, systemImage: filter.systemImage)
+                    }
+                }
+            }
+        } label: {
+            Label(
+                activeFilter?.displayName ?? "Filter",
+                systemImage: activeFilter != nil
+                    ? "line.3.horizontal.decrease.circle.fill"
+                    : "line.3.horizontal.decrease.circle"
+            )
+        }
     }
 }
