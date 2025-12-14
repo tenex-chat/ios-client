@@ -43,17 +43,12 @@ public final class ChatViewModel {
         // Initialize conversation state first (required before self can be captured)
         if let threadEvent {
             conversationState = ConversationState(rootEventID: threadEvent.id)
-        } else {
-            conversationState = ConversationState(rootEventID: "")
-        }
 
-        // Now set up the callback after all properties are initialized
-        conversationState.onAgentMessage = { [weak self] message in
-            self?.handleAgentMessage(message)
-        }
+            // Set agent message callback after initialization to avoid capture issues
+            conversationState.onAgentMessage = { [weak self] message in
+                self?.handleAgentMessage(message)
+            }
 
-        // Set up thread-specific initialization
-        if let threadEvent {
             // Add the thread event (kind:11) as the first message
             // This is needed because the subscription only fetches kind:1111 replies
             if let threadMessage = Message.from(event: threadEvent) {
@@ -63,6 +58,14 @@ public final class ChatViewModel {
             // Start continuous subscription in background
             Task {
                 await subscribeToAllEvents()
+            }
+        } else {
+            // New thread mode - create empty conversation state (will be updated after thread creation)
+            conversationState = ConversationState(rootEventID: "")
+
+            // Set agent message callback after initialization to avoid capture issues
+            conversationState.onAgentMessage = { [weak self] message in
+                self?.handleAgentMessage(message)
             }
         }
     }
@@ -257,9 +260,10 @@ public final class ChatViewModel {
             threadEvent = event
 
             // Update conversation state with new root ID
-            conversationState = ConversationState(
-                rootEventID: event.id
-            ) { [weak self] message in
+            conversationState = ConversationState(rootEventID: event.id)
+
+            // Set agent message callback after initialization to avoid capture issues
+            conversationState.onAgentMessage = { [weak self] message in
                 self?.handleAgentMessage(message)
             }
 
@@ -323,15 +327,27 @@ public final class ChatViewModel {
             return
         }
 
-        // Create combined filter with all kinds
-        // - kinds: 1111 (final messages), 21111, 24111, 24112 (ephemeral)
-        // - Use uppercase 'E' tag to get ALL events in the thread
-        let combinedFilter = NDKFilter(
-            kinds: [1111, 21_111, 24_111, 24_112],
+        // Create two filters in one subscription:
+        // Filter 1: kind 1111 (final messages) - no limits
+        let finalMessagesFilter = NDKFilter(
+            kinds: [1111],
             tags: ["E": Set([threadID])]
         )
 
-        let subscription = ndk.subscribe(filter: combinedFilter)
+        // Filter 2: ephemeral events (21111, 24111, 24112)
+        // - since: 1 minute ago to prevent overwhelming with old events
+        // - limit: 5 to cap the number of ephemeral events
+        let oneMinuteAgo = Timestamp(Date().addingTimeInterval(-60).timeIntervalSince1970)
+        let ephemeralFilter = NDKFilter(
+            kinds: [21_111, 24_111, 24_112],
+            since: oneMinuteAgo,
+            limit: 5,
+            tags: ["E": Set([threadID])]
+        )
+
+        // Use uppercase 'E' tag to get ALL events in the thread
+        // (lowercase 'e' = direct parent, uppercase 'E' = root thread reference)
+        let subscription = ndk.subscribe(filters: [finalMessagesFilter, ephemeralFilter])
 
         // Continuous subscription - runs forever
         for await event in subscription.events {
