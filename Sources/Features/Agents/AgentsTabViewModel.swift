@@ -49,9 +49,16 @@ public final class AgentsTabViewModel {
     /// Start subscribing to ProjectStatus events
     /// Continuously updates agents as new events arrive
     public func subscribe() {
-        let filter = ProjectStatus.filter(for: projectID)
+        // Extract owner pubkey from project coordinate (format: "31933:pubkey:dTag")
+        let ownerPubkey = extractOwnerPubkey(from: projectID)
+        let filter = ProjectStatus.filter(for: ownerPubkey)
         subscription = ndk.subscribe(filter: filter) { event in
-            ProjectStatus.from(event: event)
+            // Only include status for this specific project
+            guard let status = ProjectStatus.from(event: event),
+                  status.projectCoordinate == self.projectID else {
+                return nil
+            }
+            return status
         }
     }
 
@@ -69,4 +76,16 @@ public final class AgentsTabViewModel {
     // MARK: Private
 
     private let projectID: String
+
+    /// Extract owner pubkey from project coordinate
+    /// - Parameter coordinate: Project coordinate in format "kind:pubkey:dTag"
+    /// - Returns: The owner pubkey (middle component)
+    private func extractOwnerPubkey(from coordinate: String) -> String {
+        let components = coordinate.split(separator: ":")
+        guard components.count >= 3 else {
+            // Fallback: if not in expected format, return as-is
+            return coordinate
+        }
+        return String(components[1])
+    }
 }

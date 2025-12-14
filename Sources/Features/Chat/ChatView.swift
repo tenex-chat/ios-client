@@ -78,6 +78,15 @@ public struct ChatView: View {
         projectReference.components(separatedBy: ":").last ?? projectReference
     }
 
+    /// Extract owner pubkey from projectReference (format: "31933:pubkey:d-tag")
+    private var projectOwnerPubkey: String {
+        let components = projectReference.components(separatedBy: ":")
+        guard components.count >= 3 else {
+            return projectReference
+        }
+        return components[1]
+    }
+
     private var backButton: some View {
         VStack(spacing: 0) {
             HStack {
@@ -331,11 +340,12 @@ public struct ChatView: View {
             return
         }
 
-        let filter = ProjectStatus.filter(for: projectDTag)
+        let filter = ProjectStatus.filter(for: projectOwnerPubkey)
         let subscription = ndk.subscribe(filter: filter)
 
         for await event in subscription.events {
-            if let status = ProjectStatus.from(event: event) {
+            if let status = ProjectStatus.from(event: event),
+               status.projectCoordinate == projectReference {
                 await MainActor.run {
                     onlineAgents = status.agents
                 }
