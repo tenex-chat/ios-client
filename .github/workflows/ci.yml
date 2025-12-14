@@ -51,8 +51,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install mise
+        uses: jdx/mise-action@v2
+
       - name: Install Tuist
-        run: curl -Ls https://install.tuist.io | bash
+        run: mise install tuist
 
       - name: Cache Tuist
         uses: actions/cache@v4
@@ -83,8 +86,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install mise
+        uses: jdx/mise-action@v2
+
       - name: Install Tuist
-        run: curl -Ls https://install.tuist.io | bash
+        run: mise install tuist
 
       - name: Cache Tuist
         uses: actions/cache@v4

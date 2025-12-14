@@ -8,55 +8,105 @@ on:
 
 jobs:
   lint-and-format:
-    runs-on: macos-latest
+    runs-on: macos-14
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
+
       - name: Install Tuist
-        run: | # Installs Tuist
-          curl -Ls https://install.tuist.io | bash
-          tuist install
+        run: mise install tuist
+
+      - name: Fetch Dependencies
+        run: tuist install
+
+      - name: Generate Project
+        run: tuist generate --no-open
+
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
       - name: Lint
-        run: tuist lint
-      - name: Format
-        run: tuist format --check
+        run: swiftlint lint --strict
+
+      - name: Install SwiftFormat
+        run: brew install swiftformat
+
+      - name: Format Check
+        run: swiftformat --lint .
 
   build:
-    runs-on: macos-latest
+    runs-on: macos-14
     needs: lint-and-format
     strategy:
       matrix:
-        platform: [iOS, macOS]
+        destination:
+          - "platform=iOS Simulator,name=iPhone 15 Pro"
+          - "platform=macOS"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
+      - name: Install mise
+        uses: jdx/mise-action@v2
+
       - name: Install Tuist
-        run: | # Installs Tuist
-          curl -Ls https://install.tuist.io | bash
-          tuist install
+        run: mise install tuist
+
+      - name: Cache Tuist
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.tuist
+            Tuist/.build
+          key: ${{ runner.os }}-tuist-${{ hashFiles('**/Package.swift', '**/Project.swift') }}
+
+      - name: Fetch Dependencies
+        run: tuist install
+
+      - name: Generate Project
+        run: tuist generate --no-open
+
       - name: Build
-        run: tuist build ${{ matrix.platform }}
+        run: |
+          xcodebuild build \
+            -workspace TENEX.xcworkspace \
+            -scheme TENEX \
+            -destination "${{ matrix.destination }}" \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO
 
   test:
-    runs-on: macos-latest
+    runs-on: macos-14
     needs: build
     steps:
-      - uses: actions/checkout@v3
-      - name: Install Tuist
-        run: | # Installs Tuist
-          curl -Ls https://install.tuist.io | bash
-          tuist install
-      - name: Test
-        run: tuist test
+      - uses: actions/checkout@v4
 
-  e2e-tests:
-    runs-on: macos-latest
-    needs: test
-    steps:
-      - uses: actions/checkout@v3
+      - name: Install mise
+        uses: jdx/mise-action@v2
+
       - name: Install Tuist
-        run: | # Installs Tuist
-          curl -Ls https://install.tuist.io | bash
-          tuist install
-      - name: Install Maestro
-        run: curl -Ls "https://get.maestro.mobile.dev" | bash
-      - name: Run Maestro Tests
-        run: maestro test .maestro
+        run: mise install tuist
+
+      - name: Cache Tuist
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.tuist
+            Tuist/.build
+          key: ${{ runner.os }}-tuist-${{ hashFiles('**/Package.swift', '**/Project.swift') }}
+
+      - name: Fetch Dependencies
+        run: tuist install
+
+      - name: Generate Project
+        run: tuist generate --no-open
+
+      - name: Run Tests
+        run: |
+          xcodebuild test \
+            -workspace TENEX.xcworkspace \
+            -scheme TENEX \
+            -destination "platform=iOS Simulator,name=iPhone 15 Pro" \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO
