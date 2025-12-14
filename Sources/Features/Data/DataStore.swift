@@ -63,6 +63,7 @@ public final class DataStore {
         projectsTask = Task { await subscribeToProjects(userPubkey: userPubkey) }
         agentsTask = Task { await subscribeToAgents() }
         toolsTask = Task { await subscribeToTools() }
+        statusTask = Task { await subscribeToProjectStatuses(userPubkey: userPubkey) }
     }
 
     /// Stop all subscriptions and clear state
@@ -70,12 +71,12 @@ public final class DataStore {
         projectsTask?.cancel()
         agentsTask?.cancel()
         toolsTask?.cancel()
-        statusTasks.values.forEach { $0.cancel() }
+        statusTask?.cancel()
 
         projectsTask = nil
         agentsTask = nil
         toolsTask = nil
-        statusTasks.removeAll()
+        statusTask = nil
 
         // Clear state
         projects = []
@@ -87,16 +88,34 @@ public final class DataStore {
 
     // MARK: - Project Status
 
-    /// Subscribe to status updates for a specific project
-    /// - Parameter projectID: The project identifier
-    public func subscribeToProjectStatus(projectID: String) {
-        guard statusTasks[projectID] == nil else {
-            return
+    /// Check if a project is currently online (has active, non-stale agents)
+    /// - Parameter projectCoordinate: The project coordinate (kind:pubkey:dTag)
+    /// - Returns: True if the project has online agents and status is not stale
+    public func isProjectOnline(projectCoordinate: String) -> Bool {
+        guard let status = projectStatuses[projectCoordinate] else {
+            return false
         }
+        return status.isOnline && !status.agents.isEmpty
+    }
 
-        statusTasks[projectID] = Task {
-            await subscribeToStatus(for: projectID)
-        }
+    /// Get the status for a project
+    /// - Parameter projectCoordinate: The project coordinate (kind:pubkey:dTag)
+    /// - Returns: The project status if available
+    public func getProjectStatus(projectCoordinate: String) -> ProjectStatus? {
+        projectStatuses[projectCoordinate]
+    }
+
+    // MARK: - Project Actions
+
+    /// Start a project by publishing a kind 24000 event
+    /// - Parameter project: The project to start
+    public func startProject(_ project: Project) async throws {
+        let event = try await NDKEventBuilder(ndk: ndk)
+            .kind(24_000)
+            .content("")
+            .tag(["a", project.coordinate])
+            .build()
+        try await ndk.publish(event)
     }
 
     // MARK: Private
@@ -111,7 +130,7 @@ public final class DataStore {
     private var projectsTask: Task<Void, Never>?
     private var agentsTask: Task<Void, Never>?
     private var toolsTask: Task<Void, Never>?
-    private var statusTasks: [String: Task<Void, Never>] = [:]
+    private var statusTask: Task<Void, Never>?
 
     // MARK: - Private Subscription Methods
 
@@ -168,13 +187,19 @@ public final class DataStore {
         }
     }
 
-    private func subscribeToStatus(for projectID: String) async {
-        let filter = ProjectStatus.filter(for: projectID)
+    private func subscribeToProjectStatuses(userPubkey: String) async {
+        let filter = ProjectStatus.filter(for: userPubkey)
         let subscription = ndk.subscribe(filter: filter)
 
         for await event in subscription.events {
             if let status = ProjectStatus.from(event: event) {
-                projectStatuses[projectID] = status
+                // Only keep if newer than existing
+                if let existing = projectStatuses[status.projectCoordinate] {
+                    guard status.createdAt > existing.createdAt else {
+                        continue
+                    }
+                }
+                projectStatuses[status.projectCoordinate] = status
             }
         }
     }

@@ -170,21 +170,7 @@ public struct ProjectListView: View {
     private var projectList: some View {
         List {
             ForEach(viewModel.projects) { project in
-                NavigationLink(value: AppRoute.project(id: project.id)) {
-                    ProjectRow(project: project)
-                }
-                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-                .listRowSeparator(.hidden)
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    Button(role: .destructive) {
-                        Task {
-                            await viewModel.archiveProject(id: project.id)
-                        }
-                    } label: {
-                        Label("Archive", systemImage: "archivebox")
-                    }
-                    .tint(.orange)
-                }
+                projectRow(for: project)
             }
         }
         .listStyle(.plain)
@@ -211,50 +197,57 @@ public struct ProjectListView: View {
             .padding(.top)
         }
     }
+
+    @ViewBuilder
+    private func projectRow(for project: Project) -> some View {
+        let isOnline = dataStore?.isProjectOnline(projectCoordinate: project.coordinate) ?? false
+        NavigationLink(value: AppRoute.project(id: project.id)) {
+            ProjectRow(project: project, isOnline: isOnline)
+        }
+        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+        .listRowSeparator(.hidden)
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            archiveButton(for: project)
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            if !isOnline {
+                startButton(for: project)
+            }
+        }
+    }
+
+    private func archiveButton(for project: Project) -> some View {
+        Button(role: .destructive) {
+            Task { await viewModel.archiveProject(id: project.id) }
+        } label: {
+            Label("Archive", systemImage: "archivebox")
+        }
+        .tint(.orange)
+    }
+
+    private func startButton(for project: Project) -> some View {
+        Button {
+            Task { try? await dataStore?.startProject(project) }
+        } label: {
+            Label("Start", systemImage: "play.fill")
+        }
+        .tint(.green)
+    }
 }
 
 // MARK: - ProjectRow
 
 /// Row component displaying a single project
 struct ProjectRow: View {
-    // MARK: Lifecycle
-
-    init(project: Project) {
-        self.project = project
-    }
-
     // MARK: Internal
+
+    let project: Project
+    var isOnline = false
 
     var body: some View {
         HStack(spacing: 12) {
-            // Project avatar with HSL color
-            RoundedRectangle(cornerRadius: 12)
-                .fill(project.color)
-                .frame(width: 56, height: 56)
-                .overlay {
-                    Text(project.title.prefix(1).uppercased())
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(.white)
-                }
-
-            // Project info with separator
-            VStack(alignment: .leading, spacing: 4) {
-                Text(project.title)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.primary)
-
-                if let description = project.description {
-                    Text(description)
-                        .font(.system(size: 15))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.bottom, 12)
-            .overlay(alignment: .bottom) {
-                Divider()
-            }
+            avatarView
+            projectInfo
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
@@ -263,5 +256,49 @@ struct ProjectRow: View {
 
     // MARK: Private
 
-    private let project: Project
+    private var avatarView: some View {
+        ZStack(alignment: .bottomTrailing) {
+            RoundedRectangle(cornerRadius: 12)
+                .fill(project.color)
+                .frame(width: 56, height: 56)
+                .overlay {
+                    Text(project.title.prefix(1).uppercased())
+                        .font(.system(size: 24, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+            statusIndicator
+        }
+    }
+
+    private var statusIndicator: some View {
+        Circle()
+            .fill(isOnline ? Color.green : Color.gray.opacity(0.5))
+            .frame(width: 14, height: 14)
+            .overlay {
+                Circle()
+                    .stroke(Color(uiColor: .systemBackground), lineWidth: 2)
+            }
+            .shadow(color: isOnline ? .green.opacity(0.5) : .clear, radius: 4)
+            .offset(x: 2, y: 2)
+    }
+
+    private var projectInfo: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(project.title)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.primary)
+
+            if let description = project.description {
+                Text(description)
+                    .font(.system(size: 15))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.bottom, 12)
+        .overlay(alignment: .bottom) {
+            Divider()
+        }
+    }
 }

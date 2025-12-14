@@ -15,7 +15,7 @@ struct ProjectStatusEventTests {
     @Test("Parse valid kind:24_010 event into ProjectStatus model")
     func parseValidProjectStatusEvent() throws {
         // Given: A valid kind:24_010 event with agent tags
-        let projectID = "my-awesome-project"
+        let projectCoordinate = "31933:pubkeyabc:my-awesome-project"
         let pubkey = "npub1testpubkey1234567890abcdef"
         let createdAt = Timestamp(Date().timeIntervalSince1970)
 
@@ -23,7 +23,7 @@ struct ProjectStatusEventTests {
             kind: 24_010,
             content: "",
             tags: [
-                ["d", projectID],
+                ["a", projectCoordinate],
                 ["agent", "agent1pubkey", "Claude"],
                 ["agent", "agent2pubkey", "GPT-4"],
             ],
@@ -35,7 +35,7 @@ struct ProjectStatusEventTests {
         let status = try #require(ProjectStatus.from(event: event))
 
         // Then: ProjectStatus properties match event data
-        #expect(status.projectID == projectID)
+        #expect(status.projectCoordinate == projectCoordinate)
         #expect(status.pubkey == pubkey)
         #expect(status.agents.count == 2)
         #expect(status.createdAt.timeIntervalSince1970 == TimeInterval(createdAt))
@@ -48,7 +48,7 @@ struct ProjectStatusEventTests {
             kind: 24_010,
             content: "",
             tags: [
-                ["d", "test-project"],
+                ["a", "31933:owner:test-project"],
                 ["agent", "abc123", "Claude"],
                 ["agent", "def456", "GPT-4"],
             ],
@@ -73,7 +73,7 @@ struct ProjectStatusEventTests {
             kind: 24_010,
             content: "",
             tags: [
-                ["d", "test-project"],
+                ["a", "31933:owner:test-project"],
                 ["agent", "abc123", "Claude", "global"],
                 ["agent", "def456", "GPT-4"],
             ],
@@ -97,7 +97,7 @@ struct ProjectStatusEventTests {
             kind: 24_010,
             content: "",
             tags: [
-                ["d", "test-project"],
+                ["a", "31933:owner:test-project"],
                 ["agent", "abc123", "Claude"],
                 ["agent", "def456", "GPT-4"],
                 ["model", "claude-sonnet-4", "Claude"],
@@ -123,7 +123,7 @@ struct ProjectStatusEventTests {
             kind: 24_010,
             content: "",
             tags: [
-                ["d", "test-project"],
+                ["a", "31933:owner:test-project"],
                 ["agent", "abc123", "Claude"],
                 ["agent", "def456", "GPT-4"],
                 ["tool", "web-search", "Claude", "GPT-4"],
@@ -152,7 +152,7 @@ struct ProjectStatusEventTests {
             kind: 24_010,
             content: "",
             tags: [
-                ["d", "test-project"],
+                ["a", "31933:owner:test-project"],
             ],
             pubkey: "testpubkey"
         )
@@ -171,7 +171,7 @@ struct ProjectStatusEventTests {
             kind: 24_010,
             content: "",
             tags: [
-                ["d", "test-project"],
+                ["a", "31933:owner:test-project"],
                 ["agent", "abc123", "Claude"], // Valid
                 ["agent", "def456"], // Missing name - should skip
                 ["agent", "", "Ghost"], // Empty pubkey - should skip
@@ -194,7 +194,7 @@ struct ProjectStatusEventTests {
             kind: 1, // Wrong kind
             content: "",
             tags: [
-                ["d", "test-project"],
+                ["a", "31933:owner:test-project"],
                 ["agent", "agent1", "Claude"],
             ],
             pubkey: "testpubkey"
@@ -207,9 +207,9 @@ struct ProjectStatusEventTests {
         #expect(status == nil)
     }
 
-    @Test("Return nil for missing d tag")
-    func returnNilForMissingDTag() {
-        // Given: Event without d tag
+    @Test("Return nil for missing a tag")
+    func returnNilForMissingATag() {
+        // Given: Event without a tag (project reference)
         let event = NDKEvent.test(
             kind: 24_010,
             content: "",
@@ -226,16 +226,78 @@ struct ProjectStatusEventTests {
         #expect(status == nil)
     }
 
-    @Test("Create filter for fetching project status")
+    @Test("Create filter for fetching project statuses by user pubkey")
     func createFilterForProjectStatus() {
-        // Given: A project ID
-        let projectID = "test-project-123"
+        // Given: A user pubkey
+        let userPubkey = "userpubkey123abc"
 
         // When: Creating filter for project status
-        let filter = ProjectStatus.filter(for: projectID)
+        let filter = ProjectStatus.filter(for: userPubkey)
 
-        // Then: Filter has correct parameters
+        // Then: Filter has correct parameters (filters by p-tag)
         #expect(filter.kinds == [24_010])
-        #expect(filter.tags?["d"] == Set([projectID]))
+        #expect(filter.tags?["p"] == Set([userPubkey]))
+    }
+
+    @Test("Extract project dTag from coordinate")
+    func extractDTagFromCoordinate() throws {
+        // Given: A status with coordinate
+        let event = NDKEvent.test(
+            kind: 24_010,
+            content: "",
+            tags: [
+                ["a", "31933:ownerpubkey:my-project-dtag"],
+            ],
+            pubkey: "testpubkey"
+        )
+
+        // When: Converting to ProjectStatus
+        let status = try #require(ProjectStatus.from(event: event))
+
+        // Then: dTag is correctly extracted
+        #expect(status.projectDTag == "my-project-dtag")
+    }
+
+    @Test("isOnline returns true for recent status")
+    func isOnlineForRecentStatus() throws {
+        // Given: A status created just now
+        let event = NDKEvent.test(
+            kind: 24_010,
+            content: "",
+            tags: [
+                ["a", "31933:owner:test-project"],
+                ["agent", "abc123", "Claude"],
+            ],
+            pubkey: "testpubkey",
+            createdAt: Timestamp(Date().timeIntervalSince1970)
+        )
+
+        // When: Converting to ProjectStatus
+        let status = try #require(ProjectStatus.from(event: event))
+
+        // Then: isOnline returns true
+        #expect(status.isOnline == true)
+    }
+
+    @Test("isOnline returns false for stale status")
+    func isOnlineForStaleStatus() throws {
+        // Given: A status created 10 minutes ago (beyond 5 min threshold)
+        let staleDate = Date().addingTimeInterval(-10 * 60)
+        let event = NDKEvent.test(
+            kind: 24_010,
+            content: "",
+            tags: [
+                ["a", "31933:owner:test-project"],
+                ["agent", "abc123", "Claude"],
+            ],
+            pubkey: "testpubkey",
+            createdAt: Timestamp(staleDate.timeIntervalSince1970)
+        )
+
+        // When: Converting to ProjectStatus
+        let status = try #require(ProjectStatus.from(event: event))
+
+        // Then: isOnline returns false
+        #expect(status.isOnline == false)
     }
 }

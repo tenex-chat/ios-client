@@ -12,10 +12,13 @@ import NDKSwiftCore
 public struct ProjectStatus: Sendable {
     // MARK: Public
 
-    /// The project identifier (from 'd' tag)
-    public let projectID: String
+    /// Staleness threshold - status older than this is considered offline
+    public static let stalenessThreshold: TimeInterval = 5 * 60 // 5 minutes
 
-    /// The pubkey of the status author
+    /// The project coordinate (from 'a' tag) - format: kind:pubkey:dTag
+    public let projectCoordinate: String
+
+    /// The pubkey of the status author (backend)
     public let pubkey: String
 
     /// Online agents parsed from agent/model/tool tags
@@ -23,6 +26,20 @@ public struct ProjectStatus: Sendable {
 
     /// When the status was created
     public let createdAt: Date
+
+    /// Whether this status is considered online (not stale)
+    public var isOnline: Bool {
+        Date().timeIntervalSince(createdAt) < Self.stalenessThreshold
+    }
+
+    /// Extract the project d-tag from the coordinate
+    public var projectDTag: String {
+        let parts = projectCoordinate.split(separator: ":")
+        guard parts.count >= 3 else {
+            return projectCoordinate
+        }
+        return String(parts[2])
+    }
 
     /// Create a ProjectStatus from a Nostr event
     /// - Parameter event: The NDKEvent (must be kind:24_010)
@@ -33,14 +50,14 @@ public struct ProjectStatus: Sendable {
             return nil
         }
 
-        // Extract 'd' tag (required)
-        guard let dTag = event.tags(withName: "d").first,
-              dTag.count > 1,
-              !dTag[1].isEmpty
+        // Extract 'a' tag (project reference - required)
+        guard let aTag = event.tags(withName: "a").first,
+              aTag.count > 1,
+              !aTag[1].isEmpty
         else {
             return nil
         }
-        let projectID = dTag[1]
+        let projectCoordinate = aTag[1]
 
         // Parse agents from tags
         let agents = parseAgents(from: event)
@@ -49,20 +66,20 @@ public struct ProjectStatus: Sendable {
         let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
 
         return Self(
-            projectID: projectID,
+            projectCoordinate: projectCoordinate,
             pubkey: event.pubkey,
             agents: agents,
             createdAt: createdAt
         )
     }
 
-    /// Create a filter for fetching project status
-    /// - Parameter projectId: The project identifier
+    /// Create a filter for fetching all project statuses for a user
+    /// - Parameter userPubkey: The user's pubkey (status events p-tag the project owner)
     /// - Returns: An NDKFilter configured for kind:24_010 events
-    public static func filter(for projectID: String) -> NDKFilter {
+    public static func filter(for userPubkey: String) -> NDKFilter {
         NDKFilter(
             kinds: [24_010],
-            tags: ["d": Set([projectID])]
+            tags: ["p": Set([userPubkey])]
         )
     }
 
