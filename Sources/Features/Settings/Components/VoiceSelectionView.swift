@@ -37,10 +37,12 @@ struct VoiceSelectionView: View {
             voicesSection
         }
         .navigationTitle("Select Voice")
-        .navigationBarTitleDisplayMode(.inline)
-        .task {
-            await viewModel.fetchVoices(provider: provider, apiKey: apiKey)
-        }
+        #if !os(macOS)
+            .navigationBarTitleDisplayMode(.inline)
+        #endif
+            .task {
+                await viewModel.fetchVoices(provider: provider, apiKey: apiKey)
+            }
     }
 
     // MARK: Private

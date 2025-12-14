@@ -24,7 +24,9 @@ public struct DocumentCreateView: View {
         NavigationStack {
             mainContent
                 .navigationTitle("New Document")
+            #if !os(macOS)
                 .navigationBarTitleDisplayMode(.inline)
+            #endif
                 .toolbar { toolbarItems }
                 .onAppear { loadDraft() }
                 .onChange(of: title) { _, _ in saveDraft() }
@@ -144,7 +146,9 @@ public struct DocumentCreateView: View {
             .font(.system(size: 14))
             .textFieldStyle(.plain)
             .autocorrectionDisabled()
+        #if !os(macOS)
             .textInputAutocapitalization(.never)
+        #endif
             .onSubmit { addHashtag() }
             .onChange(of: hashtagInput) { _, newValue in
                 if newValue.hasSuffix(",") || newValue.hasSuffix(" ") {

@@ -55,11 +55,22 @@ public final class LoginViewModel {
 
         // Sanitize input - remove all whitespace and control characters
         // macOS clipboard can include invisible characters when pasting
-        let sanitized = nsecInput
+        var sanitized = nsecInput
             .trimmingCharacters(in: .whitespacesAndNewlines)
-            .filter { !$0.isWhitespace && !$0.isNewline }
 
-        Logger().debug("Login attempt with nsec length: \(sanitized.count), prefix: \(String(sanitized.prefix(5)))")
+        // Remove all non-printable characters and whitespace
+        sanitized = String(sanitized.unicodeScalars.filter { scalar in
+            // Keep only ASCII printable characters (bech32 nsec uses lowercase alphanumeric)
+            scalar.value >= 32 && scalar.value < 127 && !CharacterSet.whitespacesAndNewlines.contains(scalar)
+        })
+
+        Logger().debug("""
+        Login attempt:
+        - Original length: \(nsecInput.count)
+        - Sanitized length: \(sanitized.count)
+        - Prefix: \(String(sanitized.prefix(10)))
+        - Raw bytes: \(sanitized.utf8.map { String(format: "%02x", $0) }.joined())
+        """)
 
         // Attempt sign in
         do {
@@ -67,9 +78,11 @@ public final class LoginViewModel {
             _ = try await authManager.addSession(signer)
             // Sign in successful, error message stays nil
         } catch {
-            Logger().error("Login failed: \(error.localizedDescription)")
+            Logger().error("Login failed: \(error)")
+            Logger().error("Error type: \(type(of: error))")
+            Logger().error("Error description: \(error.localizedDescription)")
             // Sign in failed, set error message
-            errorMessage = "Invalid private key. Please check your nsec and try again."
+            errorMessage = "Invalid private key. Please check your nsec and try again.\n\n\(error.localizedDescription)"
         }
     }
 

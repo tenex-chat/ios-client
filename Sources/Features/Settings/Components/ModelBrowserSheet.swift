@@ -26,14 +26,16 @@ struct ModelBrowserSheet: View {
             }
             .searchable(text: $searchText, prompt: "Search models")
             .navigationTitle("Select Model")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        viewModel.showModelBrowser = false
+            #if !os(macOS)
+                .navigationBarTitleDisplayMode(.inline)
+            #endif
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            viewModel.showModelBrowser = false
+                        }
                     }
                 }
-            }
         }
     }
 

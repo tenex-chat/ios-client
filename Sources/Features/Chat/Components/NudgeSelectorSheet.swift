@@ -33,14 +33,16 @@ public struct NudgeSelectorSheet: View {
                 }
             }
             .navigationTitle("Select Nudges")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
-                        dismiss()
+            #if !os(macOS)
+                .navigationBarTitleDisplayMode(.inline)
+            #endif
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Done") {
+                            dismiss()
+                        }
                     }
                 }
-            }
         }
     }
 

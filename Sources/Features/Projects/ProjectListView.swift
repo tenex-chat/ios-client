@@ -45,7 +45,7 @@ public struct ProjectListView: View {
                     )
                 }
 
-                ToolbarItem(placement: .topBarLeading) {
+                ToolbarItem(placement: .automatic) {
                     groupFilterMenu
                 }
             }
@@ -305,7 +305,11 @@ struct ProjectRow: View {
             .frame(width: 14, height: 14)
             .overlay {
                 Circle()
+                #if os(macOS)
+                    .stroke(Color(nsColor: .windowBackgroundColor), lineWidth: 2)
+                #else
                     .stroke(Color(uiColor: .systemBackground), lineWidth: 2)
+                #endif
             }
             .shadow(color: isOnline ? .green.opacity(0.5) : .clear, radius: 4)
             .offset(x: 2, y: 2)

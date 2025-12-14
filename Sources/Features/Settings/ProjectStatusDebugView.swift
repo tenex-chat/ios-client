@@ -175,14 +175,16 @@ private struct ProjectStatusDetailView: View {
             }
         }
         .navigationTitle(project.title)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Done") {
-                    dismiss()
+        #if !os(macOS)
+            .navigationBarTitleDisplayMode(.inline)
+        #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        dismiss()
+                    }
                 }
             }
-        }
     }
 
     // MARK: Private

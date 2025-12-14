@@ -44,23 +44,25 @@ public struct AgentConfigSheet: View {
                 toolsSection
             }
             .navigationTitle("Configure Agent")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        isPresented = false
-                    }
-                }
-
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        Task {
-                            await saveConfiguration()
+            #if !os(macOS)
+                .navigationBarTitleDisplayMode(.inline)
+            #endif
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            isPresented = false
                         }
                     }
-                    .disabled(isSaving)
+
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") {
+                            Task {
+                                await saveConfiguration()
+                            }
+                        }
+                        .disabled(isSaving)
+                    }
                 }
-            }
         }
     }
 

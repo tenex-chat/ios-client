@@ -14,6 +14,7 @@ public struct RawEventSheet: View {
     @Binding var isPresented: Bool
 
     public var body: some View {
+        // swiftlint:disable:next closure_body_length
         NavigationView {
             ScrollView {
                 if let rawEventJSON {
@@ -28,23 +29,30 @@ public struct RawEventSheet: View {
                 }
             }
             .navigationTitle("Raw Event")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") {
-                        isPresented = false
+            #if !os(macOS)
+                .navigationBarTitleDisplayMode(.inline)
+            #endif
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Close") {
+                            isPresented = false
+                        }
                     }
-                }
-                if rawEventJSON != nil {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            UIPasteboard.general.string = rawEventJSON
-                        } label: {
-                            Label("Copy", systemImage: "doc.on.doc")
+                    if rawEventJSON != nil {
+                        ToolbarItem(placement: .primaryAction) {
+                            Button {
+                                #if os(macOS)
+                                    NSPasteboard.general.clearContents()
+                                    NSPasteboard.general.setString(rawEventJSON ?? "", forType: .string)
+                                #else
+                                    UIPasteboard.general.string = rawEventJSON
+                                #endif
+                            } label: {
+                                Label("Copy", systemImage: "doc.on.doc")
+                            }
                         }
                     }
                 }
-            }
         }
     }
 }

@@ -147,7 +147,7 @@ struct TENEXApp: App {
         aiConfig = try? storage.load()
 
         // Initialize AudioService
-        let capabilityDetector = DefaultAICapabilityDetector()
+        let capabilityDetector = RuntimeAICapabilityDetector()
         audioService = AudioService(storage: storage, capabilityDetector: capabilityDetector)
     }
 }
