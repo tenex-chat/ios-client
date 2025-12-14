@@ -44,7 +44,7 @@ let project = Project(
             infoPlist: .extendingDefault(with: [
                 "CFBundleDisplayName": "TENEX",
                 "CFBundleShortVersionString": "0.5.0",
-                "CFBundleVersion": "2",
+                "CFBundleVersion": "4",
                 "UILaunchScreen": [:],
                 "NSMicrophoneUsageDescription": "TENEX needs microphone access for voice conversations with agents.",
                 "NSSpeechRecognitionUsageDescription": "TENEX uses speech recognition for voice input.",

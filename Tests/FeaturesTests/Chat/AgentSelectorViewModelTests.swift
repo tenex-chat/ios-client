@@ -5,6 +5,7 @@
 //
 
 import Foundation
+import NDKSwiftCore
 import TENEXCore
 @testable import TENEXFeatures
 import Testing
@@ -12,10 +13,16 @@ import Testing
 @Suite("AgentSelectorViewModel Tests")
 @MainActor
 struct AgentSelectorViewModelTests {
+    // MARK: Internal
+
     @Test("Initialize with no agents")
     func initializeWithNoAgents() {
-        // Given/When: Creating view model with empty agents
-        let viewModel = AgentSelectorViewModel(agents: [])
+        // Given/When: Creating view model with empty data store
+        let dataStore = makeDataStore(withAgents: [])
+        let viewModel = AgentSelectorViewModel(
+            dataStore: dataStore,
+            projectReference: testProjectRef
+        )
 
         // Then: View model has no agents and no selection
         #expect(viewModel.agents.isEmpty)
@@ -30,9 +37,13 @@ struct AgentSelectorViewModelTests {
             ProjectAgent(pubkey: "abc123", name: "Claude", isGlobal: false),
             ProjectAgent(pubkey: "def456", name: "GPT-4", isGlobal: false),
         ]
+        let dataStore = makeDataStore(withAgents: agents)
 
         // When: Creating view model
-        let viewModel = AgentSelectorViewModel(agents: agents)
+        let viewModel = AgentSelectorViewModel(
+            dataStore: dataStore,
+            projectReference: testProjectRef
+        )
 
         // Then: View model has agents sorted alphabetically and first is auto-selected
         #expect(viewModel.agents.count == 2)
@@ -70,9 +81,14 @@ struct AgentSelectorViewModelTests {
             ProjectAgent(pubkey: "abc123", name: "Claude", isGlobal: false),
             ProjectAgent(pubkey: "def456", name: "GPT-4", isGlobal: false),
         ]
+        let dataStore = makeDataStore(withAgents: agents)
 
         // When: Creating view model with specific default
-        let viewModel = AgentSelectorViewModel(agents: agents, defaultAgentPubkey: "def456")
+        let viewModel = AgentSelectorViewModel(
+            dataStore: dataStore,
+            projectReference: testProjectRef,
+            defaultAgentPubkey: "def456"
+        )
 
         // Then: Specified agent is selected
         #expect(viewModel.selectedAgentPubkey == "def456")
@@ -85,7 +101,11 @@ struct AgentSelectorViewModelTests {
             ProjectAgent(pubkey: "abc123", name: "Claude", isGlobal: false),
             ProjectAgent(pubkey: "def456", name: "GPT-4", isGlobal: false),
         ]
-        let viewModel = AgentSelectorViewModel(agents: agents)
+        let dataStore = makeDataStore(withAgents: agents)
+        let viewModel = AgentSelectorViewModel(
+            dataStore: dataStore,
+            projectReference: testProjectRef
+        )
 
         // When: Selecting agent
         viewModel.selectAgent("def456")
@@ -101,7 +121,11 @@ struct AgentSelectorViewModelTests {
             ProjectAgent(pubkey: "abc123", name: "Claude", isGlobal: false),
             ProjectAgent(pubkey: "def456", name: "GPT-4", isGlobal: false),
         ]
-        let viewModel = AgentSelectorViewModel(agents: agents)
+        let dataStore = makeDataStore(withAgents: agents)
+        let viewModel = AgentSelectorViewModel(
+            dataStore: dataStore,
+            projectReference: testProjectRef
+        )
         viewModel.selectAgent("abc123")
 
         // When: Changing selection
@@ -118,7 +142,11 @@ struct AgentSelectorViewModelTests {
             ProjectAgent(pubkey: "abc123", name: "Claude", isGlobal: true, model: "claude-sonnet-4"),
             ProjectAgent(pubkey: "def456", name: "GPT-4", isGlobal: false),
         ]
-        let viewModel = AgentSelectorViewModel(agents: agents)
+        let dataStore = makeDataStore(withAgents: agents)
+        let viewModel = AgentSelectorViewModel(
+            dataStore: dataStore,
+            projectReference: testProjectRef
+        )
         viewModel.selectAgent("abc123")
 
         // When: Getting selected agent
@@ -131,78 +159,45 @@ struct AgentSelectorViewModelTests {
         #expect(selectedAgent?.model == "claude-sonnet-4")
     }
 
-    @Test("Update agents clears invalid selection")
-    func updateAgentsClearsInvalidSelection() {
-        // Given: View model with selected agent
-        let agents = [
+    @Test("Agents reactively update from data store")
+    func agentsReactivelyUpdate() {
+        // Given: View model with initial agents
+        let initialAgents = [
+            ProjectAgent(pubkey: "abc123", name: "Claude", isGlobal: false),
+        ]
+        let dataStore = makeDataStore(withAgents: initialAgents)
+        let viewModel = AgentSelectorViewModel(
+            dataStore: dataStore,
+            projectReference: testProjectRef
+        )
+        #expect(viewModel.agents.count == 1)
+
+        // When: Updating project status in data store
+        let updatedAgents = [
             ProjectAgent(pubkey: "abc123", name: "Claude", isGlobal: false),
             ProjectAgent(pubkey: "def456", name: "GPT-4", isGlobal: false),
         ]
-        let viewModel = AgentSelectorViewModel(agents: agents)
-        viewModel.selectAgent("def456")
+        let newStatus = ProjectStatus(
+            projectCoordinate: testProjectRef,
+            pubkey: "backendpubkey",
+            agents: updatedAgents,
+            branches: [],
+            createdAt: Date()
+        )
+        dataStore.setProjectStatus(newStatus, for: testProjectRef)
 
-        // When: Updating agents without the selected one
-        let newAgents = [
-            ProjectAgent(pubkey: "abc123", name: "Claude", isGlobal: false),
-            ProjectAgent(pubkey: "ghi789", name: "Gemini", isGlobal: false),
-        ]
-        viewModel.updateAgents(newAgents)
-
-        // Then: Selection falls back to first agent (alphabetically)
-        #expect(viewModel.selectedAgentPubkey == "abc123")
-        #expect(viewModel.agents[0].name == "Claude") // Alphabetically first
-        #expect(viewModel.agents[1].name == "Gemini")
-    }
-
-    @Test("Update agents maintains sorting")
-    func updateAgentsMaintainsSorting() {
-        // Given: View model with agents
-        let agents = [
-            ProjectAgent(pubkey: "abc123", name: "Zulu", isGlobal: false, isPM: false),
-        ]
-        let viewModel = AgentSelectorViewModel(agents: agents)
-
-        // When: Updating with unsorted agents including PM
-        let newAgents = [
-            ProjectAgent(pubkey: "def456", name: "Zulu", isGlobal: false, isPM: false),
-            ProjectAgent(pubkey: "ghi789", name: "Alpha", isGlobal: false, isPM: false),
-            ProjectAgent(pubkey: "jkl012", name: "PM Agent", isGlobal: false, isPM: true),
-        ]
-        viewModel.updateAgents(newAgents)
-
-        // Then: Agents are sorted PM first, then alphabetically
-        #expect(viewModel.agents.count == 3)
-        #expect(viewModel.agents[0].name == "PM Agent") // PM first
-        #expect(viewModel.agents[1].name == "Alpha") // Then alphabetical
-        #expect(viewModel.agents[2].name == "Zulu")
-    }
-
-    @Test("Update agents keeps valid selection")
-    func updateAgentsKeepsValidSelection() {
-        // Given: View model with selected agent
-        let agents = [
-            ProjectAgent(pubkey: "abc123", name: "Claude", isGlobal: false),
-            ProjectAgent(pubkey: "def456", name: "GPT-4", isGlobal: false),
-        ]
-        let viewModel = AgentSelectorViewModel(agents: agents)
-        viewModel.selectAgent("def456")
-
-        // When: Updating agents keeping the selected one
-        let newAgents = [
-            ProjectAgent(pubkey: "abc123", name: "Claude", isGlobal: false),
-            ProjectAgent(pubkey: "def456", name: "GPT-4", isGlobal: false, model: "gpt-4-turbo"),
-        ]
-        viewModel.updateAgents(newAgents)
-
-        // Then: Selection is preserved
-        #expect(viewModel.selectedAgentPubkey == "def456")
-        #expect(viewModel.selectedAgent?.model == "gpt-4-turbo")
+        // Then: Agents are automatically updated
+        #expect(viewModel.agents.count == 2)
     }
 
     @Test("Present agent selector sheet")
     func presentAgentSelector() {
         // Given: View model
-        let viewModel = AgentSelectorViewModel(agents: [])
+        let dataStore = makeDataStore(withAgents: [])
+        let viewModel = AgentSelectorViewModel(
+            dataStore: dataStore,
+            projectReference: testProjectRef
+        )
         #expect(viewModel.isPresented == false)
 
         // When: Presenting selector
@@ -215,7 +210,11 @@ struct AgentSelectorViewModelTests {
     @Test("Dismiss agent selector sheet")
     func dismissAgentSelector() {
         // Given: View model with presented selector
-        let viewModel = AgentSelectorViewModel(agents: [])
+        let dataStore = makeDataStore(withAgents: [])
+        let viewModel = AgentSelectorViewModel(
+            dataStore: dataStore,
+            projectReference: testProjectRef
+        )
         viewModel.presentSelector()
         #expect(viewModel.isPresented == true)
 
@@ -224,5 +223,24 @@ struct AgentSelectorViewModelTests {
 
         // Then: Selector is dismissed
         #expect(viewModel.isPresented == false)
+    }
+
+    // MARK: Private
+
+    private let testProjectRef = "31933:testpubkey:testproject"
+    private let testNDK = NDK(relayURLs: [])
+
+    private func makeDataStore(withAgents agents: [ProjectAgent]) -> DataStore {
+        let dataStore = DataStore(ndk: testNDK)
+        if !agents.isEmpty {
+            let status = ProjectStatus(
+                projectCoordinate: testProjectRef,
+                pubkey: "backendpubkey",
+                agents: agents,
+                createdAt: Date()
+            )
+            dataStore.setProjectStatus(status, for: testProjectRef)
+        }
+        return dataStore
     }
 }

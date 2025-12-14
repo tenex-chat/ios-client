@@ -19,23 +19,29 @@ public final class AgentSelectorViewModel {
 
     /// Initialize the agent selector view model
     /// - Parameters:
-    ///   - agents: List of online agents from ProjectStatus
+    ///   - dataStore: The data store containing project statuses
+    ///   - projectReference: The project coordinate to get agents for
     ///   - defaultAgentPubkey: Optional default agent pubkey to preselect
-    public init(agents: [ProjectAgent], defaultAgentPubkey: String? = nil) {
-        self.agents = Self.sortAgents(agents)
-        selectedAgentPubkey = defaultAgentPubkey ?? self.agents.first?.pubkey
+    public init(dataStore: DataStore, projectReference: String, defaultAgentPubkey: String? = nil) {
+        self.dataStore = dataStore
+        self.projectReference = projectReference
+        let currentAgents = Self
+            .sortAgents(dataStore.getProjectStatus(projectCoordinate: projectReference)?.agents ?? [])
+        selectedAgentPubkey = defaultAgentPubkey ?? currentAgents.first?.pubkey
     }
 
     // MARK: Public
-
-    /// List of online agents from ProjectStatus (sorted: PM first, then alphabetical)
-    public private(set) var agents: [ProjectAgent]
 
     /// The currently selected agent pubkey
     public private(set) var selectedAgentPubkey: String?
 
     /// Whether the selector sheet is presented
     public var isPresented = false
+
+    /// List of online agents from ProjectStatus (sorted: PM first, then alphabetical)
+    public var agents: [ProjectAgent] {
+        Self.sortAgents(dataStore.getProjectStatus(projectCoordinate: projectReference)?.agents ?? [])
+    }
 
     /// Get the currently selected agent
     public var selectedAgent: ProjectAgent? {
@@ -51,16 +57,6 @@ public final class AgentSelectorViewModel {
         selectedAgentPubkey = pubkey
     }
 
-    /// Update the list of available agents
-    /// - Parameter newAgents: Updated list of online agents
-    public func updateAgents(_ newAgents: [ProjectAgent]) {
-        agents = Self.sortAgents(newAgents)
-        // Clear selection if selected agent is no longer available
-        if let selectedAgentPubkey, !newAgents.contains(where: { $0.pubkey == selectedAgentPubkey }) {
-            self.selectedAgentPubkey = agents.first?.pubkey
-        }
-    }
-
     /// Present the agent selector sheet
     public func presentSelector() {
         isPresented = true
@@ -72,6 +68,9 @@ public final class AgentSelectorViewModel {
     }
 
     // MARK: Private
+
+    @ObservationIgnored private let dataStore: DataStore
+    @ObservationIgnored private let projectReference: String
 
     /// Sort agents: PM first, then alphabetically by name
     private static func sortAgents(_ agents: [ProjectAgent]) -> [ProjectAgent] {

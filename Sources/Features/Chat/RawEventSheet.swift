@@ -14,45 +14,54 @@ public struct RawEventSheet: View {
     @Binding var isPresented: Bool
 
     public var body: some View {
-        // swiftlint:disable:next closure_body_length
         NavigationView {
-            ScrollView {
-                if let rawEventJSON {
-                    Text(rawEventJSON)
-                        .font(.system(size: 12, design: .monospaced))
-                        .padding()
-                        .textSelection(.enabled)
-                } else {
-                    Text("No raw event data available")
-                        .foregroundStyle(.secondary)
-                        .padding()
-                }
-            }
-            .navigationTitle("Raw Event")
-            #if !os(macOS)
+            contentView
+                .navigationTitle("Raw Event")
+            #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
             #endif
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Close") {
-                            isPresented = false
-                        }
-                    }
-                    if rawEventJSON != nil {
-                        ToolbarItem(placement: .primaryAction) {
-                            Button {
-                                #if os(macOS)
-                                    NSPasteboard.general.clearContents()
-                                    NSPasteboard.general.setString(rawEventJSON ?? "", forType: .string)
-                                #else
-                                    UIPasteboard.general.string = rawEventJSON
-                                #endif
-                            } label: {
-                                Label("Copy", systemImage: "doc.on.doc")
-                            }
-                        }
-                    }
-                }
+                .toolbar { toolbarContent }
         }
+    }
+
+    private var contentView: some View {
+        ScrollView {
+            if let rawEventJSON {
+                Text(rawEventJSON)
+                    .font(.system(size: 12, design: .monospaced))
+                    .padding()
+                    .textSelection(.enabled)
+            } else {
+                Text("No raw event data available")
+                    .foregroundStyle(.secondary)
+                    .padding()
+            }
+        }
+    }
+
+    @ToolbarContentBuilder private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .cancellationAction) {
+            Button("Close") {
+                isPresented = false
+            }
+        }
+        if rawEventJSON != nil {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    copyToClipboard()
+                } label: {
+                    Label("Copy", systemImage: "doc.on.doc")
+                }
+            }
+        }
+    }
+
+    private func copyToClipboard() {
+        #if os(iOS)
+            UIPasteboard.general.string = rawEventJSON
+        #else
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(rawEventJSON ?? "", forType: .string)
+        #endif
     }
 }

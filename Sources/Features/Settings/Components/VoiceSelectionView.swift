@@ -37,7 +37,7 @@ struct VoiceSelectionView: View {
             voicesSection
         }
         .navigationTitle("Select Voice")
-        #if !os(macOS)
+        #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
         #endif
             .task {

@@ -57,6 +57,9 @@ public struct MessageRow: View {
         .contextMenu {
             contextMenuContent
         }
+        .sheet(isPresented: $showRawEvent) {
+            RawEventSheet(rawEventJSON: message.rawEventJSON, isPresented: $showRawEvent)
+        }
     }
 
     // MARK: Private
@@ -84,7 +87,13 @@ public struct MessageRow: View {
                 guard onReplySwipe != nil else {
                     return
                 }
-                if value.translation.width > 0, value.translation.width < 100 {
+                // Only activate if horizontal swipe is dominant (not vertical scrolling)
+                let horizontalAmount = abs(value.translation.width)
+                let verticalAmount = abs(value.translation.height)
+
+                if horizontalAmount > verticalAmount,
+                   value.translation.width > 0,
+                   value.translation.width < 100 {
                     dragOffset = value.translation.width
                     isDragging = true
                 }
@@ -93,7 +102,10 @@ public struct MessageRow: View {
                 guard onReplySwipe != nil else {
                     return
                 }
-                if value.translation.width > 50 {
+                let horizontalAmount = abs(value.translation.width)
+                let verticalAmount = abs(value.translation.height)
+
+                if horizontalAmount > verticalAmount, value.translation.width > 50 {
                     onReplySwipe?()
                 }
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -125,10 +137,6 @@ public struct MessageRow: View {
             }
 
             MessageContentView(message: message)
-
-            if !isAgent, let status = message.status {
-                statusIndicator(for: status)
-            }
 
             if message.replyCount > 0, let onReplyTap {
                 ReplyIndicatorView(
@@ -192,10 +200,14 @@ public struct MessageRow: View {
         }
     }
 
-    private var avatar: some View {
-        Image(systemName: "person.circle.fill")
-            .font(.system(size: 36))
-            .foregroundStyle(isAgent ? .blue : .gray)
+    @ViewBuilder private var avatar: some View {
+        if let ndk {
+            NDKUIProfilePicture(ndk: ndk, pubkey: message.pubkey, size: 36)
+        } else {
+            Image(systemName: "person.circle.fill")
+                .font(.system(size: 36))
+                .foregroundStyle(isAgent ? .blue : .gray)
+        }
     }
 
     private var suggestionsView: some View {
@@ -258,46 +270,6 @@ public struct MessageRow: View {
             } label: {
                 Label("View Raw Event", systemImage: "chevron.left.forwardslash.chevron.right")
             }
-        }
-    }
-
-    private var sendingStatusView: some View {
-        HStack(spacing: 6) {
-            ProgressView().scaleEffect(0.7)
-            Text("Sending...").font(.caption).foregroundStyle(.secondary)
-        }
-    }
-
-    private var sentStatusView: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "checkmark").font(.caption).foregroundStyle(.green)
-            Text("Sent").font(.caption).foregroundStyle(.secondary)
-        }
-    }
-
-    @ViewBuilder
-    private func statusIndicator(for status: MessageStatus) -> some View {
-        HStack(spacing: 6) {
-            switch status {
-            case .sending:
-                sendingStatusView
-            case .sent:
-                sentStatusView
-            case let .failed(error):
-                failedStatusView(error: error)
-            }
-        }
-        .padding(.top, 4)
-        .sheet(isPresented: $showRawEvent) {
-            RawEventSheet(rawEventJSON: message.rawEventJSON, isPresented: $showRawEvent)
-        }
-    }
-
-    private func failedStatusView(error: String) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(.red)
-            Text("Failed").font(.caption).foregroundStyle(.red)
-            Text(error).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
         }
     }
 

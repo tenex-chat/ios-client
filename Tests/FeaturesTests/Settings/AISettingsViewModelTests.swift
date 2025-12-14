@@ -98,6 +98,91 @@ struct AISettingsViewModelTests {
         #expect(viewModel.hasUnsavedChanges)
     }
 
+    @Test("TTS settings changes are detected and persisted")
+    func ttsSettingsChangesArePersisted() async throws {
+        // Load initial default config
+        await viewModel.load()
+        #expect(!viewModel.hasUnsavedChanges)
+
+        // Get initial TTS provider
+        let initialProvider = viewModel.config.ttsSettings.provider
+
+        // Change TTS settings (simulating user interaction)
+        viewModel.config.ttsSettings.enabled = true
+        viewModel.config.ttsSettings.provider = .openai
+        viewModel.config.ttsSettings.speed = 1.5
+
+        // Verify unsaved changes are detected
+        #expect(viewModel.hasUnsavedChanges, "TTS settings changes should be detected")
+
+        // Save
+        try await viewModel.save()
+        #expect(!viewModel.hasUnsavedChanges)
+
+        // Create new ViewModel (simulating navigation back to settings)
+        let newViewModel = AISettingsViewModel(storage: storage, capabilityDetector: capabilityDetector)
+        await newViewModel.load()
+
+        // Verify TTS settings persisted
+        #expect(newViewModel.config.ttsSettings.enabled == true)
+        #expect(newViewModel.config.ttsSettings.provider == .openai)
+        #expect(newViewModel.config.ttsSettings.speed == 1.5)
+    }
+
+    @Test("STT settings changes are detected and persisted")
+    func sttSettingsChangesArePersisted() async throws {
+        // Load initial default config
+        await viewModel.load()
+        #expect(!viewModel.hasUnsavedChanges)
+
+        // Change STT settings (simulating user interaction)
+        viewModel.config.sttSettings.enabled = true
+        viewModel.config.sttSettings.provider = .elevenlabs
+        viewModel.config.sttSettings.model = "test-model"
+
+        // Verify unsaved changes are detected
+        #expect(viewModel.hasUnsavedChanges, "STT settings changes should be detected")
+
+        // Save
+        try await viewModel.save()
+        #expect(!viewModel.hasUnsavedChanges)
+
+        // Create new ViewModel (simulating navigation back to settings)
+        let newViewModel = AISettingsViewModel(storage: storage, capabilityDetector: capabilityDetector)
+        await newViewModel.load()
+
+        // Verify STT settings persisted
+        #expect(newViewModel.config.sttSettings.enabled == true)
+        #expect(newViewModel.config.sttSettings.provider == .elevenlabs)
+        #expect(newViewModel.config.sttSettings.model == "test-model")
+    }
+
+    @Test("Changes detected even when no saved config exists (regression test for nil originalConfig bug)")
+    func changesDetectedWithoutSavedConfig() async throws {
+        // Ensure no saved config exists
+        try storage.clear()
+
+        // Load - should use default config
+        await viewModel.load()
+        #expect(!viewModel.hasUnsavedChanges, "Should have no changes initially")
+
+        // Make a change
+        viewModel.config.ttsSettings.enabled = true
+
+        // BUG: Previously, hasUnsavedChanges would return false because originalConfig was nil
+        // FIX: originalConfig should be set to default config, not nil
+        #expect(viewModel.hasUnsavedChanges, "Changes should be detected even without saved config")
+
+        // Save should work
+        try await viewModel.save()
+        #expect(!viewModel.hasUnsavedChanges)
+
+        // Verify it actually saved
+        let newViewModel = AISettingsViewModel(storage: storage, capabilityDetector: capabilityDetector)
+        await newViewModel.load()
+        #expect(newViewModel.config.ttsSettings.enabled == true, "Settings should persist")
+    }
+
     // MARK: - LLM Config CRUD Tests
 
     @Test("Add LLM configuration")

@@ -44,6 +44,16 @@ public struct ProjectStatus: Sendable {
         return String(parts[2])
     }
 
+    /// All unique models used by agents
+    public var models: [String] {
+        Array(Set(agents.compactMap(\.model))).sorted()
+    }
+
+    /// All unique tools used by agents
+    public var tools: [String] {
+        Array(Set(agents.flatMap(\.tools))).sorted()
+    }
+
     /// Create a ProjectStatus from a Nostr event
     /// - Parameter event: The NDKEvent (must be kind:24_010)
     /// - Returns: A ProjectStatus instance, or nil if the event is invalid

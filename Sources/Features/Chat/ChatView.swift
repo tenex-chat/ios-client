@@ -58,8 +58,6 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
 
     @Environment(\.ndk) private var ndk
     @Environment(DataStore.self) private var dataStore
-    @Environment(\.aiConfigStorage) private var aiConfigStorage
-    @Environment(\.audioService) private var audioService
     @State private var viewModel: ChatViewModel?
     @State private var focusStack: [Message] = [] // Stack of focused messages for navigation
     @State private var inputViewModel = ChatInputViewModel()
@@ -157,9 +155,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
             ndk: ndk,
             threadEvent: threadEvent,
             projectReference: projectReference,
-            userPubkey: currentUserPubkey,
-            aiConfigStorage: aiConfigStorage,
-            audioService: audioService
+            userPubkey: currentUserPubkey
         )
 
         mainContent(viewModel: vm)
@@ -216,7 +212,6 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                 await viewModel.subscribeToThreadMetadata()
             }
         }
-        .task { await subscribeToProjectStatus() }
         .onAppear {
             // Configure input for new thread mode (requires agent selection)
             inputViewModel.setRequiresAgent(viewModel.isNewThread)
@@ -245,7 +240,6 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
             Divider()
             ChatInputView(
                 viewModel: inputViewModel,
-                agents: onlineAgents,
                 dataStore: dataStore,
                 ndk: ndk,
                 projectReference: projectReference,

@@ -26,7 +26,7 @@ struct ModelBrowserSheet: View {
             }
             .searchable(text: $searchText, prompt: "Search models")
             .navigationTitle("Select Model")
-            #if !os(macOS)
+            #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
             #endif
                 .toolbar {

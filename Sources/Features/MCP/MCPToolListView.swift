@@ -20,21 +20,19 @@ public struct MCPToolListView: View {
     // MARK: Public
 
     public var body: some View {
-        NavigationStack {
-            contentView
-                .navigationTitle("MCP Tools")
-                .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button(
-                            action: { showingEditor = true },
-                            label: { Label("Add Tool", systemImage: "plus") }
-                        )
-                    }
+        contentView
+            .navigationTitle("MCP Tools")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(
+                        action: { showingEditor = true },
+                        label: { Label("Add Tool", systemImage: "plus") }
+                    )
                 }
-                .sheet(isPresented: $showingEditor) {
-                    editorSheet
-                }
-        }
+            }
+            .sheet(isPresented: $showingEditor) {
+                editorSheet
+            }
     }
 
     // MARK: Private

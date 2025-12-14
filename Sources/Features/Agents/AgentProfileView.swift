@@ -145,15 +145,60 @@ private struct EventRow: View {
             }
         }
         .padding(.vertical, 4)
+        .contextMenu {
+            contextMenuContent
+        }
+        .sheet(isPresented: $showRawEvent) {
+            RawEventSheet(rawEventJSON: event.asJSON, isPresented: $showRawEvent)
+        }
     }
 
     // MARK: Private
+
+    @State private var showRawEvent = false
 
     private var formattedDate: String {
         let date = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
         let formatter = RelativeDateTimeFormatter()
         formatter.unitsStyle = .short
         return formatter.localizedString(for: date, relativeTo: Date())
+    }
+
+    @ViewBuilder private var contextMenuContent: some View {
+        Button {
+            copyToClipboard(event.id)
+        } label: {
+            Label("Copy ID", systemImage: "number")
+        }
+
+        Button {
+            copyToClipboard(event.content)
+        } label: {
+            Label("Copy Content", systemImage: "doc.on.doc")
+        }
+
+        if let rawEventJSON = event.asJSON {
+            Button {
+                copyToClipboard(rawEventJSON)
+            } label: {
+                Label("Copy Raw Event", systemImage: "doc.on.doc.fill")
+            }
+        }
+
+        Button {
+            showRawEvent = true
+        } label: {
+            Label("View Raw Event", systemImage: "chevron.left.forwardslash.chevron.right")
+        }
+    }
+
+    private func copyToClipboard(_ text: String) {
+        #if os(iOS)
+            UIPasteboard.general.string = text
+        #else
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+        #endif
     }
 }
 

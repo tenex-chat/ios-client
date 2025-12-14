@@ -9,13 +9,6 @@ import NDKSwiftNostrDB
 import SwiftUI
 import TENEXShared
 
-// MARK: - NdbStatCounts + Helpers
-
-extension NdbStatCounts {
-    // swiftlint:disable:next empty_count
-    var isEmpty: Bool { count == 0 }
-}
-
 // MARK: - NostrDBStatsView
 
 /// View for displaying NostrDB cache statistics and analytics
@@ -170,13 +163,14 @@ struct NostrDBStatsView: View {
     }
 
     private func eventsByKindSection(_ stats: NdbStat) -> some View {
-        let hasOtherKinds = !stats.otherKinds.isEmpty
+        // swiftlint:disable:next empty_count
+        let nonEmptyKinds = stats.commonKinds.filter { !$0.value.isEmpty }
+        // swiftlint:disable:next empty_count
+        let hasOtherKinds = stats.otherKinds.count > 0
 
         return Section("Events by Kind") {
-            ForEach(NdbCommonKind.allCases, id: \.self) { kind in
-                if let counts = stats.commonKinds[kind], !counts.isEmpty {
-                    KindStatRow(kind: kind, counts: counts)
-                }
+            ForEach(Array(nonEmptyKinds), id: \.key.name) { kind, counts in
+                KindStatRow(kind: kind, counts: counts)
             }
 
             if hasOtherKinds {
@@ -196,11 +190,12 @@ struct NostrDBStatsView: View {
     }
 
     private func databaseIndexesSection(_ stats: NdbStat) -> some View {
-        Section("Database Indexes") {
-            ForEach(NdbDatabase.allCases, id: \.self) { db in
-                if let counts = stats.databases[db], !counts.isEmpty {
-                    DatabaseStatRow(database: db, counts: counts)
-                }
+        // swiftlint:disable:next empty_count
+        let nonEmptyDbs = stats.databases.filter { !$0.value.isEmpty }
+
+        return Section("Database Indexes") {
+            ForEach(Array(nonEmptyDbs), id: \.key.name) { db, counts in
+                DatabaseStatRow(database: db, counts: counts)
             }
         }
     }
