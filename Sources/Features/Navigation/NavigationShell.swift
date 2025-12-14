@@ -12,7 +12,7 @@ import TENEXCore
 // MARK: - NavigationShell
 
 /// Main navigation container for the app
-/// Uses NavigationStack for iPhone, prepared for NavigationSplitView on iPad (future milestone)
+/// Uses NavigationStack for iPhone, NavigationSplitView for iPad/macOS
 public struct NavigationShell: View {
     // MARK: Lifecycle
 
@@ -21,6 +21,42 @@ public struct NavigationShell: View {
     // MARK: Public
 
     public var body: some View {
+        Group {
+            #if os(macOS)
+                splitViewNavigation
+            #else
+                if horizontalSizeClass == .regular {
+                    splitViewNavigation
+                } else {
+                    stackNavigation
+                }
+            #endif
+        }
+        .onOpenURL { url in
+            handleDeepLink(url)
+        }
+    }
+
+    // MARK: Private
+
+    #if os(iOS)
+        @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    #endif
+
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var selectedProjectID: String?
+    @State private var selectedThreadID: String?
+
+    @Environment(NDKAuthManager.self) private var authManager
+    @Environment(DataStore.self) private var dataStore: DataStore?
+    @Environment(\.ndk) private var ndk
+    @State private var router = NavigationRouter()
+    @State private var showingSignOutConfirmation = false
+    @State private var isSigningOut = false
+
+    // MARK: - Stack Navigation (iPhone)
+
+    private var stackNavigation: some View {
         NavigationStack(path: $router.path) {
             rootView
                 .navigationDestination(for: AppRoute.self) { route in
@@ -38,17 +74,81 @@ public struct NavigationShell: View {
                     #endif
                 }
         }
-        .onOpenURL { url in
-            handleDeepLink(url)
+    }
+
+    // MARK: - Split View Navigation (iPad/macOS)
+
+    private var splitViewNavigation: some View {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
+            // Sidebar: Project list
+            sidebarContent
+                .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 300)
+        } content: {
+            // Content: Project detail (tabs)
+            contentColumn
+                .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 400)
+        } detail: {
+            // Detail: Chat, document detail, etc.
+            detailColumn
+        }
+        .navigationSplitViewStyle(.balanced)
+    }
+
+    // MARK: - Split View Columns
+
+    private var sidebarContent: some View {
+        Group {
+            if let dataStore {
+                ProjectListView(
+                    viewModel: ProjectListViewModel(dataStore: dataStore),
+                    selectedProjectID: $selectedProjectID
+                )
+            } else {
+                Text("Loading...")
+            }
+        }
+        .navigationTitle("Projects")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                settingsButton
+            }
         }
     }
 
-    // MARK: Private
+    @ViewBuilder private var contentColumn: some View {
+        if let projectID = selectedProjectID,
+           let project = dataStore?.projects.first(where: { $0.coordinate == projectID }) {
+            SplitViewProjectDetail(
+                project: project,
+                selectedThreadID: $selectedThreadID
+            )
+        } else {
+            ContentUnavailableView(
+                "Select a Project",
+                systemImage: "folder",
+                description: Text("Choose a project from the sidebar to view its threads")
+            )
+        }
+    }
 
-    @Environment(NDKAuthManager.self) private var authManager
-    @Environment(DataStore.self) private var dataStore: DataStore?
-    @Environment(\.ndk) private var ndk
-    @State private var router = NavigationRouter()
+    @ViewBuilder private var detailColumn: some View {
+        if let projectID = selectedProjectID,
+           let threadID = selectedThreadID,
+           ndk != nil,
+           dataStore?.projects.contains(where: { $0.coordinate == projectID }) == true {
+            SplitViewChatDetail(
+                projectID: projectID,
+                threadID: threadID,
+                userPubkey: authManager.activePubkey
+            )
+        } else {
+            ContentUnavailableView(
+                "Select a Thread",
+                systemImage: "message",
+                description: Text("Choose a thread to start chatting")
+            )
+        }
+    }
 
     // MARK: - Root View
 

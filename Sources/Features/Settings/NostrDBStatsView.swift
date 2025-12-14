@@ -9,6 +9,13 @@ import NDKSwiftNostrDB
 import SwiftUI
 import TENEXShared
 
+// MARK: - NdbStatCounts + Helpers
+
+extension NdbStatCounts {
+    // swiftlint:disable:next empty_count
+    var isEmpty: Bool { count == 0 }
+}
+
 // MARK: - NostrDBStatsView
 
 /// View for displaying NostrDB cache statistics and analytics
@@ -163,14 +170,16 @@ struct NostrDBStatsView: View {
     }
 
     private func eventsByKindSection(_ stats: NdbStat) -> some View {
-        Section("Events by Kind") {
-            ForEach(Array(NdbCommonKind.allCases.enumerated()), id: \.offset) { _, kind in
-                if let counts = stats.commonKinds[kind] {
+        let hasOtherKinds = !stats.otherKinds.isEmpty
+
+        return Section("Events by Kind") {
+            ForEach(NdbCommonKind.allCases, id: \.self) { kind in
+                if let counts = stats.commonKinds[kind], !counts.isEmpty {
                     KindStatRow(kind: kind, counts: counts)
                 }
             }
 
-            if !stats.otherKinds.isEmpty {
+            if hasOtherKinds {
                 HStack {
                     Text("Other Kinds")
                     Spacer()
@@ -188,8 +197,8 @@ struct NostrDBStatsView: View {
 
     private func databaseIndexesSection(_ stats: NdbStat) -> some View {
         Section("Database Indexes") {
-            ForEach(Array(NdbDatabase.allCases.enumerated()), id: \.offset) { _, db in
-                if let counts = stats.databases[db] {
+            ForEach(NdbDatabase.allCases, id: \.self) { db in
+                if let counts = stats.databases[db], !counts.isEmpty {
                     DatabaseStatRow(database: db, counts: counts)
                 }
             }
