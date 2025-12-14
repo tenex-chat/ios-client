@@ -26,11 +26,7 @@ public struct ProjectDetailView: View {
         TabView {
             threadsTab
 
-            comingSoonView(for: "Docs")
-                .navigationTitle(project.title)
-                .tabItem {
-                    Label("Docs", systemImage: "doc.fill")
-                }
+            docsTab
 
             agentsTab
 
@@ -72,6 +68,14 @@ public struct ProjectDetailView: View {
         }
     }
 
+    private var docsTab: some View {
+        DocsTabView(projectID: project.coordinate)
+            .navigationTitle(project.title)
+            .tabItem {
+                Label("Docs", systemImage: "doc.fill")
+            }
+    }
+
     private var agentsTab: some View {
         Group {
             if let ndk {
@@ -98,22 +102,5 @@ public struct ProjectDetailView: View {
             .tabItem {
                 Label("Feed", systemImage: "list.bullet")
             }
-    }
-
-    private func comingSoonView(for feature: String) -> some View {
-        VStack(spacing: 20) {
-            Image(systemName: "sparkles")
-                .font(.system(size: 60))
-                .foregroundStyle(project.color)
-
-            Text("\(feature) Coming Soon")
-                .font(.title2)
-                .fontWeight(.semibold)
-
-            Text("This feature is under development")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
