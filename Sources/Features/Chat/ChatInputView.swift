@@ -117,25 +117,47 @@ public struct ChatInputView: View {
 
     private var inputToolbar: some View {
         HStack(spacing: 16) {
-            // Attachment button
-            Button {
-                // Placeholder action
-            } label: {
-                Image(systemName: "paperclip")
-                    .font(.system(size: 20))
-                    .foregroundStyle(.secondary)
+            attachmentButton
+            if viewModel.isVoiceInputAvailable {
+                micButton
             }
-
-            // Mic button
-            Button {
-                // Placeholder action - will navigate to voice mode
-            } label: {
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(.secondary)
-            }
-
             Spacer()
+            if let error = viewModel.audioError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        }
+    }
+
+    private var attachmentButton: some View {
+        Button {
+            // Placeholder action
+        } label: {
+            Image(systemName: "paperclip")
+                .font(.system(size: 20))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var micButton: some View {
+        Button {
+            Task {
+                await viewModel.toggleVoiceInput()
+            }
+        } label: {
+            ZStack {
+                if viewModel.isRecording {
+                    Circle()
+                        .stroke(Color.red.opacity(0.3), lineWidth: 2)
+                        .scaleEffect(1.0 + viewModel.audioLevel * 0.5)
+                        .animation(.easeOut(duration: 0.1), value: viewModel.audioLevel)
+                }
+                Image(systemName: viewModel.isRecording ? "mic.fill" : "mic")
+                    .font(.system(size: 20))
+                    .foregroundStyle(viewModel.isRecording ? .red : .secondary)
+            }
+            .frame(width: 32, height: 32)
         }
     }
 
@@ -148,16 +170,30 @@ public struct ChatInputView: View {
             .cornerRadius(20)
             .overlay(
                 RoundedRectangle(cornerRadius: 20)
-                    .stroke(Color.platformSeparator, lineWidth: 1)
+                    .stroke(
+                        viewModel.isRecording ? Color.red : Color.platformSeparator,
+                        lineWidth: viewModel.isRecording ? 2 : 1
+                    )
             )
             .overlay(alignment: .topLeading) {
                 if viewModel.inputText.isEmpty {
-                    Text("Message...")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.tertiary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 16)
-                        .allowsHitTesting(false)
+                    HStack(spacing: 8) {
+                        if viewModel.isRecording {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 8, height: 8)
+                            Text("Recording...")
+                                .font(.system(size: 16))
+                                .foregroundStyle(.red)
+                        } else {
+                            Text("Message...")
+                                .font(.system(size: 16))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 16)
+                    .allowsHitTesting(false)
                 }
             }
     }
