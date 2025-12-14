@@ -23,24 +23,24 @@ public struct AgentProfileView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            AgentProfileTabBar(selectedTab: $selectedTab)
+            AgentProfileTabBar(selectedTab: self.$selectedTab)
             Divider()
 
             Group {
-                switch selectedTab {
+                switch self.selectedTab {
                 case .feed:
-                    AgentFeedTabView(viewModel: viewModel)
+                    AgentFeedTabView(viewModel: self.viewModel)
                 case .settings:
-                    SettingsTabView(pubkey: pubkey)
+                    SettingsTabView(pubkey: self.pubkey)
                 }
             }
         }
-        .navigationTitle(viewModel.agentName ?? "Agent Profile")
+        .navigationTitle(self.viewModel.agentName ?? "Agent Profile")
         #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
         #endif
             .onAppear {
-                viewModel.startSubscriptions()
+                self.viewModel.startSubscriptions()
             }
     }
 
@@ -62,10 +62,10 @@ private struct AgentFeedTabView: View {
 
     var body: some View {
         Group {
-            if viewModel.events.isEmpty {
-                emptyView
+            if self.viewModel.events.isEmpty {
+                self.emptyView
             } else {
-                eventList
+                self.eventList
             }
         }
     }
@@ -93,15 +93,12 @@ private struct AgentFeedTabView: View {
 
     private var eventList: some View {
         List {
-            ForEach(viewModel.events, id: \.id) { event in
+            ForEach(self.viewModel.events, id: \.id) { event in
                 EventRow(event: event)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
             }
         }
         .listStyle(.plain)
-        .refreshable {
-            viewModel.refresh()
-        }
     }
 }
 
@@ -116,7 +113,7 @@ private struct EventRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Kind \(event.kind)")
+                Text("Kind \(self.event.kind)")
                     .font(.caption)
                     .fontWeight(.medium)
                     .padding(.horizontal, 8)
@@ -127,29 +124,29 @@ private struct EventRow: View {
 
                 Spacer()
 
-                Text(formattedDate)
+                Text(self.formattedDate)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            if !event.content.isEmpty {
-                Text(event.content)
+            if !self.event.content.isEmpty {
+                Text(self.event.content)
                     .font(.body)
                     .lineLimit(3)
             }
 
-            if !event.tags.isEmpty {
-                Text("\(event.tags.count) tags")
+            if !self.event.tags.isEmpty {
+                Text("\(self.event.tags.count) tags")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
         .padding(.vertical, 4)
         .contextMenu {
-            contextMenuContent
+            self.contextMenuContent
         }
-        .sheet(isPresented: $showRawEvent) {
-            RawEventSheet(rawEventJSON: event.asJSON, isPresented: $showRawEvent)
+        .sheet(isPresented: self.$showRawEvent) {
+            RawEventSheet(rawEventJSON: self.event.asJSON, isPresented: self.$showRawEvent)
         }
     }
 
@@ -166,27 +163,27 @@ private struct EventRow: View {
 
     @ViewBuilder private var contextMenuContent: some View {
         Button {
-            copyToClipboard(event.id)
+            self.copyToClipboard(self.event.id)
         } label: {
             Label("Copy ID", systemImage: "number")
         }
 
         Button {
-            copyToClipboard(event.content)
+            self.copyToClipboard(self.event.content)
         } label: {
             Label("Copy Content", systemImage: "doc.on.doc")
         }
 
         if let rawEventJSON = event.asJSON {
             Button {
-                copyToClipboard(rawEventJSON)
+                self.copyToClipboard(rawEventJSON)
             } label: {
                 Label("Copy Raw Event", systemImage: "doc.on.doc.fill")
             }
         }
 
         Button {
-            showRawEvent = true
+            self.showRawEvent = true
         } label: {
             Label("View Raw Event", systemImage: "chevron.left.forwardslash.chevron.right")
         }
@@ -219,8 +216,8 @@ private struct SettingsTabView: View {
     var body: some View {
         Form {
             Section {
-                voicePicker
-                speedSlider
+                self.voicePicker
+                self.speedSlider
             } header: {
                 Text("Voice Configuration")
             } footer: {
@@ -229,10 +226,10 @@ private struct SettingsTabView: View {
 
             Section {
                 Button("Reset to Default", role: .destructive) {
-                    config = nil
-                    storage.removeConfig(for: pubkey)
+                    self.config = nil
+                    self.storage.removeConfig(for: self.pubkey)
                 }
-                .disabled(config == nil)
+                .disabled(self.config == nil)
             }
         }
     }
@@ -246,11 +243,11 @@ private struct SettingsTabView: View {
     private let pubkey: String
 
     private var voicePicker: some View {
-        let voices = aiConfig?.ttsSettings.voiceConfigs ?? []
+        let voices = self.aiConfig?.ttsSettings.voiceConfigs ?? []
         let defaultVoiceID = voices.first?.voiceID ?? "alloy"
 
         return Picker("Voice", selection: Binding(
-            get: { config?.voiceID ?? defaultVoiceID },
+            get: { self.config?.voiceID ?? defaultVoiceID },
             set: { newVoiceID in
                 if config == nil {
                     config = AgentVoiceConfig(voiceID: newVoiceID)
@@ -258,7 +255,7 @@ private struct SettingsTabView: View {
                     config?.voiceID = newVoiceID
                 }
                 if let config {
-                    storage.setConfig(config, for: pubkey)
+                    self.storage.setConfig(config, for: self.pubkey)
                 }
             }
         )) {
@@ -273,29 +270,29 @@ private struct SettingsTabView: View {
     }
 
     private var speedSlider: some View {
-        let defaultSpeed = aiConfig?.ttsSettings.speed ?? 1.0
+        let defaultSpeed = self.aiConfig?.ttsSettings.speed ?? 1.0
 
         return VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("Speed")
                 Spacer()
-                Text(String(format: "%.1fx", config?.speed ?? defaultSpeed))
+                Text(String(format: "%.1fx", self.config?.speed ?? defaultSpeed))
                     .foregroundStyle(.secondary)
             }
 
             Slider(
                 value: Binding(
-                    get: { config?.speed ?? defaultSpeed },
+                    get: { self.config?.speed ?? defaultSpeed },
                     set: { newSpeed in
                         if config == nil {
-                            let voices = aiConfig?.ttsSettings.voiceConfigs ?? []
+                            let voices = self.aiConfig?.ttsSettings.voiceConfigs ?? []
                             let voiceID = voices.first?.voiceID ?? "alloy"
                             config = AgentVoiceConfig(voiceID: voiceID, speed: newSpeed)
                         } else {
                             config?.speed = newSpeed
                         }
                         if let config {
-                            storage.setConfig(config, for: pubkey)
+                            self.storage.setConfig(config, for: self.pubkey)
                         }
                     }
                 ),

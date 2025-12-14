@@ -18,7 +18,10 @@ public final class ChatInputViewModel {
     // MARK: Lifecycle
 
     /// Initialize the chat input view model
-    public init() {}
+    /// - Parameter isNewThread: Whether this is a new thread (requires agent selection)
+    public init(isNewThread: Bool = false) {
+        self.isNewThread = isNewThread
+    }
 
     // MARK: Public
 
@@ -40,37 +43,34 @@ public final class ChatInputViewModel {
     /// Pubkeys mentioned in the message (for p-tags)
     public private(set) var mentionedPubkeys: [String] = []
 
-    /// Whether the send button should be enabled
-    public private(set) var canSend = false
-
-    /// Whether an agent is required to send (e.g., for new threads)
-    public private(set) var requiresAgent = false
+    /// Whether this is a new thread (determines if agent selection is required)
+    public var isNewThread = false
 
     /// The current input text
-    public var inputText = "" {
-        didSet {
-            updateCanSend()
-        }
+    public var inputText = ""
+
+    /// Whether an agent is required to send (computed from isNewThread)
+    public var requiresAgent: Bool {
+        self.isNewThread
     }
 
-    /// Set whether an agent is required to send
-    /// - Parameter required: True if agent selection is required
-    public func setRequiresAgent(_ required: Bool) {
-        requiresAgent = required
-        updateCanSend()
+    /// Whether the send button should be enabled
+    public var canSend: Bool {
+        let hasText = !self.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasAgentIfRequired = !self.requiresAgent || self.selectedAgent != nil
+        return hasText && hasAgentIfRequired
     }
 
     /// Select an agent
     /// - Parameter pubkey: The agent's pubkey
     public func selectAgent(_ pubkey: String) {
-        selectedAgent = pubkey
-        updateCanSend()
+        self.selectedAgent = pubkey
     }
 
     /// Select a branch
     /// - Parameter branchId: The branch identifier
     public func selectBranch(_ branchID: String) {
-        selectedBranch = branchID
+        self.selectedBranch = branchID
     }
 
     /// Insert a mention replacement into the text
@@ -79,56 +79,48 @@ public final class ChatInputViewModel {
     ///   - pubkey: The agent's pubkey to track for p-tag
     public func insertMention(replacement: String, pubkey: String) {
         // Track the mentioned pubkey for p-tag generation
-        if !mentionedPubkeys.contains(pubkey) {
-            mentionedPubkeys.append(pubkey)
+        if !self.mentionedPubkeys.contains(pubkey) {
+            self.mentionedPubkeys.append(pubkey)
         }
 
         // Replace the last @... with the agent name
         if let atRange = inputText.range(of: "@", options: .backwards) {
-            inputText = String(inputText[..<atRange.lowerBound]) + replacement + " "
+            self.inputText = String(self.inputText[..<atRange.lowerBound]) + replacement + " "
         }
     }
 
     /// Toggle a nudge selection
     /// - Parameter nudgeId: The nudge ID to toggle
     public func toggleNudge(_ nudgeID: String) {
-        if selectedNudges.contains(nudgeID) {
-            selectedNudges.removeAll { $0 == nudgeID }
+        if self.selectedNudges.contains(nudgeID) {
+            self.selectedNudges.removeAll { $0 == nudgeID }
         } else {
-            selectedNudges.append(nudgeID)
+            self.selectedNudges.append(nudgeID)
         }
     }
 
     /// Set the message to reply to
     /// - Parameter message: The message to reply to, or nil to clear
     public func setReplyTo(_ message: Message?) {
-        replyToMessage = message
+        self.replyToMessage = message
     }
 
     /// Clear the reply context
     public func clearReplyTo() {
-        replyToMessage = nil
+        self.replyToMessage = nil
     }
 
     /// Set the expanded state
     /// - Parameter expanded: Whether the input should be expanded
     public func setExpanded(_ expanded: Bool) {
-        isExpanded = expanded
+        self.isExpanded = expanded
     }
 
     /// Clear the input text, mentions, nudges, and reply context
     public func clearInput() {
-        inputText = ""
-        mentionedPubkeys = []
-        selectedNudges = []
-        replyToMessage = nil
-    }
-
-    // MARK: Private
-
-    private func updateCanSend() {
-        let hasText = !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let hasAgentIfRequired = !requiresAgent || selectedAgent != nil
-        canSend = hasText && hasAgentIfRequired
+        self.inputText = ""
+        self.mentionedPubkeys = []
+        self.selectedNudges = []
+        self.replyToMessage = nil
     }
 }

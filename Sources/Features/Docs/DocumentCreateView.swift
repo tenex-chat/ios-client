@@ -22,16 +22,17 @@ public struct DocumentCreateView: View {
 
     public var body: some View {
         NavigationStack {
-            mainContent
+            self.mainContent
                 .navigationTitle("New Document")
             #if !os(macOS)
                 .navigationBarTitleDisplayMode(.inline)
             #endif
-                .toolbar { toolbarItems }
-                .onAppear { loadDraft() }
-                .onChange(of: title) { _, _ in saveDraft() }
-                .onChange(of: content) { _, _ in saveDraft() }
-                .onChange(of: hashtags) { _, _ in saveDraft() }
+                .toolbar { self.toolbarItems }
+                .onAppear { self.loadDraft() }
+                .task(id: self.draftState) {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    self.saveDraft()
+                }
         }
     }
 
@@ -49,45 +50,54 @@ public struct DocumentCreateView: View {
     private let projectID: String
     private let maxHashtags = 5
 
+    /// Combined state hash for debouncing
+    private var draftState: Int {
+        var hasher = Hasher()
+        hasher.combine(self.title)
+        hasher.combine(self.content)
+        hasher.combine(self.hashtags)
+        return hasher.finalize()
+    }
+
     @ToolbarContentBuilder private var toolbarItems: some ToolbarContent {
         ToolbarItem(placement: .cancellationAction) {
-            Button("Cancel") { dismiss() }
+            Button("Cancel") { self.dismiss() }
         }
         ToolbarItem(placement: .principal) {
-            if hasDraft {
+            if self.hasDraft {
                 Text("Draft saved")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
         ToolbarItem(placement: .confirmationAction) {
-            publishButton
+            self.publishButton
         }
     }
 
     private var canPublish: Bool {
-        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-            !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        !self.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            !self.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private var hasDraft: Bool {
-        !title.isEmpty || !content.isEmpty || !hashtags.isEmpty
+        !self.title.isEmpty || !self.content.isEmpty || !self.hashtags.isEmpty
     }
 
     private var draftKey: String {
-        "doc-draft-\(projectID)"
+        "doc-draft-\(self.projectID)"
     }
 
     private var mainContent: some View {
         VStack(spacing: 0) {
-            if restoredFromDraft {
-                draftRestoredBanner
+            if self.restoredFromDraft {
+                self.draftRestoredBanner
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    titleField
-                    hashtagsSection
-                    contentField
+                    self.titleField
+                    self.hashtagsSection
+                    self.contentField
                 }
                 .padding()
             }
@@ -96,14 +106,14 @@ public struct DocumentCreateView: View {
 
     private var publishButton: some View {
         Button("Publish") {
-            Task { await publishDocument() }
+            Task { await self.publishDocument() }
         }
-        .disabled(!canPublish || isPublishing)
+        .disabled(!self.canPublish || self.isPublishing)
     }
 
     private var titleField: some View {
         VStack(alignment: .leading, spacing: 4) {
-            TextField("Title", text: $title, axis: .vertical)
+            TextField("Title", text: self.$title, axis: .vertical)
                 .font(.title2.weight(.semibold))
                 .textFieldStyle(.plain)
         }
@@ -111,28 +121,28 @@ public struct DocumentCreateView: View {
 
     private var hashtagsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            existingHashtags
-            hashtagInputField
+            self.existingHashtags
+            self.hashtagInputField
         }
     }
 
     @ViewBuilder private var existingHashtags: some View {
-        if !hashtags.isEmpty {
+        if !self.hashtags.isEmpty {
             FlowLayout(spacing: 8) {
-                ForEach(Array(hashtags.enumerated()), id: \.offset) { index, tag in
-                    editableHashtagPill(tag: tag, index: index)
+                ForEach(Array(self.hashtags.enumerated()), id: \.offset) { index, tag in
+                    self.editableHashtagPill(tag: tag, index: index)
                 }
             }
         }
     }
 
     @ViewBuilder private var hashtagInputField: some View {
-        if hashtags.count < maxHashtags {
+        if self.hashtags.count < self.maxHashtags {
             HStack(spacing: 8) {
                 Image(systemName: "number")
                     .foregroundStyle(.secondary)
                     .font(.system(size: 12))
-                hashtagTextField
+                self.hashtagTextField
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -142,30 +152,30 @@ public struct DocumentCreateView: View {
     }
 
     private var hashtagTextField: some View {
-        TextField("Add up to \(maxHashtags) tags...", text: $hashtagInput)
+        TextField("Add up to \(self.maxHashtags) tags...", text: self.$hashtagInput)
             .font(.system(size: 14))
             .textFieldStyle(.plain)
             .autocorrectionDisabled()
         #if !os(macOS)
             .textInputAutocapitalization(.never)
         #endif
-            .onSubmit { addHashtag() }
-            .onChange(of: hashtagInput) { _, newValue in
+            .onSubmit { self.addHashtag() }
+            .onChange(of: self.hashtagInput) { _, newValue in
                 if newValue.hasSuffix(",") || newValue.hasSuffix(" ") {
-                    hashtagInput = String(newValue.dropLast())
-                    addHashtag()
+                    self.hashtagInput = String(newValue.dropLast())
+                    self.addHashtag()
                 }
             }
     }
 
     private var contentField: some View {
         VStack(alignment: .leading, spacing: 8) {
-            TextEditor(text: $content)
+            TextEditor(text: self.$content)
                 .font(.system(size: 16))
                 .frame(minHeight: 300)
                 .scrollContentBackground(.hidden)
 
-            if content.isEmpty {
+            if self.content.isEmpty {
                 Text("""
                 Write your content here...
 
@@ -192,11 +202,11 @@ public struct DocumentCreateView: View {
             Text("Restored from draft")
             Spacer()
             Button("Start fresh") {
-                clearDraft()
-                title = ""
-                content = ""
-                hashtags = []
-                restoredFromDraft = false
+                self.clearDraft()
+                self.title = ""
+                self.content = ""
+                self.hashtags = []
+                self.restoredFromDraft = false
             }
             .font(.system(size: 13, weight: .medium))
         }
@@ -210,7 +220,7 @@ public struct DocumentCreateView: View {
         HStack(spacing: 4) {
             Image(systemName: "number").font(.system(size: 10))
             Text(tag).font(.system(size: 12))
-            Button { hashtags.remove(at: index) } label: {
+            Button { self.hashtags.remove(at: index) } label: {
                 Image(systemName: "xmark").font(.system(size: 8, weight: .bold))
             }
             .buttonStyle(.plain)
@@ -222,21 +232,21 @@ public struct DocumentCreateView: View {
     }
 
     private func addHashtag() {
-        let tag = hashtagInput
+        let tag = self.hashtagInput
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "#", with: "")
             .lowercased()
 
         guard !tag.isEmpty,
-              hashtags.count < maxHashtags,
-              !hashtags.contains(tag)
+              self.hashtags.count < self.maxHashtags,
+              !self.hashtags.contains(tag)
         else {
-            hashtagInput = ""
+            self.hashtagInput = ""
             return
         }
 
-        hashtags.append(tag)
-        hashtagInput = ""
+        self.hashtags.append(tag)
+        self.hashtagInput = ""
     }
 
     private func saveDraft() {
@@ -247,7 +257,7 @@ public struct DocumentCreateView: View {
         )
 
         if let data = try? JSONEncoder().encode(draft) {
-            UserDefaults.standard.set(data, forKey: draftKey)
+            UserDefaults.standard.set(data, forKey: self.draftKey)
         }
     }
 
@@ -259,23 +269,23 @@ public struct DocumentCreateView: View {
         }
 
         if !draft.title.isEmpty || !draft.content.isEmpty || !draft.hashtags.isEmpty {
-            title = draft.title
-            content = draft.content
-            hashtags = draft.hashtags
-            restoredFromDraft = true
+            self.title = draft.title
+            self.content = draft.content
+            self.hashtags = draft.hashtags
+            self.restoredFromDraft = true
         }
     }
 
     private func clearDraft() {
-        UserDefaults.standard.removeObject(forKey: draftKey)
+        UserDefaults.standard.removeObject(forKey: self.draftKey)
     }
 
     private func publishDocument() async {
-        guard canPublish else {
+        guard self.canPublish else {
             return
         }
 
-        isPublishing = true
+        self.isPublishing = true
         defer { isPublishing = false }
 
         let identifier = "\(projectID.replacingOccurrences(of: ":", with: "-"))-\(Int(Date().timeIntervalSince1970))"
@@ -284,12 +294,12 @@ public struct DocumentCreateView: View {
         var tags: [[String]] = [
             ["d", identifier],
             ["title", title.trimmingCharacters(in: .whitespacesAndNewlines)],
-            ["a", projectID],
+            ["a", self.projectID],
             ["summary", summaryText],
             ["published_at", String(Int(Date().timeIntervalSince1970))],
         ]
 
-        for hashtag in hashtags {
+        for hashtag in self.hashtags {
             tags.append(["t", hashtag])
         }
 
@@ -297,12 +307,12 @@ public struct DocumentCreateView: View {
             let event = try await NDKEventBuilder(ndk: ndk)
                 .kind(30_023)
                 .setTags(tags)
-                .content(content)
+                .content(self.content)
                 .build()
 
-            try await ndk.publish(event)
-            clearDraft()
-            dismiss()
+            try await self.ndk.publish(event)
+            self.clearDraft()
+            self.dismiss()
         } catch {
             // Publishing failed - keep the draft for retry
         }
@@ -327,12 +337,12 @@ private struct FlowLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
-        let result = arrangeSubviews(proposal: proposal, subviews: subviews)
+        let result = self.arrangeSubviews(proposal: proposal, subviews: subviews)
         return result.size
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) {
-        let result = arrangeSubviews(proposal: proposal, subviews: subviews)
+        let result = self.arrangeSubviews(proposal: proposal, subviews: subviews)
 
         for (index, frame) in result.frames.enumerated() {
             let position = CGPoint(
@@ -359,12 +369,12 @@ private struct FlowLayout: Layout {
             if currentX + size.width > maxWidth, currentX > 0 {
                 // Move to next line
                 currentX = 0
-                currentY += lineHeight + spacing
+                currentY += lineHeight + self.spacing
                 lineHeight = 0
             }
 
             frames.append(CGRect(origin: CGPoint(x: currentX, y: currentY), size: size))
-            currentX += size.width + spacing
+            currentX += size.width + self.spacing
             lineHeight = max(lineHeight, size.height)
             totalHeight = currentY + lineHeight
         }

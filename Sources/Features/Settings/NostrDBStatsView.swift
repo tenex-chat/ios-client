@@ -163,10 +163,8 @@ struct NostrDBStatsView: View {
     }
 
     private func eventsByKindSection(_ stats: NdbStat) -> some View {
-        // swiftlint:disable:next empty_count
         let nonEmptyKinds = stats.commonKinds.filter { !$0.value.isEmpty }
-        // swiftlint:disable:next empty_count
-        let hasOtherKinds = stats.otherKinds.count > 0
+        let hasOtherKinds = !stats.otherKinds.isEmpty
 
         return Section("Events by Kind") {
             ForEach(Array(nonEmptyKinds), id: \.key.name) { kind, counts in
@@ -190,7 +188,6 @@ struct NostrDBStatsView: View {
     }
 
     private func databaseIndexesSection(_ stats: NdbStat) -> some View {
-        // swiftlint:disable:next empty_count
         let nonEmptyDbs = stats.databases.filter { !$0.value.isEmpty }
 
         return Section("Database Indexes") {

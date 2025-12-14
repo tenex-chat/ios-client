@@ -26,22 +26,19 @@ public struct AgentsTabView: View {
 
     public var body: some View {
         Group {
-            if viewModel.isLoading, viewModel.agents.isEmpty {
-                loadingView
+            if self.viewModel.isLoading, self.viewModel.agents.isEmpty {
+                self.loadingView
             } else if let error = viewModel.errorMessage {
-                errorView(error)
-            } else if viewModel.agents.isEmpty {
-                emptyView
+                self.errorView(error)
+            } else if self.viewModel.agents.isEmpty {
+                self.emptyView
             } else {
-                agentsList
+                self.agentsList
             }
         }
         .navigationTitle("Agents")
         .task {
-            await viewModel.subscribe()
-        }
-        .refreshable {
-            await viewModel.refresh()
+            await self.viewModel.subscribe()
         }
     }
 
@@ -69,9 +66,9 @@ public struct AgentsTabView: View {
     private var agentsList: some View {
         List {
             Section {
-                ForEach(viewModel.agents) { agent in
+                ForEach(self.viewModel.agents) { agent in
                     NavigationLink(value: AppRoute.agentProfile(pubkey: agent.pubkey)) {
-                        AgentRow(agent: agent, ndk: viewModel.ndk)
+                        AgentRow(agent: agent, ndk: self.viewModel.ndk)
                     }
                 }
             } header: {
@@ -90,7 +87,7 @@ public struct AgentsTabView: View {
         } actions: {
             Button("Try Again") {
                 Task {
-                    await viewModel.refresh()
+                    await self.viewModel.subscribe()
                 }
             }
         }
@@ -108,16 +105,16 @@ struct AgentRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            NDKUIProfilePicture(ndk: ndk, pubkey: agent.pubkey, size: 48)
+            NDKUIProfilePicture(ndk: self.ndk, pubkey: self.agent.pubkey, size: 48)
 
             // Agent info
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Text(agent.name)
+                    Text(self.agent.name)
                         .font(.system(size: 16, weight: .semibold))
 
-                    if agent.isGlobal {
-                        globalBadge
+                    if self.agent.isGlobal {
+                        self.globalBadge
                     }
                 }
 
@@ -127,8 +124,8 @@ struct AgentRow: View {
                         .foregroundStyle(.secondary)
                 }
 
-                if !agent.tools.isEmpty {
-                    toolsView
+                if !self.agent.tools.isEmpty {
+                    self.toolsView
                 }
             }
 
@@ -154,12 +151,12 @@ struct AgentRow: View {
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
 
-            Text(agent.tools.prefix(3).joined(separator: ", "))
+            Text(self.agent.tools.prefix(3).joined(separator: ", "))
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
 
-            if agent.tools.count > 3 {
-                Text("+\(agent.tools.count - 3)")
+            if self.agent.tools.count > 3 {
+                Text("+\(self.agent.tools.count - 3)")
                     .font(.system(size: 11))
                     .foregroundStyle(.tertiary)
             }

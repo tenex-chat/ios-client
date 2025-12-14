@@ -41,9 +41,6 @@ public final class MentionAutocompleteViewModel {
 
     // MARK: Public
 
-    /// Filtered agents based on current query
-    public private(set) var filteredAgents: [ProjectAgent] = []
-
     /// Whether the autocomplete popup should be visible
     public private(set) var isVisible = false
 
@@ -53,9 +50,21 @@ public final class MentionAutocompleteViewModel {
     /// Detected mentions in the current input
     public private(set) var mentions: [Mention] = []
 
+    /// Filtered agents based on current query
+    public var filteredAgents: [ProjectAgent] {
+        if self.currentQuery.isEmpty {
+            return self.agents
+        } else {
+            let lowercaseQuery = self.currentQuery.lowercased()
+            return self.agents.filter { agent in
+                agent.name.lowercased().contains(lowercaseQuery)
+            }
+        }
+    }
+
     /// All available agents from project status
     public var agents: [ProjectAgent] {
-        dataStore.getProjectStatus(projectCoordinate: projectReference)?.agents ?? []
+        self.dataStore.getProjectStatus(projectCoordinate: self.projectReference)?.agents ?? []
     }
 
     /// Update the input text and detect @mention trigger
@@ -63,24 +72,24 @@ public final class MentionAutocompleteViewModel {
     ///   - text: The current input text
     ///   - cursorPosition: The current cursor position
     public func updateInput(text: String, cursorPosition: Int) {
-        currentText = text
-        currentCursorPosition = cursorPosition
-        detectMentionTrigger()
+        self.currentText = text
+        self.currentCursorPosition = cursorPosition
+        self.detectMentionTrigger()
     }
 
     /// Select the currently highlighted agent
     /// - Returns: The text to insert, or nil if no selection
     public func selectCurrentAgent() -> (replacement: String, pubkey: String)? {
-        guard isVisible,
-              selectedIndex >= 0,
-              selectedIndex < filteredAgents.count,
-              triggerRange != nil
+        guard self.isVisible,
+              self.selectedIndex >= 0,
+              self.selectedIndex < self.filteredAgents.count,
+              self.triggerRange != nil
         else {
             return nil
         }
 
-        let agent = filteredAgents[selectedIndex]
-        hide()
+        let agent = self.filteredAgents[self.selectedIndex]
+        self.hide()
 
         // Return the text to replace and the pubkey for p-tag
         return (replacement: "@\(agent.name) ", pubkey: agent.pubkey)
@@ -90,46 +99,45 @@ public final class MentionAutocompleteViewModel {
     /// - Parameter index: The index to select
     /// - Returns: The text to insert, or nil if invalid index
     public func selectAgent(at index: Int) -> (replacement: String, pubkey: String)? {
-        guard isVisible,
+        guard self.isVisible,
               index >= 0,
-              index < filteredAgents.count,
-              triggerRange != nil
+              index < self.filteredAgents.count,
+              self.triggerRange != nil
         else {
             return nil
         }
 
-        selectedIndex = index
-        return selectCurrentAgent()
+        self.selectedIndex = index
+        return self.selectCurrentAgent()
     }
 
     /// Move selection up
     public func moveSelectionUp() {
-        guard isVisible, !filteredAgents.isEmpty else {
+        guard self.isVisible, !self.filteredAgents.isEmpty else {
             return
         }
-        selectedIndex = (selectedIndex - 1 + filteredAgents.count) % filteredAgents.count
+        self.selectedIndex = (self.selectedIndex - 1 + self.filteredAgents.count) % self.filteredAgents.count
     }
 
     /// Move selection down
     public func moveSelectionDown() {
-        guard isVisible, !filteredAgents.isEmpty else {
+        guard self.isVisible, !self.filteredAgents.isEmpty else {
             return
         }
-        selectedIndex = (selectedIndex + 1) % filteredAgents.count
+        self.selectedIndex = (self.selectedIndex + 1) % self.filteredAgents.count
     }
 
     /// Hide the autocomplete popup
     public func hide() {
-        isVisible = false
-        filteredAgents = []
-        selectedIndex = 0
-        triggerRange = nil
-        currentQuery = ""
+        self.isVisible = false
+        self.selectedIndex = 0
+        self.triggerRange = nil
+        self.currentQuery = ""
     }
 
     /// Get the range to replace when inserting a mention
     public func getRangeToReplace() -> Range<String.Index>? {
-        triggerRange
+        self.triggerRange
     }
 
     // MARK: Private
@@ -143,37 +151,37 @@ public final class MentionAutocompleteViewModel {
     private var triggerRange: Range<String.Index>?
 
     private func detectMentionTrigger() {
-        guard currentCursorPosition <= currentText.count else {
-            hide()
+        guard self.currentCursorPosition <= self.currentText.count else {
+            self.hide()
             return
         }
 
-        let cursorIndex = currentText.index(
-            currentText.startIndex,
-            offsetBy: currentCursorPosition,
-            limitedBy: currentText.endIndex
-        ) ?? currentText.endIndex
+        let cursorIndex = self.currentText.index(
+            self.currentText.startIndex,
+            offsetBy: self.currentCursorPosition,
+            limitedBy: self.currentText.endIndex
+        ) ?? self.currentText.endIndex
 
         // Look backwards from cursor for @ trigger
         var searchIndex = cursorIndex
         var foundAt = false
         var query = ""
 
-        while searchIndex > currentText.startIndex {
-            let prevIndex = currentText.index(before: searchIndex)
-            let char = currentText[prevIndex]
+        while searchIndex > self.currentText.startIndex {
+            let prevIndex = self.currentText.index(before: searchIndex)
+            let char = self.currentText[prevIndex]
 
             if char == "@" {
                 // Check if @ is at start OR preceded by whitespace
-                if prevIndex == currentText.startIndex {
+                if prevIndex == self.currentText.startIndex {
                     foundAt = true
-                    triggerRange = prevIndex ..< cursorIndex
+                    self.triggerRange = prevIndex ..< cursorIndex
                 } else {
-                    let beforeAt = currentText.index(before: prevIndex)
-                    let charBeforeAt = currentText[beforeAt]
+                    let beforeAt = self.currentText.index(before: prevIndex)
+                    let charBeforeAt = self.currentText[beforeAt]
                     if charBeforeAt.isWhitespace || charBeforeAt.isNewline {
                         foundAt = true
-                        triggerRange = prevIndex ..< cursorIndex
+                        self.triggerRange = prevIndex ..< cursorIndex
                     }
                 }
                 break
@@ -187,32 +195,20 @@ public final class MentionAutocompleteViewModel {
         }
 
         // Check for @ at start of string (cursor right after @)
-        if !foundAt, searchIndex == currentText.startIndex, !currentText.isEmpty {
-            let firstChar = currentText[currentText.startIndex]
+        if !foundAt, searchIndex == self.currentText.startIndex, !self.currentText.isEmpty {
+            let firstChar = self.currentText[self.currentText.startIndex]
             if firstChar == "@" {
                 foundAt = true
-                triggerRange = currentText.startIndex ..< cursorIndex
+                self.triggerRange = self.currentText.startIndex ..< cursorIndex
             }
         }
 
         if foundAt {
-            currentQuery = query
-            filterAgents()
-            isVisible = !filteredAgents.isEmpty
-            selectedIndex = 0
+            self.currentQuery = query
+            self.isVisible = !self.filteredAgents.isEmpty
+            self.selectedIndex = 0
         } else {
-            hide()
-        }
-    }
-
-    private func filterAgents() {
-        if currentQuery.isEmpty {
-            filteredAgents = agents
-        } else {
-            let lowercaseQuery = currentQuery.lowercased()
-            filteredAgents = agents.filter { agent in
-                agent.name.lowercased().contains(lowercaseQuery)
-            }
+            self.hide()
         }
     }
 }

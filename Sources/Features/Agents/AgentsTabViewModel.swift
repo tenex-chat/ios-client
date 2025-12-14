@@ -33,26 +33,26 @@ public final class AgentsTabViewModel {
     /// Online agents from ProjectStatus
     public var agents: [ProjectAgent] {
         // Get the latest ProjectStatus event and extract agents
-        subscription?.data.first?.agents ?? []
+        self.subscription?.data.first?.agents ?? []
     }
 
     /// Whether initial load is in progress
     public var isLoading: Bool {
-        subscription?.isLoading ?? false
+        self.subscription?.isLoading ?? false
     }
 
     /// Error message if subscription failed
     public var errorMessage: String? {
-        subscription?.error?.localizedDescription
+        self.subscription?.error?.localizedDescription
     }
 
     /// Start subscribing to ProjectStatus events
     /// Continuously updates agents as new events arrive
     public func subscribe() {
         // Extract owner pubkey from project coordinate (format: "31933:pubkey:dTag")
-        let ownerPubkey = extractOwnerPubkey(from: projectID)
+        let ownerPubkey = self.extractOwnerPubkey(from: self.projectID)
         let filter = ProjectStatus.filter(for: ownerPubkey)
-        subscription = ndk.subscribe(filter: filter) { event in
+        self.subscription = self.ndk.subscribe(filter: filter) { event in
             // Only include status for this specific project
             guard let status = ProjectStatus.from(event: event),
                   status.projectCoordinate == self.projectID else {
@@ -60,11 +60,6 @@ public final class AgentsTabViewModel {
             }
             return status
         }
-    }
-
-    /// Refresh agents by restarting subscription
-    public func refresh() {
-        subscribe()
     }
 
     // MARK: Internal

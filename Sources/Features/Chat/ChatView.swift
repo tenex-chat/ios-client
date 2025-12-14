@@ -47,7 +47,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     public var body: some View {
         Group {
             if let ndk {
-                contentView(ndk: ndk)
+                self.contentView(ndk: ndk)
             } else {
                 Text("NDK not available")
             }
@@ -60,11 +60,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     @Environment(DataStore.self) private var dataStore
     @State private var viewModel: ChatViewModel?
     @State private var focusStack: [Message] = [] // Stack of focused messages for navigation
-    @State private var inputViewModel = ChatInputViewModel()
-    @State private var onlineAgents: [ProjectAgent] = []
-    @State private var availableModels: [String] = []
-    @State private var availableTools: [String] = []
-    @State private var availableBranches: [String] = []
+    @State private var inputViewModel: ChatInputViewModel?
     @State private var isShowingSettings = false
 
     // Scroll management state
@@ -75,36 +71,41 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     private let projectReference: String
     private let currentUserPubkey: String
 
+    /// Online agents from DataStore
+    private var onlineAgents: [ProjectAgent] {
+        self.dataStore.getProjectStatus(projectCoordinate: self.projectReference)?.agents ?? []
+    }
+
     /// Whether this is a new thread (no existing threadEvent)
     private var isNewThread: Bool {
-        threadEvent == nil
+        self.threadEvent == nil
     }
 
     /// The currently focused message (nil = showing root level)
     private var focusedMessage: Message? {
-        focusStack.last
+        self.focusStack.last
     }
 
     /// The ID we're currently focused on (root thread ID if not focused on anything)
     private var focusedEventID: String? {
-        focusedMessage?.id ?? threadEvent?.id
+        self.focusedMessage?.id ?? self.threadEvent?.id
     }
 
     /// Whether we're showing a focused (non-root) view
     private var isShowingFocusedView: Bool {
-        !focusStack.isEmpty
+        !self.focusStack.isEmpty
     }
 
     /// Extract project d-tag from projectReference (format: "31933:pubkey:d-tag")
     private var projectDTag: String {
-        projectReference.components(separatedBy: ":").last ?? projectReference
+        self.projectReference.components(separatedBy: ":").last ?? self.projectReference
     }
 
     /// Extract owner pubkey from projectReference (format: "31933:pubkey:d-tag")
     private var projectOwnerPubkey: String {
-        let components = projectReference.components(separatedBy: ":")
+        let components = self.projectReference.components(separatedBy: ":")
         guard components.count >= 3 else {
-            return projectReference
+            return self.projectReference
         }
         return components[1]
     }
@@ -112,7 +113,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     private var backButton: some View {
         VStack(spacing: 0) {
             HStack {
-                Button(action: navigateBack) {
+                Button(action: self.navigateBack) {
                     HStack(spacing: 4) {
                         Image(systemName: "chevron.left")
                         Text("Back")
@@ -151,56 +152,59 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
 
     @ViewBuilder
     private func contentView(ndk: NDK) -> some View {
-        let vm = viewModel ?? ChatViewModel(
+        let vm = self.viewModel ?? ChatViewModel(
             ndk: ndk,
-            threadEvent: threadEvent,
-            projectReference: projectReference,
-            userPubkey: currentUserPubkey
+            threadEvent: self.threadEvent,
+            projectReference: self.projectReference,
+            userPubkey: self.currentUserPubkey
         )
 
-        mainContent(viewModel: vm)
+        self.mainContent(viewModel: vm)
             .task {
-                if viewModel == nil {
-                    viewModel = vm
+                if self.viewModel == nil {
+                    self.viewModel = vm
+                }
+                if self.inputViewModel == nil {
+                    self.inputViewModel = ChatInputViewModel(isNewThread: vm.isNewThread)
                 }
             }
             .onChange(of: vm.threadEvent) { _, newThreadEvent in
                 // Update input view model when thread is created
-                if newThreadEvent != nil {
-                    inputViewModel.setRequiresAgent(false)
+                if newThreadEvent != nil, let inputVM = inputViewModel {
+                    inputVM.isNewThread = false
                 }
             }
     }
 
     @ViewBuilder
     private func mainContent(viewModel: ChatViewModel) -> some View {
-        let displayedMessages = messagesForCurrentFocus(viewModel: viewModel)
+        let displayedMessages = self.messagesForCurrentFocus(viewModel: viewModel)
 
         VStack(spacing: 0) {
-            if isShowingFocusedView {
-                backButton
+            if self.isShowingFocusedView {
+                self.backButton
             }
-            messagesArea(viewModel: viewModel, messages: displayedMessages)
-            inputBar(viewModel: viewModel)
+            self.messagesArea(viewModel: viewModel, messages: displayedMessages)
+            self.inputBar(viewModel: viewModel)
         }
-        .navigationTitle(navigationTitle(viewModel: viewModel))
-        .navigationBarBackButtonHidden(isShowingFocusedView)
+        .navigationTitle(self.navigationTitle(viewModel: viewModel))
+        .navigationBarBackButtonHidden(self.isShowingFocusedView)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button {
-                    isShowingSettings = true
+                    self.isShowingSettings = true
                 } label: {
                     Image(systemName: "gear")
                 }
             }
         }
-        .sheet(isPresented: $isShowingSettings) {
+        .sheet(isPresented: self.$isShowingSettings) {
             NavigationView {
                 ConversationSettingsView(settings: $viewModel.conversationSettings)
                     .toolbar {
                         ToolbarItem(placement: .navigationBarTrailing) {
                             Button("Done") {
-                                isShowingSettings = false
+                                self.isShowingSettings = false
                             }
                         }
                     }
@@ -211,10 +215,6 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
             if !viewModel.isNewThread {
                 await viewModel.subscribeToThreadMetadata()
             }
-        }
-        .onAppear {
-            // Configure input for new thread mode (requires agent selection)
-            inputViewModel.setRequiresAgent(viewModel.isNewThread)
         }
         .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
             Button("OK") {}
@@ -228,34 +228,31 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     @ViewBuilder
     private func messagesArea(viewModel: ChatViewModel, messages: [Message]) -> some View {
         if messages.isEmpty {
-            emptyView(isNewThread: viewModel.isNewThread)
+            self.emptyView(isNewThread: viewModel.isNewThread)
         } else {
-            messageList(viewModel: viewModel, messages: messages)
+            self.messageList(viewModel: viewModel, messages: messages)
         }
     }
 
     @ViewBuilder
     private func inputBar(viewModel: ChatViewModel) -> some View {
-        if let ndk {
+        if let ndk, let inputVM = inputViewModel {
             Divider()
             ChatInputView(
-                viewModel: inputViewModel,
-                dataStore: dataStore,
+                viewModel: inputVM,
+                dataStore: self.dataStore,
                 ndk: ndk,
-                projectReference: projectReference,
-                availableModels: availableModels,
-                availableTools: availableTools,
-                availableBranches: availableBranches,
-                defaultAgentPubkey: mostRecentAgentPubkey(from: viewModel.displayMessages)
+                projectReference: self.projectReference,
+                defaultAgentPubkey: self.mostRecentAgentPubkey(from: viewModel.displayMessages)
             ) { text, agentPubkey, mentions in
                 Task {
                     await viewModel.sendMessage(
                         text: text,
                         targetAgentPubkey: agentPubkey,
                         mentionedPubkeys: mentions,
-                        replyTo: inputViewModel.replyToMessage,
-                        selectedNudges: inputViewModel.selectedNudges,
-                        selectedBranch: inputViewModel.selectedBranch
+                        replyTo: inputVM.replyToMessage,
+                        selectedNudges: inputVM.selectedNudges,
+                        selectedBranch: inputVM.selectedBranch
                     )
                 }
             }
@@ -276,19 +273,19 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
 
     private func messageList(viewModel: ChatViewModel, messages: [Message]) -> some View {
         ScrollViewReader { proxy in
-            messageScrollView(viewModel: viewModel, messages: messages)
+            self.messageScrollView(viewModel: viewModel, messages: messages)
                 .coordinateSpace(name: "scroll")
                 .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
-                    handleScrollOffsetChange(offset)
+                    self.handleScrollOffsetChange(offset)
                 }
                 .onAppear {
-                    handleScrollViewAppear(proxy: proxy, messageCount: messages.count)
+                    self.handleScrollViewAppear(proxy: proxy, messageCount: messages.count)
                 }
                 .onChange(of: messages.count) { _, newCount in
-                    handleMessageCountChange(proxy: proxy, newCount: newCount)
+                    self.handleMessageCountChange(proxy: proxy, newCount: newCount)
                 }
                 .onChange(of: viewModel.conversationState.streamingSessions.count) { _, _ in
-                    handleStreamingSessionsChange(proxy: proxy)
+                    self.handleStreamingSessionsChange(proxy: proxy)
                 }
         }
     }
@@ -296,9 +293,9 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     private func messageScrollView(viewModel: ChatViewModel, messages: [Message]) -> some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
-                messageRows(viewModel: viewModel, messages: messages)
-                typingIndicatorView(viewModel: viewModel)
-                bottomAnchor
+                self.messageRows(viewModel: viewModel, messages: messages)
+                self.typingIndicatorView(viewModel: viewModel)
+                self.bottomAnchor
             }
             .padding(.vertical, 16)
         }
@@ -317,7 +314,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
         }
 
         ForEach(Array(filteredMessages.enumerated()), id: \.element.id) { index, message in
-            messageRowView(viewModel: viewModel, message: message, index: index, messages: filteredMessages)
+            self.messageRowView(viewModel: viewModel, message: message, index: index, messages: filteredMessages)
         }
     }
 
@@ -327,21 +324,21 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
         index: Int,
         messages: [Message]
     ) -> some View {
-        let isConsecutive = isConsecutiveMessage(at: index, in: messages)
-        let hasNextConsecutive = hasNextConsecutiveMessage(at: index, in: messages)
+        let isConsecutive = self.isConsecutiveMessage(at: index, in: messages)
+        let hasNextConsecutive = self.hasNextConsecutiveMessage(at: index, in: messages)
 
         return VStack(spacing: 0) {
             NavigationLink(value: AppRoute.agentProfile(pubkey: message.pubkey)) {
                 MessageRow(
                     message: message,
-                    currentUserPubkey: currentUserPubkey,
+                    currentUserPubkey: self.currentUserPubkey,
                     isConsecutive: isConsecutive,
                     hasNextConsecutive: hasNextConsecutive,
-                    onReplyTap: message.replyCount > 0 ? { focusOnMessage(message) } : nil,
-                    onAgentTap: message.pubkey != currentUserPubkey ? {} : nil,
-                    onQuote: { quoteMessage(message, viewModel: viewModel) },
+                    onReplyTap: message.replyCount > 0 ? { self.focusOnMessage(message) } : nil,
+                    onAgentTap: message.pubkey != self.currentUserPubkey ? {} : nil,
+                    onQuote: { self.quoteMessage(message, viewModel: viewModel) },
                     onReplySwipe: {
-                        inputViewModel.setReplyTo(message)
+                        self.inputViewModel?.setReplyTo(message)
                     },
                     showDebugInfo: false
                 )
@@ -352,7 +349,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
 
             // Track visibility of last message to detect scroll position
             if index == messages.count - 1 {
-                scrollPositionTracker
+                self.scrollPositionTracker
             }
         }
     }
@@ -360,7 +357,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     @ViewBuilder
     private func typingIndicatorView(viewModel: ChatViewModel) -> some View {
         if !viewModel.typingUsers.isEmpty {
-            typingIndicator(viewModel: viewModel)
+            self.typingIndicator(viewModel: viewModel)
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
         }
@@ -387,29 +384,29 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
 
     private func handleScrollOffsetChange(_ offset: CGFloat) {
         // User is at bottom if offset is small (within 100 points)
-        shouldAutoScroll = offset < 100
+        self.shouldAutoScroll = offset < 100
     }
 
     private func handleScrollViewAppear(proxy: ScrollViewProxy, messageCount: Int) {
         withAnimation {
             proxy.scrollTo("bottom", anchor: .bottom)
         }
-        lastMessageCount = messageCount
+        self.lastMessageCount = messageCount
     }
 
     private func handleMessageCountChange(proxy: ScrollViewProxy, newCount: Int) {
         // Only auto-scroll if user is near bottom and new messages were added
-        if shouldAutoScroll, newCount > lastMessageCount {
+        if self.shouldAutoScroll, newCount > self.lastMessageCount {
             withAnimation {
                 proxy.scrollTo("bottom", anchor: .bottom)
             }
         }
-        lastMessageCount = newCount
+        self.lastMessageCount = newCount
     }
 
     private func handleStreamingSessionsChange(proxy: ScrollViewProxy) {
         // Scroll when streaming starts if at bottom
-        if shouldAutoScroll {
+        if self.shouldAutoScroll {
             withAnimation {
                 proxy.scrollTo("bottom", anchor: .bottom)
             }
@@ -423,7 +420,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                 .foregroundStyle(.blue)
                 .symbolEffect(.pulse)
 
-            Text(typingText(viewModel: viewModel))
+            Text(self.typingText(viewModel: viewModel))
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
         }
@@ -432,7 +429,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     /// Get messages to display based on current focus
     /// - Shows focused message + direct replies to focused message
     private func messagesForCurrentFocus(viewModel: ChatViewModel) -> [Message] {
-        if !isShowingFocusedView {
+        if !self.isShowingFocusedView {
             // At root level, use the normal display messages
             return viewModel.displayMessages
         }
@@ -449,7 +446,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
 
         // Add direct replies to focused message
         let directReplies = viewModel.allMessages.values
-            .filter { $0.replyTo == focusedEventID }
+            .filter { $0.replyTo == self.focusedEventID }
             .sorted { $0.createdAt < $1.createdAt }
 
         // Compute reply counts for each direct reply
@@ -468,19 +465,19 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
 
     /// Navigate into a message's replies
     private func focusOnMessage(_ message: Message) {
-        focusStack.append(message)
+        self.focusStack.append(message)
     }
 
     /// Navigate back to parent
     private func navigateBack() {
-        guard !focusStack.isEmpty else {
+        guard !self.focusStack.isEmpty else {
             return
         }
-        focusStack.removeLast()
+        self.focusStack.removeLast()
     }
 
     private func navigationTitle(viewModel: ChatViewModel) -> String {
-        if isShowingFocusedView {
+        if self.isShowingFocusedView {
             return "Replies"
         }
         if viewModel.isNewThread {
@@ -495,32 +492,6 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
             return "Someone is typing..."
         } else {
             return "\(count) people are typing..."
-        }
-    }
-
-    /// Subscribe to ProjectStatus events to get online agents, models, tools, and branches
-    private func subscribeToProjectStatus() async {
-        guard let ndk else {
-            return
-        }
-
-        let filter = ProjectStatus.filter(for: projectOwnerPubkey)
-        let subscription = ndk.subscribe(filter: filter)
-
-        for await event in subscription.events {
-            if let status = ProjectStatus.from(event: event),
-               status.projectCoordinate == projectReference {
-                await MainActor.run {
-                    onlineAgents = status.agents
-
-                    // Extract unique models and tools from all agents
-                    availableModels = Array(Set(status.agents.compactMap(\.model))).sorted()
-                    availableTools = Array(Set(status.agents.flatMap(\.tools))).sorted()
-
-                    // Extract branches from ProjectStatus
-                    availableBranches = status.branches.sorted()
-                }
-            }
         }
     }
 
@@ -549,6 +520,6 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
             .split(separator: "\n")
             .map { "> \($0)" }
             .joined(separator: "\n")
-        inputViewModel.inputText = quotedText + "\n\n"
+        self.inputViewModel?.inputText = quotedText + "\n\n"
     }
 }

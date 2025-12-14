@@ -27,39 +27,34 @@ final class AgentProfileViewModel {
 
     /// Computed properties from profile subscription
     var agentName: String? {
-        profileSubscription?.data.first?.name
+        self.profileSubscription?.data.first?.name
     }
 
     var agentAbout: String? {
-        profileSubscription?.data.first?.about
+        self.profileSubscription?.data.first?.about
     }
 
     var agentPicture: String? {
-        profileSubscription?.data.first?.picture
+        self.profileSubscription?.data.first?.picture
     }
 
     /// Events are already deduplicated and managed by NDKSubscription
     var events: [NDKEvent] {
-        eventsSubscription?.data.sorted { $0.createdAt > $1.createdAt } ?? []
+        self.eventsSubscription?.data.sorted { $0.createdAt > $1.createdAt } ?? []
     }
 
     func startSubscriptions() {
         // Subscribe to agent's profile (kind:0) and transform to NDKUserMetadata
-        profileSubscription = ndk.subscribe(
-            filter: NDKFilter(authors: [pubkey], kinds: [0], limit: 1)
+        self.profileSubscription = self.ndk.subscribe(
+            filter: NDKFilter(authors: [self.pubkey], kinds: [0], limit: 1)
         ) { event in
             NDKUserMetadata(event: event, ndk: self.ndk)
         }
 
         // Subscribe to all events from this agent
-        eventsSubscription = ndk.subscribe(
-            filter: NDKFilter(authors: [pubkey], limit: 50)
+        self.eventsSubscription = self.ndk.subscribe(
+            filter: NDKFilter(authors: [self.pubkey], limit: 50)
         )
-    }
-
-    func refresh() {
-        // Just restart subscriptions - NDK will fetch fresh data
-        startSubscriptions()
     }
 
     // MARK: Private
