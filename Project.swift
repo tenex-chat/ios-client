@@ -43,9 +43,12 @@ let project = Project(
             deploymentTargets: .multiplatform(iOS: "17.0", macOS: "14.0"),
             infoPlist: .extendingDefault(with: [
                 "CFBundleDisplayName": "TENEX",
+                "CFBundleShortVersionString": "0.5.0",
+                "CFBundleVersion": "2",
                 "UILaunchScreen": [:],
                 "NSMicrophoneUsageDescription": "TENEX needs microphone access for voice conversations with agents.",
                 "NSSpeechRecognitionUsageDescription": "TENEX uses speech recognition for voice input.",
+                "NSCameraUsageDescription": "TENEX may use the camera for future features.",
                 "UIBackgroundModes": ["audio"],
             ]),
             sources: ["Sources/App/**"],
@@ -131,7 +134,7 @@ let project = Project(
                 .target(name: "TENEXCore"),
                 .target(name: "TENEXShared"),
                 .external(name: "NDKSwiftUI"),
-                .external(name: "ElevenLabsSwift"),
+                .external(name: "ElevenlabsSwift"),
                 .external(name: "WhisperKit"),
             ]
         ),
