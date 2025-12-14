@@ -36,17 +36,17 @@ public final class LoginViewModel {
 
     /// Whether the current input is valid
     public var isValidInput: Bool {
-        let trimmed = nsecInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = self.nsecInput.trimmingCharacters(in: .whitespacesAndNewlines)
         return !trimmed.isEmpty && trimmed.hasPrefix("nsec1")
     }
 
     /// Attempt to sign in with the current nsec input
     public func signIn() async {
         // Clear previous error
-        errorMessage = nil
+        self.errorMessage = nil
 
         // Start loading
-        isLoading = true
+        self.isLoading = true
 
         defer {
             // Always stop loading when done
@@ -55,7 +55,7 @@ public final class LoginViewModel {
 
         // Sanitize input - remove all whitespace and control characters
         // macOS clipboard can include invisible characters when pasting
-        var sanitized = nsecInput
+        var sanitized = self.nsecInput
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
         // Remove all non-printable characters and whitespace
@@ -66,7 +66,7 @@ public final class LoginViewModel {
 
         Logger().debug("""
         Login attempt:
-        - Original length: \(nsecInput.count)
+        - Original length: \(self.nsecInput.count)
         - Sanitized length: \(sanitized.count)
         - Prefix: \(String(sanitized.prefix(10)))
         - Raw bytes: \(sanitized.utf8.map { String(format: "%02x", $0) }.joined())
@@ -75,14 +75,16 @@ public final class LoginViewModel {
         // Attempt sign in
         do {
             let signer = try NDKPrivateKeySigner(nsec: sanitized)
-            _ = try await authManager.addSession(signer)
+            _ = try await self.authManager.addSession(signer)
             // Sign in successful, error message stays nil
         } catch {
             Logger().error("Login failed: \(error)")
             Logger().error("Error type: \(type(of: error))")
             Logger().error("Error description: \(error.localizedDescription)")
             // Sign in failed, set error message
-            errorMessage = "Invalid private key. Please check your nsec and try again.\n\n\(error.localizedDescription)"
+            self
+                .errorMessage =
+                "Invalid private key. Please check your nsec and try again.\n\n\(error.localizedDescription)"
         }
     }
 

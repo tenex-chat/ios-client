@@ -34,7 +34,7 @@
 --patternlet hoist
 --ranges spaced
 --redundanttype inferred
---self remove
+--self insert
 --selfrequired
 --semicolons inline
 --shortoptionals always
