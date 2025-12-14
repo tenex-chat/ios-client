@@ -23,20 +23,31 @@ public final class ChatViewModel {
     ///   - threadEvent: The thread event (kind:11) to reply to, or nil for new thread mode
     ///   - projectReference: The project reference in format "31933:pubkey:d-tag"
     ///   - userPubkey: The pubkey of the authenticated user
+    ///   - aiConfigStorage: AI configuration storage for auto-TTS settings
+    ///   - audioService: Audio service for TTS playback
     public init(
         ndk: NDK,
         threadEvent: NDKEvent?,
         projectReference: String,
-        userPubkey: String
+        userPubkey: String,
+        aiConfigStorage: AIConfigStorage? = nil,
+        audioService: AudioService? = nil
     ) {
         self.ndk = ndk
         self.threadEvent = threadEvent
         self.projectReference = projectReference
         self.userPubkey = userPubkey
+        self.aiConfigStorage = aiConfigStorage
+        self.audioService = audioService
 
         // Only set up conversation state and subscription for existing threads
         if let threadEvent {
-            conversationState = ConversationState(rootEventID: threadEvent.id)
+            conversationState = ConversationState(
+                rootEventID: threadEvent.id,
+                onAgentMessage: { [weak self] message in
+                    self?.handleAgentMessage(message)
+                }
+            )
 
             // Add the thread event (kind:11) as the first message
             // This is needed because the subscription only fetches kind:1111 replies
@@ -50,7 +61,12 @@ public final class ChatViewModel {
             }
         } else {
             // New thread mode - create empty conversation state (will be updated after thread creation)
-            conversationState = ConversationState(rootEventID: "")
+            conversationState = ConversationState(
+                rootEventID: "",
+                onAgentMessage: { [weak self] message in
+                    self?.handleAgentMessage(message)
+                }
+            )
         }
     }
 
@@ -176,6 +192,40 @@ public final class ChatViewModel {
     private let ndk: NDK
     private let projectReference: String
     private let userPubkey: String
+    private let aiConfigStorage: AIConfigStorage?
+    private let audioService: AudioService?
+
+    /// Handle agent message for auto-TTS
+    private func handleAgentMessage(_ message: Message) {
+        // Check if message is from an agent (not the user)
+        guard message.pubkey != userPubkey else {
+            return
+        }
+
+        // Check if auto-TTS is enabled
+        guard let aiConfigStorage,
+              let aiConfig = try? aiConfigStorage.load(),
+              aiConfig.ttsSettings.enabled,
+              aiConfig.ttsSettings.autoSpeak else {
+            return
+        }
+
+        // Trigger TTS for the agent's message
+        guard let audioService else {
+            return
+        }
+
+        // Trigger TTS in background
+        Task {
+            do {
+                try await audioService.speak(text: message.content)
+            } catch {
+                // Silently fail for auto-TTS to not interrupt user experience
+                // swiftlint:disable:next no_print_statements
+                print("[ChatViewModel] Auto-TTS failed: \(error)")
+            }
+        }
+    }
 
     /// Create a new thread (kind:11)
     private func createThread(
@@ -210,7 +260,12 @@ public final class ChatViewModel {
             threadEvent = event
 
             // Update conversation state with new root ID
-            conversationState = ConversationState(rootEventID: event.id)
+            conversationState = ConversationState(
+                rootEventID: event.id,
+                onAgentMessage: { [weak self] message in
+                    self?.handleAgentMessage(message)
+                }
+            )
 
             // Add the thread as the first message (subscription only fetches kind:1111 replies)
             if let threadMessage = Message.from(event: event) {
