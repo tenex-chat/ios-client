@@ -4,6 +4,8 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+// swiftlint:disable file_length
+
 import TENEXCore
 @testable import TENEXFeatures
 import Testing
@@ -289,7 +291,7 @@ struct CallViewModelTests {
         var messageSent = false
         var sentText = ""
         var sentPubkey = ""
-        var sentTags: [String] = []
+        var sentTags: [[String]] = []
 
         let mockAudio = MockAudioService(
             storage: MockAIConfigStorage(),
@@ -327,8 +329,8 @@ struct CallViewModelTests {
         #expect(messageSent)
         #expect(sentText == "Test transcript")
         #expect(sentPubkey == "test-pubkey")
-        #expect(sentTags.contains("voice"))
-        #expect(sentTags.contains("call"))
+        #expect(sentTags.contains(["mode", "voice"]))
+        #expect(sentTags.contains(["type", "call"]))
         #expect(viewModel.messages.count == initialMessageCount + 1)
         #expect(viewModel.currentTranscript.isEmpty)
         #expect(viewModel.state == .waitingForAgent)
@@ -467,6 +469,91 @@ struct CallViewModelTests {
 
         #expect(viewModel.vodRecordingURL == nil)
     }
+
+    // swiftlint:disable function_body_length
+    @Test("VOD recording persists messages to file")
+    func vodRecordingPersistsMessages() async throws {
+        let mockAudio = MockAudioService(
+            storage: MockAIConfigStorage(),
+            capabilityDetector: MockAICapabilityDetector()
+        )
+        let agent = ProjectAgent(
+            id: "test-agent",
+            pubkey: "test-pubkey",
+            name: "Test Agent",
+            role: "assistant",
+            useCase: "testing",
+            voiceID: "test-voice"
+        )
+
+        let viewModel = CallViewModel(
+            audioService: mockAudio,
+            projectID: "test-project",
+            agent: agent,
+            enableVOD: true,
+            autoTTS: false
+        ) { _, _, _ in }
+
+        // Start call
+        await viewModel.startCall()
+
+        // Verify VOD file was created
+        guard let vodURL = viewModel.vodRecordingURL else {
+            Issue.record("VOD recording URL should not be nil")
+            return
+        }
+
+        #expect(FileManager.default.fileExists(atPath: vodURL.path))
+
+        // Send a user message
+        await viewModel.startRecording()
+        await viewModel.stopRecording()
+        await viewModel.sendMessage()
+
+        // Handle an agent response
+        await viewModel.handleAgentResponse("Hello from agent")
+
+        // End call
+        await viewModel.endCall()
+
+        // Read the VOD file from disk
+        let vodData = try Data(contentsOf: vodURL)
+        let vodJSON = try JSONSerialization.jsonObject(with: vodData) as? [String: Any]
+
+        #expect(vodJSON != nil)
+
+        // Verify metadata
+        #expect(vodJSON?["projectID"] as? String == "test-project")
+        #expect(vodJSON?["agentPubkey"] as? String == "test-pubkey")
+        #expect(vodJSON?["agentName"] as? String == "Test Agent")
+        #expect(vodJSON?["startTime"] != nil)
+        #expect(vodJSON?["endTime"] != nil)
+        #expect(vodJSON?["duration"] != nil)
+
+        // Verify messages array contains both user and agent messages
+        let messages = vodJSON?["messages"] as? [[String: Any]]
+        #expect(messages != nil)
+        #expect(messages?.count ?? 0 >= 2) // At least user message and agent response
+
+        // Find user message
+        let userMessage = messages?.first { ($0["sender"] as? String) == "user" }
+        #expect(userMessage != nil)
+        #expect(userMessage?["content"] as? String == "Test transcript")
+        #expect(userMessage?["id"] != nil)
+        #expect(userMessage?["timestamp"] != nil)
+
+        // Find agent message
+        let agentMessage = messages?.first { ($0["sender"] as? String) == "agent" }
+        #expect(agentMessage != nil)
+        #expect(agentMessage?["content"] as? String == "Hello from agent")
+        #expect(agentMessage?["id"] != nil)
+        #expect(agentMessage?["timestamp"] != nil)
+
+        // Clean up test file
+        try? FileManager.default.removeItem(at: vodURL)
+    }
+
+    // swiftlint:enable function_body_length
 
     // MARK: - Playback Control Tests
 

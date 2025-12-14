@@ -93,14 +93,14 @@ public struct CallMessage: Identifiable, Sendable {
     public init(
         sender: CallParticipant,
         content: String,
-        id: String = UUID().uuidString,
-        timestamp: Date = Date(),
+        id: String? = nil,
+        timestamp: Date? = nil,
         audioURL: URL? = nil
     ) {
-        self.id = id
+        self.id = id ?? UUID().uuidString
         self.sender = sender
         self.content = content
-        self.timestamp = timestamp
+        self.timestamp = timestamp ?? Date()
         self.audioURL = audioURL
     }
 
@@ -384,8 +384,10 @@ public final class CallViewModel {
             currentTranscript = messageText
             state = .listening
             // Remove the message since it failed to send
-            // Safe to use removeLast() since we just appended it
-            messages.removeLast()
+            // Verify it's still the last message before removing
+            if messages.last?.id == userMessage.id {
+                messages.removeLast()
+            }
         }
     }
 
