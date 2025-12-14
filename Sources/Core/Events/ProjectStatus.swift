@@ -24,6 +24,9 @@ public struct ProjectStatus: Sendable {
     /// Online agents parsed from agent/model/tool tags
     public let agents: [ProjectAgent]
 
+    /// Available branches parsed from branch tags
+    public let branches: [String]
+
     /// When the status was created
     public let createdAt: Date
 
@@ -62,6 +65,9 @@ public struct ProjectStatus: Sendable {
         // Parse agents from tags
         let agents = parseAgents(from: event)
 
+        // Parse branches from tags
+        let branches = parseBranches(from: event)
+
         // Convert timestamp to Date
         let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
 
@@ -69,6 +75,7 @@ public struct ProjectStatus: Sendable {
             projectCoordinate: projectCoordinate,
             pubkey: event.pubkey,
             agents: agents,
+            branches: branches,
             createdAt: createdAt
         )
     }
@@ -142,5 +149,16 @@ public struct ProjectStatus: Sendable {
                 }
             }
         }
+    }
+
+    /// Parse branch tags: ["branch", <branch-name>]
+    private static func parseBranches(from event: NDKEvent) -> [String] {
+        event.tags(withName: "branch")
+            .compactMap { tag in
+                guard tag.count > 1, !tag[1].isEmpty else {
+                    return nil
+                }
+                return tag[1]
+            }
     }
 }

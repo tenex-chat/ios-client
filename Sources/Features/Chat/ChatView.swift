@@ -363,11 +363,11 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                     onlineAgents = status.agents
 
                     // Extract unique models and tools from all agents
-                    availableModels = Array(Set(status.agents.compactMap { $0.model })).sorted()
-                    availableTools = Array(Set(status.agents.flatMap { $0.tools })).sorted()
+                    availableModels = Array(Set(status.agents.compactMap(\.model))).sorted()
+                    availableTools = Array(Set(status.agents.flatMap(\.tools))).sorted()
 
-                    // TODO: Extract branches from ProjectStatus when available
-                    availableBranches = []
+                    // Extract branches from ProjectStatus
+                    availableBranches = status.branches.sorted()
                 }
             }
         }
