@@ -141,6 +141,7 @@ public struct ChatView: View {
             inputBar(viewModel: viewModel)
         }
         .navigationTitle(navigationTitle(viewModel: viewModel))
+        .navigationBarBackButtonHidden(isShowingFocusedView)
         .task { await viewModel.subscribeToThreadMetadata() }
         .task { await subscribeToProjectStatus() }
         .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
