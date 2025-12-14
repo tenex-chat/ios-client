@@ -20,12 +20,12 @@ public final class ChatViewModel {
     /// Initialize the chat view model
     /// - Parameters:
     ///   - ndk: The NDK instance for fetching and publishing messages
-    ///   - threadEvent: The thread event (kind:11) to reply to
+    ///   - threadEvent: The thread event (kind:11) to reply to, or nil for new thread mode
     ///   - projectReference: The project reference in format "31933:pubkey:d-tag"
     ///   - userPubkey: The pubkey of the authenticated user
     public init(
         ndk: NDK,
-        threadEvent: NDKEvent,
+        threadEvent: NDKEvent?,
         projectReference: String,
         userPubkey: String
     ) {
@@ -33,30 +33,44 @@ public final class ChatViewModel {
         self.threadEvent = threadEvent
         self.projectReference = projectReference
         self.userPubkey = userPubkey
-        conversationState = ConversationState(rootEventID: threadEvent.id)
 
-        // Add the thread event (kind:11) as the first message
-        // Thread events are kind:11, not kind:1111, so we add them directly
-        if let threadMessage = Message.from(event: threadEvent) {
-            conversationState.addOptimisticMessage(threadMessage)
-        }
+        // Only set up conversation state and subscription for existing threads
+        if let threadEvent {
+            conversationState = ConversationState(rootEventID: threadEvent.id)
 
-        // Start continuous subscription in background
-        Task {
-            await subscribeToAllEvents()
+            // Add the thread event (kind:11) as the first message
+            if let threadMessage = Message.from(event: threadEvent) {
+                conversationState.addOptimisticMessage(threadMessage)
+            }
+
+            // Start continuous subscription in background
+            Task {
+                await subscribeToAllEvents()
+            }
+        } else {
+            // New thread mode - create empty conversation state (will be updated after thread creation)
+            conversationState = ConversationState(rootEventID: "")
         }
     }
 
     // MARK: Public
 
     /// The conversation state managing messages, streaming, and typing
-    public let conversationState: ConversationState
+    public private(set) var conversationState: ConversationState
 
     /// The current error message, if any
     public private(set) var errorMessage: String?
 
     /// The most recent thread title from kind:513 metadata
     public private(set) var threadTitle: String?
+
+    /// The thread event (kind:11) - nil for new thread mode, set after thread is created
+    public private(set) var threadEvent: NDKEvent?
+
+    /// Whether this is a new thread (no threadEvent yet)
+    public var isNewThread: Bool {
+        threadEvent == nil
+    }
 
     /// The display messages (final + streaming synthetic), sorted by time
     /// Only includes root and direct replies to root (nested replies are hidden)
@@ -74,13 +88,17 @@ public final class ChatViewModel {
         Set(conversationState.typingIndicators.keys)
     }
 
-    /// The thread ID derived from the thread event
-    public var threadID: String {
-        threadEvent.id
+    /// The thread ID derived from the thread event (nil if new thread)
+    public var threadID: String? {
+        threadEvent?.id
     }
 
     /// Subscribe to thread metadata (kind:513) to get the most recent title
     public func subscribeToThreadMetadata() async {
+        guard let threadID else {
+            return
+        }
+
         // Create filter for metadata for this thread
         let filter = ConversationMetadata.filter(for: threadID)
 
@@ -103,10 +121,10 @@ public final class ChatViewModel {
         }
     }
 
-    /// Send a new message to the thread
+    /// Send a new message to the thread, or create a new thread if threadEvent is nil
     /// - Parameters:
     ///   - text: The message text
-    ///   - targetAgentPubkey: Optional agent pubkey to route message to
+    ///   - targetAgentPubkey: Agent pubkey to route message to (required for new threads)
     ///   - mentionedPubkeys: Pubkeys of mentioned users to add as p-tags
     ///   - replyTo: Optional parent message for replies
     public func sendMessage(
@@ -121,6 +139,117 @@ public final class ChatViewModel {
             return
         }
 
+        // For new threads, agent is required
+        if isNewThread {
+            guard let targetAgentPubkey else {
+                errorMessage = "Please select an agent to start a thread"
+                return
+            }
+            await createThread(content: trimmedText, agentPubkey: targetAgentPubkey, mentionedPubkeys: mentionedPubkeys)
+            return
+        }
+
+        // Existing thread - send reply
+        await sendReply(
+            text: trimmedText,
+            targetAgentPubkey: targetAgentPubkey,
+            mentionedPubkeys: mentionedPubkeys,
+            replyTo: replyTo
+        )
+    }
+
+    /// Retry sending a failed message
+    /// - Parameter message: The message to retry
+    public func retrySendMessage(_ message: Message) async {
+        // Remove the failed message
+        conversationState.removeMessage(id: message.id)
+
+        // Send it again
+        let parentMessage = message.replyTo.flatMap { replyToID in
+            displayMessages.first { $0.id == replyToID }
+        }
+        await sendMessage(text: message.content, replyTo: parentMessage)
+    }
+
+    // MARK: Private
+
+    private let ndk: NDK
+    private let projectReference: String
+    private let userPubkey: String
+
+    /// Create a new thread (kind:11)
+    private func createThread(
+        content: String,
+        agentPubkey: String,
+        mentionedPubkeys: [String]
+    ) async {
+        // Create temporary ID for optimistic message
+        let tempID = UUID().uuidString
+
+        let optimisticMessage = Message(
+            id: tempID,
+            pubkey: userPubkey,
+            threadID: projectReference,
+            content: content,
+            createdAt: Date(),
+            replyTo: nil,
+            status: .sending
+        )
+
+        // Add optimistic message
+        conversationState.addOptimisticMessage(optimisticMessage)
+
+        // Capture values for sendable closure
+        let projectRef = projectReference
+        let mentions = mentionedPubkeys
+        let ndkInstance = ndk
+
+        do {
+            // Build thread event (kind:11)
+            let (event, _) = try await ndk.publish { _ in
+                buildThreadTags(
+                    ndk: ndkInstance,
+                    content: content,
+                    projectRef: projectRef,
+                    agentPubkey: agentPubkey,
+                    mentions: mentions
+                )
+            }
+
+            // Update threadEvent with the created thread
+            threadEvent = event
+
+            // Update conversation state with new root ID
+            conversationState = ConversationState(rootEventID: event.id)
+
+            // Add the thread as the first message
+            if let threadMessage = Message.from(event: event) {
+                conversationState.addOptimisticMessage(threadMessage)
+            }
+
+            // Start subscription for replies
+            Task {
+                await subscribeToAllEvents()
+            }
+        } catch {
+            // Update message with failed status
+            let failedMessage = optimisticMessage
+                .with(status: .failed(error: error.localizedDescription))
+            conversationState.replaceOptimisticMessage(tempID: tempID, with: failedMessage)
+        }
+    }
+
+    /// Send a reply (kind:1111) to an existing thread
+    private func sendReply(
+        text: String,
+        targetAgentPubkey: String?,
+        mentionedPubkeys: [String],
+        replyTo: Message?
+    ) async {
+        guard let threadEvent else {
+            return
+        }
+
         // Create temporary ID for optimistic message
         let tempID = UUID().uuidString
 
@@ -129,7 +258,7 @@ public final class ChatViewModel {
             id: tempID,
             pubkey: userPubkey,
             threadID: projectReference,
-            content: trimmedText,
+            content: text,
             createdAt: Date(),
             replyTo: replyTo?.id,
             status: .sending
@@ -155,7 +284,7 @@ public final class ChatViewModel {
             let (event, _) = try await ndk.publish { _ in
                 buildReplyTags(
                     builder: NDKEventBuilder.reply(to: threadEvent, ndk: ndk),
-                    content: trimmedText,
+                    content: text,
                     context: context
                 )
             }
@@ -173,28 +302,12 @@ public final class ChatViewModel {
         }
     }
 
-    /// Retry sending a failed message
-    /// - Parameter message: The message to retry
-    public func retrySendMessage(_ message: Message) async {
-        // Remove the failed message
-        conversationState.removeMessage(id: message.id)
-
-        // Send it again
-        let parentMessage = message.replyTo.flatMap { replyToID in
-            displayMessages.first { $0.id == replyToID }
-        }
-        await sendMessage(text: message.content, replyTo: parentMessage)
-    }
-
-    // MARK: Private
-
-    private let ndk: NDK
-    private let threadEvent: NDKEvent
-    private let projectReference: String
-    private let userPubkey: String
-
     /// Subscribe to all event types and route through ConversationState
     private func subscribeToAllEvents() async {
+        guard let threadID else {
+            return
+        }
+
         // Create unified filter for all event types:
         // - kind 1111: final messages
         // - kind 21111: streaming deltas
@@ -215,26 +328,66 @@ public final class ChatViewModel {
         }
     }
 
+    /// Build tags for a new thread (kind:11)
+    private nonisolated func buildThreadTags(
+        ndk: NDK,
+        content: String,
+        projectRef: String,
+        agentPubkey: String,
+        mentions: [String]
+    ) -> NDKEventBuilder {
+        var builder = NDKEventBuilder(ndk: ndk)
+            .kind(11)
+            .content(content, extractImeta: false)
+
+        // Add project reference (a tag)
+        builder = builder.tag(["a", projectRef])
+
+        // Add title tag (first 50 chars of content)
+        let title = String(content.prefix(50))
+        builder = builder.tag(["title", title])
+
+        // Extract hashtags from content and add as t tags
+        let pattern = "#(\\w+)"
+        if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
+            let range = NSRange(content.startIndex..., in: content)
+            let matches = regex.matches(in: content, options: [], range: range)
+            for match in matches {
+                if let tagRange = Range(match.range(at: 1), in: content) {
+                    let hashtag = String(content[tagRange]).lowercased()
+                    builder = builder.tag(["t", hashtag])
+                }
+            }
+        }
+
+        // Add agent p-tag (required for new threads)
+        builder = builder.tag(["p", agentPubkey])
+
+        // Add mentioned p-tags (excluding agent if already added)
+        for pubkey in mentions where pubkey != agentPubkey {
+            builder = builder.tag(["p", pubkey])
+        }
+
+        return builder
+    }
+
     /// Build tags for a reply message
     private nonisolated func buildReplyTags(
         builder: NDKEventBuilder,
         content: String,
         context: ReplyContext
     ) -> NDKEventBuilder {
-        // Filter out auto p-tags
-        let filteredTags = builder.tags.filter { $0.first != "p" }
+        // Filter out auto p-tags and e-tags (we'll add our own)
+        let filteredTags = builder.tags.filter { $0.first != "p" && $0.first != "e" }
         var newBuilder = builder.setTags(filteredTags)
 
         // Set content and project reference
         newBuilder = newBuilder.content(content, extractImeta: false)
         newBuilder = newBuilder.tag(["a", context.projectRef])
 
-        // Add reply tags if replying to a specific message
+        // Add reply e-tag if replying to a specific message
         if let replyTo = context.replyTo {
-            let hasETag = newBuilder.tags.contains { $0.first == "e" && $0[safe: 1] == replyTo.id }
-            if !hasETag {
-                newBuilder = newBuilder.tag(["e", replyTo.id, "", "reply"])
-            }
+            newBuilder = newBuilder.tag(["e", replyTo.id])
             let hasReplyAuthorPTag = newBuilder.tags.contains { $0.first == "p" && $0[safe: 1] == replyTo.pubkey }
             if !hasReplyAuthorPTag {
                 newBuilder = newBuilder.tag(["p", replyTo.pubkey])

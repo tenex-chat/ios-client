@@ -16,11 +16,11 @@ public struct ChatView: View {
 
     /// Initialize the chat view
     /// - Parameters:
-    ///   - threadEvent: The thread event (kind:11) to display messages for
+    ///   - threadEvent: The thread event (kind:11) to display messages for, or nil for new thread mode
     ///   - projectReference: The project reference in format "31933:pubkey:d-tag"
     ///   - currentUserPubkey: The current user's pubkey
     public init(
-        threadEvent: NDKEvent,
+        threadEvent: NDKEvent?,
         projectReference: String,
         currentUserPubkey: String
     ) {
@@ -49,9 +49,14 @@ public struct ChatView: View {
     @State private var inputViewModel = ChatInputViewModel()
     @State private var onlineAgents: [ProjectAgent] = []
 
-    private let threadEvent: NDKEvent
+    private let threadEvent: NDKEvent?
     private let projectReference: String
     private let currentUserPubkey: String
+
+    /// Whether this is a new thread (no existing threadEvent)
+    private var isNewThread: Bool {
+        threadEvent == nil
+    }
 
     /// The currently focused message (nil = showing root level)
     private var focusedMessage: Message? {
@@ -59,8 +64,8 @@ public struct ChatView: View {
     }
 
     /// The ID we're currently focused on (root thread ID if not focused on anything)
-    private var focusedEventID: String {
-        focusedMessage?.id ?? threadEvent.id
+    private var focusedEventID: String? {
+        focusedMessage?.id ?? threadEvent?.id
     }
 
     /// Whether we're showing a focused (non-root) view
@@ -71,22 +76,6 @@ public struct ChatView: View {
     /// Extract project d-tag from projectReference (format: "31933:pubkey:d-tag")
     private var projectDTag: String {
         projectReference.components(separatedBy: ":").last ?? projectReference
-    }
-
-    private var emptyView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "bubble.left.fill")
-                .font(.system(size: 60))
-                .foregroundStyle(.blue)
-
-            Text("No Messages Yet")
-                .font(.title)
-                .fontWeight(.semibold)
-
-            Text("Start a conversation in this thread")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
     }
 
     private var backButton: some View {
@@ -113,6 +102,23 @@ public struct ChatView: View {
     }
 
     @ViewBuilder
+    private func emptyView(isNewThread: Bool) -> some View {
+        VStack(spacing: 20) {
+            Image(systemName: isNewThread ? "plus.bubble.fill" : "bubble.left.fill")
+                .font(.system(size: 60))
+                .foregroundStyle(.blue)
+
+            Text(isNewThread ? "Start a New Thread" : "No Messages Yet")
+                .font(.title)
+                .fontWeight(.semibold)
+
+            Text(isNewThread ? "Select an agent and send your first message" : "Start a conversation in this thread")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
     private func contentView(ndk: NDK) -> some View {
         let vm = viewModel ?? ChatViewModel(
             ndk: ndk,
@@ -125,6 +131,12 @@ public struct ChatView: View {
             .task {
                 if viewModel == nil {
                     viewModel = vm
+                }
+            }
+            .onChange(of: vm.threadEvent) { _, newThreadEvent in
+                // Update input view model when thread is created
+                if newThreadEvent != nil {
+                    inputViewModel.setRequiresAgent(false)
                 }
             }
     }
@@ -142,8 +154,17 @@ public struct ChatView: View {
         }
         .navigationTitle(navigationTitle(viewModel: viewModel))
         .navigationBarBackButtonHidden(isShowingFocusedView)
-        .task { await viewModel.subscribeToThreadMetadata() }
+        .task {
+            // Only subscribe to metadata for existing threads
+            if !viewModel.isNewThread {
+                await viewModel.subscribeToThreadMetadata()
+            }
+        }
         .task { await subscribeToProjectStatus() }
+        .onAppear {
+            // Configure input for new thread mode (requires agent selection)
+            inputViewModel.setRequiresAgent(viewModel.isNewThread)
+        }
         .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
             Button("OK") {}
         } message: {
@@ -156,7 +177,7 @@ public struct ChatView: View {
     @ViewBuilder
     private func messagesArea(viewModel: ChatViewModel, messages: [Message]) -> some View {
         if messages.isEmpty {
-            emptyView
+            emptyView(isNewThread: viewModel.isNewThread)
         } else {
             messageList(viewModel: viewModel, messages: messages)
         }
@@ -277,6 +298,9 @@ public struct ChatView: View {
     private func navigationTitle(viewModel: ChatViewModel) -> String {
         if isShowingFocusedView {
             return "Replies"
+        }
+        if viewModel.isNewThread {
+            return "New Thread"
         }
         return viewModel.threadTitle ?? "Thread"
     }

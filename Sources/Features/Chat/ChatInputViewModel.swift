@@ -33,6 +33,9 @@ public final class ChatInputViewModel {
     /// Whether the send button should be enabled
     public private(set) var canSend = false
 
+    /// Whether an agent is required to send (e.g., for new threads)
+    public private(set) var requiresAgent = false
+
     /// The current input text
     public var inputText = "" {
         didSet {
@@ -40,10 +43,18 @@ public final class ChatInputViewModel {
         }
     }
 
+    /// Set whether an agent is required to send
+    /// - Parameter required: True if agent selection is required
+    public func setRequiresAgent(_ required: Bool) {
+        requiresAgent = required
+        updateCanSend()
+    }
+
     /// Select an agent
     /// - Parameter pubkey: The agent's pubkey
     public func selectAgent(_ pubkey: String) {
         selectedAgent = pubkey
+        updateCanSend()
     }
 
     /// Select a branch
@@ -77,6 +88,8 @@ public final class ChatInputViewModel {
     // MARK: Private
 
     private func updateCanSend() {
-        canSend = !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasText = !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasAgentIfRequired = !requiresAgent || selectedAgent != nil
+        canSend = hasText && hasAgentIfRequired
     }
 }

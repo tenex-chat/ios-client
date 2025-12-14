@@ -23,20 +23,39 @@ public struct ProjectDetailView: View {
     // MARK: Public
 
     public var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             threadsTab
+                .tag(0)
 
             docsTab
+                .tag(1)
 
             agentsTab
+                .tag(2)
 
             feedTab
+                .tag(3)
         }
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            // Show "New Thread" button only on threads tab
+            if selectedTab == 0, let userPubkey = authManager.activePubkey {
+                ToolbarItem(placement: .primaryAction) {
+                    NavigationLink {
+                        ChatView(
+                            threadEvent: nil,
+                            projectReference: project.coordinate,
+                            currentUserPubkey: userPubkey
+                        )
+                    } label: {
+                        Label("New Thread", systemImage: "plus")
+                    }
+                }
+            }
+
+            ToolbarItem(placement: .secondaryAction) {
                 Button {
                     showingSettings = true
                 } label: {
@@ -54,6 +73,7 @@ public struct ProjectDetailView: View {
     @Environment(\.ndk) private var ndk
     @Environment(NDKAuthManager.self) private var authManager
     @State private var showingSettings = false
+    @State private var selectedTab = 0
 
     private let project: Project
 
