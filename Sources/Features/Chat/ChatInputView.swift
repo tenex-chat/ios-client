@@ -54,8 +54,15 @@ public struct ChatInputView: View {
     ///   - viewModel: The input view model
     ///   - agents: Online agents for selection and mentions
     ///   - ndk: The NDK instance for profile pictures
-    public init(viewModel: ChatInputViewModel, agents: [ProjectAgent], ndk: NDK) {
+    ///   - onSend: Callback when message is sent (text, targetAgentPubkey, mentionedPubkeys)
+    public init(
+        viewModel: ChatInputViewModel,
+        agents: [ProjectAgent],
+        ndk: NDK,
+        onSend: @escaping (String, String?, [String]) -> Void
+    ) {
         self.ndk = ndk
+        self.onSend = onSend
         _viewModel = State(initialValue: viewModel)
         _agentSelectorVM = State(initialValue: AgentSelectorViewModel(agents: agents))
         _mentionVM = State(initialValue: MentionAutocompleteViewModel(agents: agents))
@@ -106,6 +113,7 @@ public struct ChatInputView: View {
     @State private var mentionVM: MentionAutocompleteViewModel
 
     private let ndk: NDK
+    private let onSend: (String, String?, [String]) -> Void
 
     private var inputToolbar: some View {
         HStack(spacing: 16) {
@@ -178,7 +186,10 @@ public struct ChatInputView: View {
 
     private var sendButton: some View {
         Button {
-            // Send message action
+            let text = viewModel.inputText
+            let agentPubkey = agentSelectorVM.selectedAgentPubkey
+            let mentions = viewModel.mentionedPubkeys
+            onSend(text, agentPubkey, mentions)
             viewModel.clearInput()
         } label: {
             Image(systemName: "arrow.up.circle.fill")
