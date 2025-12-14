@@ -6,6 +6,7 @@
 
 import NDKSwiftCore
 import SwiftUI
+import TENEXCore
 
 // MARK: - VoiceModeView
 

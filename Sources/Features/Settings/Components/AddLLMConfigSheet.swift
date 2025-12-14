@@ -135,10 +135,37 @@ struct AddLLMConfigSheet: View {
                 .textInputAutocapitalization(.never)
             #endif
                 .autocorrectionDisabled()
+
+            if formViewModel.supportsModelDiscovery {
+                Button {
+                    Task {
+                        await formViewModel.fetchAvailableModels()
+                    }
+                } label: {
+                    if formViewModel.isLoadingModels {
+                        HStack {
+                            ProgressView()
+                            Text("Loading...")
+                        }
+                    } else {
+                        Label("Browse Models", systemImage: "magnifyingglass")
+                    }
+                }
+                .disabled(formViewModel.isLoadingModels)
+            }
+
+            if let error = formViewModel.modelFetchError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
         } header: {
             Text("Model")
         } footer: {
             Text("Examples: \(formViewModel.exampleModels)")
+        }
+        .sheet(isPresented: $formViewModel.showModelBrowser) {
+            ModelBrowserSheet(viewModel: formViewModel)
         }
     }
 
