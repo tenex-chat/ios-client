@@ -80,11 +80,11 @@ public struct NavigationShell: View {
             NavigationLink(value: AppRoute.settings) {
                 Label("Settings", systemImage: "gearshape")
             }
-            if let dataStore {
-                NavigationLink(destination: AgentListView(viewModel: AgentListViewModel(dataStore: dataStore))) {
+            if dataStore != nil {
+                NavigationLink(value: AppRoute.agentList) {
                     Label("Agents", systemImage: "person.2")
                 }
-                NavigationLink(destination: MCPToolListView(viewModel: MCPToolListViewModel(dataStore: dataStore))) {
+                NavigationLink(value: AppRoute.mcpToolList) {
                     Label("MCP Tools", systemImage: "hammer")
                 }
             }
@@ -124,6 +124,7 @@ public struct NavigationShell: View {
     // MARK: - Destination Views
 
     @ViewBuilder
+    // swiftlint:disable cyclomatic_complexity
     private func destinationView(for route: AppRoute) -> some View {
         switch route {
         case .projectList:
@@ -157,10 +158,26 @@ public struct NavigationShell: View {
                 Text("Loading...")
             }
 
+        case .agentList:
+            if let dataStore {
+                AgentListView(viewModel: AgentListViewModel(dataStore: dataStore))
+            } else {
+                Text("Loading...")
+            }
+
+        case .mcpToolList:
+            if let dataStore {
+                MCPToolListView(viewModel: MCPToolListViewModel(dataStore: dataStore))
+            } else {
+                Text("Loading...")
+            }
+
         case .settings:
             SettingsView()
         }
     }
+
+    // swiftlint:enable cyclomatic_complexity
 
     // MARK: - Deep Link Handling
 
