@@ -36,8 +36,8 @@ public struct AISettingsView: View {
         .sheet(isPresented: $showingAddLLMConfig) {
             addLLMConfigSheet
         }
-        .sheet(isPresented: $showingVoiceSelection) {
-            voiceSelectionSheet
+        .sheet(isPresented: $showingVoiceBrowser) {
+            voiceBrowserSheet
         }
         .alert("Error", isPresented: .init(
             get: { viewModel.saveError != nil || viewModel.loadError != nil },
@@ -56,8 +56,10 @@ public struct AISettingsView: View {
 
     @State private var viewModel: AISettingsViewModel
     @State private var showingAddLLMConfig = false
-    @State private var showingVoiceSelection = false
+    @State private var showingVoiceBrowser = false
     @State private var editingConfig: LLMConfig?
+    @State private var ttsAPIKey = ""
+    @State private var ttsAPIKeyLoaded = false
 
     @ToolbarContentBuilder private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .primaryAction) {
@@ -129,25 +131,88 @@ public struct AISettingsView: View {
             Toggle("Enable Text-to-Speech", isOn: $viewModel.config.ttsSettings.enabled)
 
             if viewModel.config.ttsSettings.enabled {
-                voicesButton
+                ttsProviderPicker
+                ttsAPIKeyField
+                configuredVoicesList
+                addVoiceButton
                 speedSlider
                 Toggle("Auto-speak Agent Responses", isOn: $viewModel.config.ttsSettings.autoSpeak)
             }
         } header: {
             Text("Text-to-Speech")
         }
+        .onChange(of: viewModel.config.ttsSettings.provider) { _, newProvider in
+            loadTTSAPIKey(for: newProvider)
+        }
+        .task {
+            if !ttsAPIKeyLoaded {
+                loadTTSAPIKey(for: viewModel.config.ttsSettings.provider)
+                ttsAPIKeyLoaded = true
+            }
+        }
     }
 
-    @ViewBuilder private var voicesButton: some View {
-        Button {
-            showingVoiceSelection = true
-        } label: {
-            HStack {
-                Text("Voices")
-                Spacer()
-                Text("\(viewModel.config.ttsSettings.voiceConfigs.count) selected")
-                    .foregroundStyle(.secondary)
+    @ViewBuilder private var ttsProviderPicker: some View {
+        let providers = viewModel.availableTTSProviders
+        Picker("Provider", selection: $viewModel.config.ttsSettings.provider) {
+            ForEach(providers, id: \.self) { (provider: TTSProvider) in
+                Text(provider.displayName).tag(provider)
             }
+        }
+    }
+
+    @ViewBuilder private var ttsAPIKeyField: some View {
+        if viewModel.config.ttsSettings.provider != .system {
+            SecureField("API Key", text: $ttsAPIKey)
+            #if os(iOS)
+                .textInputAutocapitalization(.never)
+            #endif
+                .autocorrectionDisabled()
+                .onChange(of: ttsAPIKey) { _, newValue in
+                    saveTTSAPIKey(newValue)
+                }
+        }
+    }
+
+    @ViewBuilder private var configuredVoicesList: some View {
+        if !viewModel.config.ttsSettings.voiceConfigs.isEmpty {
+            ForEach(viewModel.config.ttsSettings.voiceConfigs) { voice in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(voice.name)
+                        if let gender = voice.metadata?.gender {
+                            Text(gender)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                }
+                .swipeActions(edge: .trailing) {
+                    Button(role: .destructive) {
+                        viewModel.removeVoiceConfig(id: voice.id)
+                    } label: {
+                        Label("Remove", systemImage: "trash")
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder private var addVoiceButton: some View {
+        let hasAPIKey = !ttsAPIKey.isEmpty || viewModel.config.ttsSettings.provider == .system
+
+        Button {
+            showingVoiceBrowser = true
+        } label: {
+            Label("Add Voice", systemImage: "plus.circle")
+        }
+        .disabled(!hasAPIKey)
+
+        if !hasAPIKey {
+            Text("Enter API key to browse voices")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -216,13 +281,50 @@ public struct AISettingsView: View {
         }
     }
 
-    @ViewBuilder private var voiceSelectionSheet: some View {
-        VoiceSelectionSheet(
-            currentVoices: viewModel.config.ttsSettings.voiceConfigs
-        ) { selectedVoices in
-            viewModel.config.ttsSettings.voiceConfigs = selectedVoices
-            showingVoiceSelection = false
+    @ViewBuilder private var voiceBrowserSheet: some View {
+        NavigationStack {
+            VoiceSelectionView(
+                provider: viewModel.config.ttsSettings.provider,
+                apiKey: ttsAPIKey
+            ) { selectedVoice in
+                let voiceConfig = VoiceConfig(
+                    name: selectedVoice.name,
+                    provider: viewModel.config.ttsSettings.provider,
+                    voiceID: selectedVoice.id,
+                    metadata: selectedVoice.labels.map { labels in
+                        VoiceMetadata(
+                            gender: labels.gender,
+                            accent: labels.accent,
+                            ageRange: labels.age
+                        )
+                    }
+                )
+                viewModel.addVoiceConfig(voiceConfig)
+                showingVoiceBrowser = false
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        showingVoiceBrowser = false
+                    }
+                }
+            }
         }
+    }
+
+    private func loadTTSAPIKey(for provider: TTSProvider) {
+        if let key = try? viewModel.getTTSAPIKey(for: provider) {
+            ttsAPIKey = key
+        } else {
+            ttsAPIKey = ""
+        }
+    }
+
+    private func saveTTSAPIKey(_ key: String) {
+        guard !key.isEmpty else {
+            return
+        }
+        try? viewModel.saveTTSAPIKey(key, for: viewModel.config.ttsSettings.provider)
     }
 
     private func binding(for feature: AIFeature) -> Binding<String?> {
@@ -282,6 +384,19 @@ extension STTProvider {
             "Apple SpeechTranscriber"
         case .whisperKit:
             "WhisperKit"
+        }
+    }
+}
+
+extension TTSProvider {
+    var displayName: String {
+        switch self {
+        case .openai:
+            "OpenAI"
+        case .elevenlabs:
+            "ElevenLabs"
+        case .system:
+            "System"
         }
     }
 }

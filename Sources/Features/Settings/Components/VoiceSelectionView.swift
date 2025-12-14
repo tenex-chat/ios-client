@@ -262,7 +262,7 @@ struct VoiceRow: View {
         }
     }
 
-    @ViewBuilder private func voiceLabels(_ labels: VoiceInfo.Labels) -> some View {
+    @ViewBuilder private func voiceLabels(_ labels: VoiceLabels) -> some View {
         HStack(spacing: 4) {
             if let gender = labels.gender {
                 Label(gender, systemImage: "person.fill")

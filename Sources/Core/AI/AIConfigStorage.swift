@@ -41,6 +41,24 @@ public protocol AIConfigStorage: Sendable {
     /// - Parameter configID: The configuration ID
     /// - Throws: Error if the operation fails
     func deleteAPIKey(for configID: String) throws
+
+    /// Save TTS provider API key
+    /// - Parameters:
+    ///   - key: The API key to save
+    ///   - provider: The TTS provider
+    /// - Throws: Error if the operation fails
+    func saveTTSAPIKey(_ key: String, for provider: TTSProvider) throws
+
+    /// Load TTS provider API key
+    /// - Parameter provider: The TTS provider
+    /// - Returns: The API key, or nil if not found
+    /// - Throws: Error if the operation fails
+    func loadTTSAPIKey(for provider: TTSProvider) throws -> String?
+
+    /// Delete TTS provider API key
+    /// - Parameter provider: The TTS provider
+    /// - Throws: Error if the operation fails
+    func deleteTTSAPIKey(for provider: TTSProvider) throws
 }
 
 // MARK: - UserDefaultsAIConfigStorage
@@ -95,6 +113,21 @@ public final class UserDefaultsAIConfigStorage: AIConfigStorage {
         try keychain.delete(for: keychainKey)
     }
 
+    public func saveTTSAPIKey(_ key: String, for provider: TTSProvider) throws {
+        let keychainKey = ttsAPIKeyKey(for: provider)
+        try keychain.save(key, for: keychainKey)
+    }
+
+    public func loadTTSAPIKey(for provider: TTSProvider) throws -> String? {
+        let keychainKey = ttsAPIKeyKey(for: provider)
+        return try keychain.retrieve(for: keychainKey)
+    }
+
+    public func deleteTTSAPIKey(for provider: TTSProvider) throws {
+        let keychainKey = ttsAPIKeyKey(for: provider)
+        try keychain.delete(for: keychainKey)
+    }
+
     // MARK: Private
 
     private let userDefaults: UserDefaults
@@ -103,6 +136,10 @@ public final class UserDefaultsAIConfigStorage: AIConfigStorage {
 
     private func apiKeyKey(for configID: String) -> String {
         "ai-api-key-\(configID)"
+    }
+
+    private func ttsAPIKeyKey(for provider: TTSProvider) -> String {
+        "tts-api-key-\(provider.rawValue)"
     }
 }
 
@@ -127,6 +164,7 @@ public final class InMemoryAIConfigStorage: AIConfigStorage {
     public func clear() throws {
         config = nil
         apiKeys.removeAll()
+        ttsAPIKeys.removeAll()
     }
 
     public func saveAPIKey(_ key: String, for configID: String) throws {
@@ -141,8 +179,21 @@ public final class InMemoryAIConfigStorage: AIConfigStorage {
         apiKeys.removeValue(forKey: configID)
     }
 
+    public func saveTTSAPIKey(_ key: String, for provider: TTSProvider) throws {
+        ttsAPIKeys[provider] = key
+    }
+
+    public func loadTTSAPIKey(for provider: TTSProvider) throws -> String? {
+        ttsAPIKeys[provider]
+    }
+
+    public func deleteTTSAPIKey(for provider: TTSProvider) throws {
+        ttsAPIKeys.removeValue(forKey: provider)
+    }
+
     // MARK: Private
 
     private var config: AIConfig?
     private var apiKeys: [String: String] = [:]
+    private var ttsAPIKeys: [TTSProvider: String] = [:]
 }
