@@ -4,7 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
-import ElevenLabsSwift
+import ElevenlabsSwift
 import Foundation
 
 /// Primary TTS service using ElevenLabs API
@@ -13,7 +13,7 @@ final class ElevenLabsTTSService: TTSService {
 
     init(apiKey: String) {
         self.apiKey = apiKey
-        client = ElevenLabs(apiKey: apiKey)
+        client = ElevenlabsSwift(elevenLabsAPI: apiKey)
     }
 
     // MARK: Internal
@@ -61,44 +61,28 @@ final class ElevenLabsTTSService: TTSService {
         let voice = voiceID ?? Self.defaultVoiceID
 
         do {
-            // Use ElevenLabs SDK to synthesize speech
-            let audio = try await client.textToSpeech.convert(
-                text: text,
-                voiceID: voice
-            )
+            // Use ElevenLabs SDK to synthesize speech - returns URL to audio file
+            let audioURL = try await client.textToSpeech(voice_id: voice, text: text)
 
-            return audio
+            // Read the audio file data
+            let audioData = try Data(contentsOf: audioURL)
+
+            // Clean up the temporary file
+            try? FileManager.default.removeItem(at: audioURL)
+
+            return audioData
         } catch {
             throw AudioError.synthesisFailed(error)
         }
     }
 
-    func synthesizeStream(text: String, voiceID: String?) async throws -> AsyncThrowingStream<Data, Error> {
-        guard !apiKey.isEmpty else {
-            throw AudioError.noAPIKey(provider: "ElevenLabs")
-        }
-
-        let voice = voiceID ?? Self.defaultVoiceID
-
-        return AsyncThrowingStream { continuation in
-            Task {
-                do {
-                    // Use streaming endpoint for lower latency
-                    let stream = try await client.textToSpeech.convertStream(
-                        text: text,
-                        voiceID: voice
-                    )
-
-                    for try await chunk in stream {
-                        continuation.yield(chunk)
-                    }
-
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: AudioError.synthesisFailed(error))
-                }
-            }
-        }
+    func synthesizeStream(text _: String, voiceID _: String?) async throws -> AsyncThrowingStream<Data, Error> {
+        // ElevenlabsSwift doesn't support streaming, return single chunk
+        throw AudioError.synthesisFailed(NSError(
+            domain: "ElevenLabsTTS",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "Streaming not supported by this provider"]
+        ))
     }
 
     // MARK: Private
@@ -107,5 +91,5 @@ final class ElevenLabsTTSService: TTSService {
     private static let defaultVoiceID = "21m00Tcm4TlvDq8ikWAM"
 
     private let apiKey: String
-    private let client: ElevenLabs
+    private let client: ElevenlabsSwift
 }
