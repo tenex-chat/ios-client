@@ -64,6 +64,24 @@ struct DeveloperToolsView: View {
                     color: .green
                 )
             }
+
+            NavigationLink(destination: NostrDBStatsView()) {
+                ToolRow(
+                    icon: "cylinder.split.1x2",
+                    title: "NostrDB Statistics",
+                    subtitle: "Cache analytics and storage metrics",
+                    color: .blue
+                )
+            }
+
+            NavigationLink(destination: SubscriptionMetricsView()) {
+                ToolRow(
+                    icon: "chart.bar.xaxis",
+                    title: "Subscription Metrics",
+                    subtitle: "Grouping efficiency and performance",
+                    color: .purple
+                )
+            }
         }
     }
 
