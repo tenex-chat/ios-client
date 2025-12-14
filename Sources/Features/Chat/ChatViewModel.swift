@@ -333,17 +333,17 @@ public final class ChatViewModel {
         // Filter 2: ephemeral events (21111, 24111, 24112)
         // - since: 1 minute ago to prevent overwhelming with old events
         // - limit: 5 to cap the number of ephemeral events
-        let oneMinuteAgo = Date().addingTimeInterval(-60)
+        let oneMinuteAgo = Timestamp(Date().addingTimeInterval(-60).timeIntervalSince1970)
         let ephemeralFilter = NDKFilter(
             kinds: [21_111, 24_111, 24_112],
-            tags: ["E": Set([threadID])],
             since: oneMinuteAgo,
-            limit: 5
+            limit: 5,
+            tags: ["E": Set([threadID])]
         )
 
         // Use uppercase 'E' tag to get ALL events in the thread
         // (lowercase 'e' = direct parent, uppercase 'E' = root thread reference)
-        let subscription = ndk.subscribe(filters: [finalMessagesFilter, ephemeralFilter])
+        let subscription = ndk.subscribe(filter: finalMessagesFilter.or(ephemeralFilter))
 
         // Continuous subscription - runs forever
         for await event in subscription.events {
