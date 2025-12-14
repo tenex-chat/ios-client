@@ -45,18 +45,15 @@ final class AgentProfileViewModel {
 
     func startSubscriptions() {
         // Subscribe to agent's profile (kind:0) and transform to NDKUserMetadata
-        // Uses cacheWithNetwork to leverage NostrDB cache
         profileSubscription = ndk.subscribe(
-            filter: NDKFilter(authors: [pubkey], kinds: [0], limit: 1),
-            cachePolicy: .cacheWithNetwork
+            filter: NDKFilter(authors: [pubkey], kinds: [0], limit: 1)
         ) { event in
             NDKUserMetadata(event: event, ndk: self.ndk)
         }
 
         // Subscribe to all events from this agent
         eventsSubscription = ndk.subscribe(
-            filter: NDKFilter(authors: [pubkey], limit: 50),
-            cachePolicy: .cacheWithNetwork
+            filter: NDKFilter(authors: [pubkey], limit: 50)
         )
     }
 

@@ -74,10 +74,7 @@ public final class FeedTabViewModel {
     /// Subscribe to project events
     public func subscribe() {
         let filter = NDKFilter(tags: ["a": [projectID]])
-        subscription = ndk.subscribe(
-            filter: filter,
-            cachePolicy: .cacheWithNetwork
-        )
+        subscription = ndk.subscribe(filter: filter)
     }
 
     // MARK: Internal

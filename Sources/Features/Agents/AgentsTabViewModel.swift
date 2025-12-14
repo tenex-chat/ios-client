@@ -50,10 +50,7 @@ public final class AgentsTabViewModel {
     /// Continuously updates agents as new events arrive
     public func subscribe() {
         let filter = ProjectStatus.filter(for: projectID)
-        subscription = ndk.subscribe(
-            filter: filter,
-            cachePolicy: .cacheWithNetwork
-        ) { event in
+        subscription = ndk.subscribe(filter: filter) { event in
             ProjectStatus.from(event: event)
         }
     }
