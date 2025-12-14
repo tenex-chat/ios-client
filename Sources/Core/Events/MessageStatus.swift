@@ -19,6 +19,14 @@ public enum MessageStatus: Sendable, Equatable {
 
     // MARK: Public
 
+    /// Whether the message failed to send
+    public var isFailed: Bool {
+        if case .failed = self {
+            return true
+        }
+        return false
+    }
+
     // MARK: Equatable
 
     public static func == (lhs: Self, rhs: Self) -> Bool {

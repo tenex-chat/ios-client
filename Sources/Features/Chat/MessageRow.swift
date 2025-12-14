@@ -20,14 +20,17 @@ public struct MessageRow: View {
     ///   - message: The message to display
     ///   - currentUserPubkey: The current user's pubkey (to differentiate user vs agent)
     ///   - onReplyTap: Optional action when reply indicator is tapped
+    ///   - onRetry: Optional action when retry button is tapped (for failed messages)
     public init(
         message: Message,
         currentUserPubkey: String?,
-        onReplyTap: (() -> Void)? = nil
+        onReplyTap: (() -> Void)? = nil,
+        onRetry: (() -> Void)? = nil
     ) {
         self.message = message
         self.currentUserPubkey = currentUserPubkey
         self.onReplyTap = onReplyTap
+        self.onRetry = onRetry
         isAgent = currentUserPubkey != nil && message.pubkey != currentUserPubkey
     }
 
@@ -60,6 +63,11 @@ public struct MessageRow: View {
                 // Message content with markdown support
                 messageContent
 
+                // Status indicator for user's own messages
+                if !isAgent, let status = message.status {
+                    statusIndicator(for: status)
+                }
+
                 // Reply indicator (if message has replies)
                 if message.replyCount > 0, let onReplyTap {
                     ReplyIndicatorView(
@@ -84,6 +92,7 @@ public struct MessageRow: View {
     private let message: Message
     private let currentUserPubkey: String?
     private let onReplyTap: (() -> Void)?
+    private let onRetry: (() -> Void)?
     private let isAgent: Bool
 
     private var markdownText: AttributedString {
@@ -99,6 +108,20 @@ public struct MessageRow: View {
         Image(systemName: "person.circle.fill")
             .font(.system(size: 36))
             .foregroundStyle(isAgent ? .blue : .gray)
+    }
+
+    private var sendingStatusView: some View {
+        HStack(spacing: 6) {
+            ProgressView().scaleEffect(0.7)
+            Text("Sending...").font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private var sentStatusView: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "checkmark").font(.caption).foregroundStyle(.green)
+            Text("Sent").font(.caption).foregroundStyle(.secondary)
+        }
     }
 
     private var messageContent: some View {
@@ -154,6 +177,35 @@ public struct MessageRow: View {
             }
         }
         .textSelection(.enabled)
+    }
+
+    @ViewBuilder
+    private func statusIndicator(for status: MessageStatus) -> some View {
+        HStack(spacing: 6) {
+            switch status {
+            case .sending:
+                sendingStatusView
+            case .sent:
+                sentStatusView
+            case let .failed(error):
+                failedStatusView(error: error)
+            }
+        }
+        .padding(.top, 4)
+    }
+
+    private func failedStatusView(error: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(.red)
+            Text("Failed").font(.caption).foregroundStyle(.red)
+            if let onRetry {
+                Button { onRetry() } label: {
+                    Text("Retry").font(.caption.bold()).foregroundStyle(.blue)
+                }
+                .buttonStyle(.plain)
+            }
+            Text(error).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+        }
     }
 
     private func codeBlock(_ code: String) -> some View {
