@@ -60,7 +60,7 @@ public struct AISettingsView: View {
     @State private var editingConfig: LLMConfig?
 
     @ToolbarContentBuilder private var toolbarContent: some ToolbarContent {
-        ToolbarItem(placement: .topBarTrailing) {
+        ToolbarItem(placement: .primaryAction) {
             if viewModel.isSaving {
                 ProgressView()
             } else if viewModel.hasUnsavedChanges {
@@ -183,7 +183,9 @@ public struct AISettingsView: View {
                 }
 
                 TextField("Model", text: $viewModel.config.sttSettings.model)
+                #if os(iOS)
                     .textInputAutocapitalization(.never)
+                #endif
                     .autocorrectionDisabled()
             }
         } header: {

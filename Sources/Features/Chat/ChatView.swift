@@ -46,10 +46,17 @@ public struct ChatView: View {
     @Environment(\.ndk) private var ndk
     @State private var viewModel: ChatViewModel?
     @State private var focusedMessage: Message?
+    @State private var inputViewModel = ChatInputViewModel()
+    @State private var onlineAgents: [ProjectAgent] = []
 
     private let threadEvent: NDKEvent
     private let projectReference: String
     private let currentUserPubkey: String
+
+    /// Extract project d-tag from projectReference (format: "31933:pubkey:d-tag")
+    private var projectDTag: String {
+        projectReference.components(separatedBy: ":").last ?? projectReference
+    }
 
     private var emptyView: some View {
         VStack(spacing: 20) {
@@ -86,16 +93,36 @@ public struct ChatView: View {
 
     @ViewBuilder
     private func mainContent(viewModel: ChatViewModel) -> some View {
-        Group {
-            if viewModel.displayMessages.isEmpty {
-                emptyView
-            } else {
-                messageList(viewModel: viewModel)
+        VStack(spacing: 0) {
+            // Messages area (scrollable)
+            Group {
+                if viewModel.displayMessages.isEmpty {
+                    emptyView
+                } else {
+                    messageList(viewModel: viewModel)
+                }
+            }
+
+            // Input bar at bottom
+            if let ndk {
+                Divider()
+                ChatInputView(
+                    viewModel: inputViewModel,
+                    agents: onlineAgents,
+                    ndk: ndk
+                ) { text, _, _ in
+                    Task {
+                        await viewModel.sendMessage(text: text, replyTo: nil)
+                    }
+                }
             }
         }
         .navigationTitle(viewModel.threadTitle ?? "Thread")
         .task {
             await viewModel.subscribeToThreadMetadata()
+        }
+        .task {
+            await subscribeToProjectStatus()
         }
         .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
             Button("OK") {
@@ -171,6 +198,24 @@ public struct ChatView: View {
             return "Someone is typing..."
         } else {
             return "\(count) people are typing..."
+        }
+    }
+
+    /// Subscribe to ProjectStatus events to get online agents
+    private func subscribeToProjectStatus() async {
+        guard let ndk else {
+            return
+        }
+
+        let filter = ProjectStatus.filter(for: projectDTag)
+        let subscription = ndk.subscribe(filter: filter)
+
+        for await event in subscription.events {
+            if let status = ProjectStatus.from(event: event) {
+                await MainActor.run {
+                    onlineAgents = status.agents
+                }
+            }
         }
     }
 }
