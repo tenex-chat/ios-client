@@ -40,14 +40,20 @@ public final class ChatViewModel {
         self.aiConfigStorage = aiConfigStorage
         self.audioService = audioService
 
-        // Only set up conversation state and subscription for existing threads
+        // Initialize conversation state first (required before self can be captured)
         if let threadEvent {
-            conversationState = ConversationState(
-                rootEventID: threadEvent.id
-            ) { [weak self] message in
-                self?.handleAgentMessage(message)
-            }
+            conversationState = ConversationState(rootEventID: threadEvent.id)
+        } else {
+            conversationState = ConversationState(rootEventID: "")
+        }
 
+        // Now set up the callback after all properties are initialized
+        conversationState.onAgentMessage = { [weak self] message in
+            self?.handleAgentMessage(message)
+        }
+
+        // Set up thread-specific initialization
+        if let threadEvent {
             // Add the thread event (kind:11) as the first message
             // This is needed because the subscription only fetches kind:1111 replies
             if let threadMessage = Message.from(event: threadEvent) {
@@ -57,13 +63,6 @@ public final class ChatViewModel {
             // Start continuous subscription in background
             Task {
                 await subscribeToAllEvents()
-            }
-        } else {
-            // New thread mode - create empty conversation state (will be updated after thread creation)
-            conversationState = ConversationState(
-                rootEventID: ""
-            ) { [weak self] message in
-                self?.handleAgentMessage(message)
             }
         }
     }
@@ -324,19 +323,27 @@ public final class ChatViewModel {
             return
         }
 
-        // Create unified filter for all event types:
-        // - kind 1111: final messages
-        // - kind 21111: streaming deltas
-        // - kind 24111: typing start
-        // - kind 24112: typing stop
-        // Use uppercase 'E' tag to get ALL events in the thread
-        // (lowercase 'e' = direct parent, uppercase 'E' = root thread reference)
-        let filter = NDKFilter(
-            kinds: [1111, 21_111, 24_111, 24_112],
+        // Create two filters in one subscription:
+        // Filter 1: kind 1111 (final messages) - no limits
+        let finalMessagesFilter = NDKFilter(
+            kinds: [1111],
             tags: ["E": Set([threadID])]
         )
 
-        let subscription = ndk.subscribe(filter: filter)
+        // Filter 2: ephemeral events (21111, 24111, 24112)
+        // - since: 1 minute ago to prevent overwhelming with old events
+        // - limit: 5 to cap the number of ephemeral events
+        let oneMinuteAgo = Date().addingTimeInterval(-60)
+        let ephemeralFilter = NDKFilter(
+            kinds: [21_111, 24_111, 24_112],
+            tags: ["E": Set([threadID])],
+            since: oneMinuteAgo,
+            limit: 5
+        )
+
+        // Use uppercase 'E' tag to get ALL events in the thread
+        // (lowercase 'e' = direct parent, uppercase 'E' = root thread reference)
+        let subscription = ndk.subscribe(filters: [finalMessagesFilter, ephemeralFilter])
 
         // Continuous subscription - runs forever
         for await event in subscription.events {
@@ -405,15 +412,15 @@ public final class ChatViewModel {
         content: String,
         context: ReplyContext
     ) -> NDKEventBuilder {
-        // Filter out auto p-tags and e-tags (we'll add our own)
-        let filteredTags = builder.tags.filter { $0.first != "p" && $0.first != "e" }
+        // Filter out auto p-tags only (keep e-tags from builder)
+        let filteredTags = builder.tags.filter { $0.first != "p" }
         var newBuilder = builder.setTags(filteredTags)
 
         // Set content and project reference
         newBuilder = newBuilder.content(content, extractImeta: false)
         newBuilder = newBuilder.tag(["a", context.projectRef])
 
-        // Add reply e-tag if replying to a specific message
+        // Add reply e-tag ONLY if replying to a specific message
         if let replyTo = context.replyTo {
             newBuilder = newBuilder.tag(["e", replyTo.id])
             let hasReplyAuthorPTag = newBuilder.tags.contains { $0.first == "p" && $0[safe: 1] == replyTo.pubkey }
