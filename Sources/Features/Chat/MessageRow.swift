@@ -110,8 +110,8 @@ public struct MessageRow: View {
 
     private var authorHeader: some View {
         HStack(spacing: 8) {
-            if let ndk, isAgent {
-                if let onAgentTap {
+            if let ndk {
+                if isAgent, let onAgentTap {
                     Button(action: onAgentTap) {
                         NDKUIUsername(ndk: ndk, pubkey: message.pubkey)
                             .font(.system(size: 15, weight: .semibold))
@@ -121,10 +121,10 @@ public struct MessageRow: View {
                 } else {
                     NDKUIUsername(ndk: ndk, pubkey: message.pubkey)
                         .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(isAgent ? .blue : .primary)
                 }
             } else {
-                Text("You")
+                Text(String(message.pubkey.prefix(8)))
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(.primary)
             }
