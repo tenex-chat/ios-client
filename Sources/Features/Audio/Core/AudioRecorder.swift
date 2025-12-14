@@ -32,36 +32,42 @@ final class AudioRecorder {
 
     /// Request microphone permission
     func requestPermission() async -> Bool {
-        await withCheckedContinuation { continuation in
-            AVAudioSession.sharedInstance().requestRecordPermission { granted in
-                continuation.resume(returning: granted)
+        #if os(iOS)
+            await withCheckedContinuation { continuation in
+                AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                    continuation.resume(returning: granted)
+                }
             }
-        }
+        #else
+            return true // macOS doesn't require runtime permission
+        #endif
     }
 
     /// Start recording audio
     /// - Returns: URL where recording will be saved
     @discardableResult
     func startRecording() async throws -> URL {
-        // Check permission
-        let permission = AVAudioSession.sharedInstance().recordPermission
-        if permission == .undetermined {
-            let granted = await requestPermission()
-            if !granted {
+        #if os(iOS)
+            /// Check permission
+            let permission = AVAudioSession.sharedInstance().recordPermission
+            if permission == .undetermined {
+                let granted = await requestPermission()
+                if !granted {
+                    throw AudioError.permissionDenied
+                }
+            } else if permission != .granted {
                 throw AudioError.permissionDenied
             }
-        } else if permission != .granted {
-            throw AudioError.permissionDenied
-        }
 
-        // Configure audio session
-        let session = AVAudioSession.sharedInstance()
-        do {
-            try session.setCategory(.record, mode: .default)
-            try session.setActive(true)
-        } catch {
-            throw AudioError.recordingFailed(error)
-        }
+            /// Configure audio session
+            let session = AVAudioSession.sharedInstance()
+            do {
+                try session.setCategory(.record, mode: .default)
+                try session.setActive(true)
+            } catch {
+                throw AudioError.recordingFailed(error)
+            }
+        #endif
 
         // Create recording file URL
         let tempDir = FileManager.default.temporaryDirectory

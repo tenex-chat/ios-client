@@ -113,18 +113,27 @@ public final class ThreadListViewModel {
     public func subscribe() {
         // Subscribe to thread events (kind:11)
         let threadFilter = NostrThread.filter(for: projectID)
-        threadEventsSubscription = ndk.subscribe(filter: threadFilter)
+        threadEventsSubscription = ndk.subscribe(
+            filter: threadFilter,
+            cachePolicy: .cacheWithNetwork
+        )
 
         // Subscribe to metadata events (kind:513)
         let metadataFilter = NDKFilter(kinds: [513])
-        metadataSubscription = ndk.subscribe(filter: metadataFilter)
+        metadataSubscription = ndk.subscribe(
+            filter: metadataFilter,
+            cachePolicy: .cacheWithNetwork
+        )
 
         // Subscribe to message events (kind:1111)
         let messagesFilter = NDKFilter(
             kinds: [1111],
             tags: ["a": Set([projectID])]
         )
-        messagesSubscription = ndk.subscribe(filter: messagesFilter)
+        messagesSubscription = ndk.subscribe(
+            filter: messagesFilter,
+            cachePolicy: .cacheWithNetwork
+        )
     }
 
     // MARK: Internal
