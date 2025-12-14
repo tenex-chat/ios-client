@@ -33,23 +33,23 @@ public struct DocumentDetailView: View {
             }
             .navigationTitle(title)
             #if !os(macOS)
-                .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.inline)
             #endif
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Done") {
-                            dismiss()
-                        }
-                    }
-
-                    ToolbarItem(placement: .primaryAction) {
-                        ShareLink(
-                            item: shareText,
-                            subject: Text(title),
-                            message: Text(summary ?? "")
-                        )
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        dismiss()
                     }
                 }
+
+                ToolbarItem(placement: .primaryAction) {
+                    ShareLink(
+                        item: shareText,
+                        subject: Text(title),
+                        message: Text(summary ?? "")
+                    )
+                }
+            }
         }
         .task {
             await loadAuthorMetadata()

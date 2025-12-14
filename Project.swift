@@ -53,6 +53,7 @@ let project = Project(
             ]),
             sources: ["Sources/App/**"],
             resources: ["Resources/**"],
+            entitlements: "Resources/TENEX.entitlements",
             scripts: [
                 .pre(
                     script: """

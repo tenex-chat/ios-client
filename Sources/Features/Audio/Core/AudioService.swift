@@ -15,10 +15,10 @@ import TENEXCore
 public final class AudioService {
     // MARK: Lifecycle
 
-    /// Initialize the audio service with storage and capability detector
+    /// Initialize the audio service
     /// - Parameters:
-    ///   - storage: AI configuration storage for API keys
-    ///   - capabilityDetector: Detector for runtime AI capabilities
+    ///   - storage: AI configuration storage
+    ///   - capabilityDetector: Detector for AI capabilities
     public init(storage: AIConfigStorage, capabilityDetector: AICapabilityDetector) {
         self.storage = storage
         recorder = AudioRecorder()
