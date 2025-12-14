@@ -73,6 +73,7 @@ public struct ThreadListView: View {
         .task {
             if viewModel == nil {
                 viewModel = vm
+                vm.subscribe()
             }
         }
         .alert("Error", isPresented: .constant(vm.errorMessage != nil)) {
