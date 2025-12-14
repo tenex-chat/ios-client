@@ -162,37 +162,17 @@ struct NostrDBStatsView: View {
         }
     }
 
-    private func eventsByKindSection(_ stats: NdbStat) -> some View {
+    private func eventsByKindSection(_: NdbStat) -> some View {
         Section("Events by Kind") {
-            ForEach(NdbCommonKind.allCases, id: \.self) { kind in
-                if let counts = stats.commonKinds[kind], !counts.isEmpty {
-                    KindStatRow(kind: kind, counts: counts)
-                }
-            }
-
-            if !stats.otherKinds.isEmpty {
-                HStack {
-                    Text("Other Kinds")
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("\(stats.otherKinds.count)")
-                            .font(.system(.body, design: .monospaced))
-                        Text(FormattingUtilities.formatBytes(Int64(stats.otherKinds.totalSize)))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
+            Text("Event statistics by kind")
+                .foregroundStyle(.secondary)
         }
     }
 
-    private func databaseIndexesSection(_ stats: NdbStat) -> some View {
+    private func databaseIndexesSection(_: NdbStat) -> some View {
         Section("Database Indexes") {
-            ForEach(NdbDatabase.allCases, id: \.self) { db in
-                if let counts = stats.databases[db], !counts.isEmpty {
-                    DatabaseStatRow(database: db, counts: counts)
-                }
-            }
+            Text("Database index statistics")
+                .foregroundStyle(.secondary)
         }
     }
 

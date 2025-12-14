@@ -5,6 +5,7 @@
 //
 
 import SwiftUI
+import TENEXCore
 
 /// Sheet for browsing and selecting available models
 struct ModelBrowserSheet: View {

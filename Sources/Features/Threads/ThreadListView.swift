@@ -98,19 +98,24 @@ public struct ThreadListView: View {
     private func threadList(viewModel: ThreadListViewModel) -> some View {
         List {
             ForEach(viewModel.threads) { thread in
-                if let threadEvent = viewModel.threadEvents[thread.id],
-                   let userPubkey {
-                    NavigationLink {
-                        ChatView(
-                            threadEvent: threadEvent,
-                            projectReference: thread.projectID,
-                            currentUserPubkey: userPubkey
-                        )
-                    } label: {
+                Group {
+                    if let threadEvent = viewModel.threadEvents[thread.id],
+                       let userPubkey {
+                        NavigationLink {
+                            ChatView(
+                                threadEvent: threadEvent,
+                                projectReference: thread.projectID,
+                                currentUserPubkey: userPubkey
+                            )
+                        } label: {
+                            ThreadRow(thread: thread)
+                        }
+                    } else {
                         ThreadRow(thread: thread)
                     }
-                } else {
-                    ThreadRow(thread: thread)
+                }
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    archiveButton(for: thread, viewModel: viewModel)
                 }
             }
         }
@@ -119,6 +124,15 @@ public struct ThreadListView: View {
         #else
         .listStyle(.inset)
         #endif
+    }
+
+    private func archiveButton(for thread: NostrThread, viewModel: ThreadListViewModel) -> some View {
+        Button(role: .destructive) {
+            Task { await viewModel.archiveThread(id: thread.id) }
+        } label: {
+            Label("Archive", systemImage: "archivebox")
+        }
+        .tint(.orange)
     }
 }
 

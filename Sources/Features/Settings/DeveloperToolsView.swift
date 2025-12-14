@@ -56,32 +56,54 @@ struct DeveloperToolsView: View {
 
     private var inspectionToolsSection: some View {
         Section("Inspection Tools") {
-            NavigationLink(destination: RelayMonitorView()) {
-                ToolRow(
-                    icon: "antenna.radiowaves.left.and.right",
-                    title: "Relay Monitor",
-                    subtitle: "Connection states and message counts",
-                    color: .green
-                )
-            }
+            relayMonitorLink
+            nostrDBStatsLink
+            subscriptionMetricsLink
+            projectStatusLink
+        }
+    }
 
-            NavigationLink(destination: NostrDBStatsView()) {
-                ToolRow(
-                    icon: "cylinder.split.1x2",
-                    title: "NostrDB Statistics",
-                    subtitle: "Cache analytics and storage metrics",
-                    color: .blue
-                )
-            }
+    private var relayMonitorLink: some View {
+        NavigationLink(destination: RelayMonitorView()) {
+            ToolRow(
+                icon: "antenna.radiowaves.left.and.right",
+                title: "Relay Monitor",
+                subtitle: "Connection states and message counts",
+                color: .green
+            )
+        }
+    }
 
-            NavigationLink(destination: SubscriptionMetricsView()) {
-                ToolRow(
-                    icon: "chart.bar.xaxis",
-                    title: "Subscription Metrics",
-                    subtitle: "Grouping efficiency and performance",
-                    color: .purple
-                )
-            }
+    private var nostrDBStatsLink: some View {
+        NavigationLink(destination: NostrDBStatsView()) {
+            ToolRow(
+                icon: "cylinder.split.1x2",
+                title: "NostrDB Statistics",
+                subtitle: "Cache analytics and storage metrics",
+                color: .blue
+            )
+        }
+    }
+
+    private var subscriptionMetricsLink: some View {
+        NavigationLink(destination: SubscriptionMetricsView()) {
+            ToolRow(
+                icon: "chart.bar.xaxis",
+                title: "Subscription Metrics",
+                subtitle: "Grouping efficiency and performance",
+                color: .purple
+            )
+        }
+    }
+
+    private var projectStatusLink: some View {
+        NavigationLink(destination: ProjectStatusDebugView()) {
+            ToolRow(
+                icon: "server.rack",
+                title: "Project Status",
+                subtitle: "Online agents and backend status",
+                color: .orange
+            )
         }
     }
 

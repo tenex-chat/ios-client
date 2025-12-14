@@ -27,11 +27,19 @@ public final class ThreadListViewModel {
     ///   - projectID: The project addressable coordinate (kind:pubkey:dTag)
     ///   - filtersStore: The filters store for managing thread filters
     ///   - currentUserPubkey: The current user's pubkey (for needs-response filtering)
-    public init(ndk: NDK, projectID: String, filtersStore: ThreadFiltersStore, currentUserPubkey: String?) {
+    ///   - archiveStorage: Storage for archived thread IDs
+    public init(
+        ndk: NDK,
+        projectID: String,
+        filtersStore: ThreadFiltersStore,
+        currentUserPubkey: String?,
+        archiveStorage: ThreadArchiveStorage = UserDefaultsThreadArchiveStorage()
+    ) {
         self.ndk = ndk
         self.projectID = projectID
         self.filtersStore = filtersStore
         self.currentUserPubkey = currentUserPubkey
+        self.archiveStorage = archiveStorage
     }
 
     // MARK: Public
@@ -102,14 +110,17 @@ public final class ThreadListViewModel {
         // Store thread events for navigation
         self.threadEvents = threadEventsByID
 
-        // Apply filter if one is set
+        // Filter out archived threads
+        var filteredThreads = filterArchivedThreads(from: enrichedThreads)
+
+        // Apply time-based filter if one is set
         let activeFilter = filtersStore.getFilter(for: projectID)
         if let filter = activeFilter {
-            enrichedThreads = applyFilter(filter, to: enrichedThreads, messages: messageEvents)
+            filteredThreads = applyFilter(filter, to: filteredThreads, messages: messageEvents)
         }
 
         // Sort by creation date (newest first)
-        return enrichedThreads.sorted { $0.createdAt > $1.createdAt }
+        return filteredThreads.sorted { $0.createdAt > $1.createdAt }
     }
 
     /// The current error message, if any
@@ -137,6 +148,18 @@ public final class ThreadListViewModel {
         messagesSubscription = ndk.subscribe(filter: messagesFilter)
     }
 
+    /// Archive a thread (hide from list)
+    /// - Parameter id: The thread ID to archive
+    public func archiveThread(id: String) async {
+        archiveStorage.archive(threadID: id)
+    }
+
+    /// Unarchive a thread (restore to list)
+    /// - Parameter id: The thread ID to unarchive
+    public func unarchiveThread(id: String) async {
+        archiveStorage.unarchive(threadID: id)
+    }
+
     // MARK: Internal
 
     private(set) var threadEventsSubscription: NDKSubscription<NDKEvent>?
@@ -149,6 +172,13 @@ public final class ThreadListViewModel {
     private let projectID: String
     private let filtersStore: ThreadFiltersStore
     private let currentUserPubkey: String?
+    private let archiveStorage: ThreadArchiveStorage
+
+    /// Filter out archived threads
+    private func filterArchivedThreads(from threads: [NostrThread]) -> [NostrThread] {
+        let archivedIDs = archiveStorage.archivedThreadIDs()
+        return threads.filter { !archivedIDs.contains($0.id) }
+    }
 
     /// Apply the selected filter to the thread list
     /// - Parameters:
