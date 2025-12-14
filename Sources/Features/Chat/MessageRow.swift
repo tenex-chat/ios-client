@@ -24,6 +24,7 @@ public struct MessageRow: View {
         onAgentTap: (() -> Void)? = nil,
         onQuote: (() -> Void)? = nil,
         onTimestampTap: (() -> Void)? = nil,
+        onReplySwipe: (() -> Void)? = nil,
         showDebugInfo: Bool = false
     ) {
         self.message = message
@@ -34,6 +35,7 @@ public struct MessageRow: View {
         self.onAgentTap = onAgentTap
         self.onQuote = onQuote
         self.onTimestampTap = onTimestampTap
+        self.onReplySwipe = onReplySwipe
         self.showDebugInfo = showDebugInfo
         isAgent = currentUserPubkey != nil && message.pubkey != currentUserPubkey
     }
@@ -42,39 +44,15 @@ public struct MessageRow: View {
 
     public var body: some View {
         HStack(alignment: .top, spacing: 12) {
+            replyIconView
             avatarColumnView
-            VStack(alignment: .leading, spacing: 4) {
-                if !isConsecutive {
-                    MessageHeaderView(
-                        message: message,
-                        currentUserPubkey: currentUserPubkey,
-                        showDebugInfo: showDebugInfo,
-                        onAgentTap: onAgentTap,
-                        onTimestampTap: onTimestampTap
-                    )
-                }
-
-                MessageContentView(message: message)
-
-                if !isAgent, let status = message.status {
-                    statusIndicator(for: status)
-                }
-
-                if message.replyCount > 0, let onReplyTap {
-                    ReplyIndicatorView(
-                        replyCount: message.replyCount,
-                        authorPubkeys: message.replyAuthorPubkeys,
-                        onTap: onReplyTap
-                    )
-                    .padding(.top, 4)
-                }
-
-                if !message.suggestions.isEmpty {
-                    suggestionsView
-                }
-            }
+            messageContent
             Spacer()
         }
+        .offset(x: dragOffset)
+        .gesture(swipeGesture)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: dragOffset)
+        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDragging)
         .padding(.vertical, isConsecutive ? 2 : 8)
         .contextMenu {
             contextMenuContent
@@ -85,6 +63,8 @@ public struct MessageRow: View {
 
     @Environment(\.ndk) private var ndk
     @State private var showRawEvent = false
+    @State private var dragOffset: CGFloat = 0
+    @State private var isDragging = false
 
     private let message: Message
     private let currentUserPubkey: String?
@@ -94,8 +74,76 @@ public struct MessageRow: View {
     private let onAgentTap: (() -> Void)?
     private let onQuote: (() -> Void)?
     private let onTimestampTap: (() -> Void)?
+    private let onReplySwipe: (() -> Void)?
     private let showDebugInfo: Bool
     private let isAgent: Bool
+
+    private var swipeGesture: some Gesture {
+        DragGesture()
+            .onChanged { value in
+                guard onReplySwipe != nil else {
+                    return
+                }
+                if value.translation.width > 0, value.translation.width < 100 {
+                    dragOffset = value.translation.width
+                    isDragging = true
+                }
+            }
+            .onEnded { value in
+                guard onReplySwipe != nil else {
+                    return
+                }
+                if value.translation.width > 50 {
+                    onReplySwipe?()
+                }
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    dragOffset = 0
+                    isDragging = false
+                }
+            }
+    }
+
+    @ViewBuilder private var replyIconView: some View {
+        if isDragging, dragOffset > 50 {
+            Image(systemName: "arrowshape.turn.up.left")
+                .font(.system(size: 20))
+                .foregroundStyle(.blue)
+                .transition(.scale.combined(with: .opacity))
+        }
+    }
+
+    private var messageContent: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if !isConsecutive {
+                MessageHeaderView(
+                    message: message,
+                    currentUserPubkey: currentUserPubkey,
+                    showDebugInfo: showDebugInfo,
+                    onAgentTap: onAgentTap,
+                    onTimestampTap: onTimestampTap
+                )
+            }
+
+            MessageContentView(message: message)
+
+            if !isAgent, let status = message.status {
+                statusIndicator(for: status)
+            }
+
+            if message.replyCount > 0, let onReplyTap {
+                ReplyIndicatorView(
+                    replyCount: message.replyCount,
+                    authorPubkeys: message.replyAuthorPubkeys,
+                    onTap: onReplyTap
+                )
+                .padding(.top, 4)
+            }
+
+            if !message.suggestions.isEmpty {
+                suggestionsView
+            }
+        }
+    }
 
     private var avatarColumnView: some View {
         VStack(spacing: 0) {

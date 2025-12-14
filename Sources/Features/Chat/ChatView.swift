@@ -11,7 +11,7 @@ import TENEXCore
 // MARK: - ChatView
 
 /// Main chat view displaying messages in a thread
-public struct ChatView: View {
+public struct ChatView: View { // swiftlint:disable:this type_body_length
     // MARK: Lifecycle
 
     /// Initialize the chat view
@@ -44,10 +44,14 @@ public struct ChatView: View {
     // MARK: Private
 
     @Environment(\.ndk) private var ndk
+    @Environment(\.dataStore) private var dataStore
     @State private var viewModel: ChatViewModel?
     @State private var focusStack: [Message] = [] // Stack of focused messages for navigation
     @State private var inputViewModel = ChatInputViewModel()
     @State private var onlineAgents: [ProjectAgent] = []
+    @State private var availableModels: [String] = []
+    @State private var availableTools: [String] = []
+    @State private var availableBranches: [String] = []
 
     private let threadEvent: NDKEvent?
     private let projectReference: String
@@ -199,14 +203,21 @@ public struct ChatView: View {
             ChatInputView(
                 viewModel: inputViewModel,
                 agents: onlineAgents,
-                ndk: ndk
+                dataStore: dataStore,
+                ndk: ndk,
+                projectReference: projectReference,
+                availableModels: availableModels,
+                availableTools: availableTools,
+                availableBranches: availableBranches
             ) { text, agentPubkey, mentions in
                 Task {
                     await viewModel.sendMessage(
                         text: text,
                         targetAgentPubkey: agentPubkey,
                         mentionedPubkeys: mentions,
-                        replyTo: focusedMessage
+                        replyTo: inputViewModel.replyToMessage,
+                        selectedNudges: inputViewModel.selectedNudges,
+                        selectedBranch: inputViewModel.selectedBranch
                     )
                 }
             }
@@ -229,6 +240,9 @@ public struct ChatView: View {
                             onReplyTap: message.replyCount > 0 ? { focusOnMessage(message) } : nil,
                             onAgentTap: message.pubkey != currentUserPubkey ? {} : nil,
                             onQuote: { quoteMessage(message, viewModel: viewModel) },
+                            onReplySwipe: {
+                                inputViewModel.setReplyTo(message)
+                            },
                             showDebugInfo: false
                         )
                     }
@@ -329,7 +343,7 @@ public struct ChatView: View {
         }
     }
 
-    /// Subscribe to ProjectStatus events to get online agents
+    /// Subscribe to ProjectStatus events to get online agents, models, tools, and branches
     private func subscribeToProjectStatus() async {
         guard let ndk else {
             return
@@ -343,6 +357,9 @@ public struct ChatView: View {
                status.projectCoordinate == projectReference {
                 await MainActor.run {
                     onlineAgents = status.agents
+                    availableModels = status.models
+                    availableTools = status.tools
+                    availableBranches = status.branches
                 }
             }
         }

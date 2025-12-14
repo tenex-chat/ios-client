@@ -128,11 +128,15 @@ public final class ChatViewModel {
     ///   - targetAgentPubkey: Agent pubkey to route message to (required for new threads)
     ///   - mentionedPubkeys: Pubkeys of mentioned users to add as p-tags
     ///   - replyTo: Optional parent message for replies
+    ///   - selectedNudges: Selected nudge IDs
+    ///   - selectedBranch: Selected git branch
     public func sendMessage(
         text: String,
         targetAgentPubkey: String? = nil,
         mentionedPubkeys: [String] = [],
-        replyTo: Message? = nil
+        replyTo: Message? = nil,
+        selectedNudges: [String] = [],
+        selectedBranch: String? = nil
     ) async {
         // Validate message text
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -146,7 +150,13 @@ public final class ChatViewModel {
                 errorMessage = "Please select an agent to start a thread"
                 return
             }
-            await createThread(content: trimmedText, agentPubkey: targetAgentPubkey, mentionedPubkeys: mentionedPubkeys)
+            await createThread(
+                content: trimmedText,
+                agentPubkey: targetAgentPubkey,
+                mentionedPubkeys: mentionedPubkeys,
+                selectedNudges: selectedNudges,
+                selectedBranch: selectedBranch
+            )
             return
         }
 
@@ -155,7 +165,9 @@ public final class ChatViewModel {
             text: trimmedText,
             targetAgentPubkey: targetAgentPubkey,
             mentionedPubkeys: mentionedPubkeys,
-            replyTo: replyTo
+            replyTo: replyTo,
+            selectedNudges: selectedNudges,
+            selectedBranch: selectedBranch
         )
     }
 
@@ -169,12 +181,16 @@ public final class ChatViewModel {
     private func createThread(
         content: String,
         agentPubkey: String,
-        mentionedPubkeys: [String]
+        mentionedPubkeys: [String],
+        selectedNudges: [String],
+        selectedBranch: String?
     ) async {
         // Capture values for sendable closure
         let projectRef = projectReference
         let mentions = mentionedPubkeys
         let ndkInstance = ndk
+        let nudges = selectedNudges
+        let branch = selectedBranch
 
         do {
             // Build and publish thread event (kind:11)
@@ -184,7 +200,9 @@ public final class ChatViewModel {
                     content: content,
                     projectRef: projectRef,
                     agentPubkey: agentPubkey,
-                    mentions: mentions
+                    mentions: mentions,
+                    nudges: nudges,
+                    branch: branch
                 )
             }
 
@@ -209,11 +227,13 @@ public final class ChatViewModel {
     }
 
     /// Send a reply (kind:1111) to an existing thread
-    private func sendReply(
+    private func sendReply( // swiftlint:disable:this function_parameter_count
         text: String,
         targetAgentPubkey: String?,
         mentionedPubkeys: [String],
-        replyTo: Message?
+        replyTo: Message?,
+        selectedNudges: [String],
+        selectedBranch: String?
     ) async {
         guard let threadEvent else {
             return
@@ -224,6 +244,8 @@ public final class ChatViewModel {
         let replyToMessage = replyTo
         let agentPubkey = targetAgentPubkey
         let mentions = mentionedPubkeys
+        let nudges = selectedNudges
+        let branch = selectedBranch
 
         // Publish reply - NDK handles signing, publishing, and retries
         // The subscription will pick up the event automatically
@@ -231,7 +253,9 @@ public final class ChatViewModel {
             projectRef: projectRef,
             replyTo: replyToMessage,
             agentPubkey: agentPubkey,
-            mentions: mentions
+            mentions: mentions,
+            selectedNudges: nudges,
+            selectedBranch: branch
         )
         _ = try? await ndk.publish { _ in
             buildReplyTags(
@@ -269,12 +293,14 @@ public final class ChatViewModel {
     }
 
     /// Build tags for a new thread (kind:11)
-    private nonisolated func buildThreadTags(
+    private nonisolated func buildThreadTags( // swiftlint:disable:this function_parameter_count
         ndk: NDK,
         content: String,
         projectRef: String,
         agentPubkey: String,
-        mentions: [String]
+        mentions: [String],
+        nudges: [String],
+        branch: String?
     ) -> NDKEventBuilder {
         var builder = NDKEventBuilder(ndk: ndk)
             .kind(11)
@@ -306,6 +332,16 @@ public final class ChatViewModel {
         // Add mentioned p-tags (excluding agent if already added)
         for pubkey in mentions where pubkey != agentPubkey {
             builder = builder.tag(["p", pubkey])
+        }
+
+        // Add nudge tags
+        for nudgeID in nudges {
+            builder = builder.tag(["nudge", nudgeID])
+        }
+
+        // Add branch tag
+        if let branch {
+            builder = builder.tag(["branch", branch])
         }
 
         return builder
@@ -344,6 +380,16 @@ public final class ChatViewModel {
             newBuilder = newBuilder.tag(["p", pubkey])
         }
 
+        // Add nudge tags
+        for nudgeID in context.selectedNudges {
+            newBuilder = newBuilder.tag(["nudge", nudgeID])
+        }
+
+        // Add branch tag
+        if let branch = context.selectedBranch {
+            newBuilder = newBuilder.tag(["branch", branch])
+        }
+
         return newBuilder
     }
 }
@@ -356,4 +402,6 @@ private struct ReplyContext: Sendable {
     let replyTo: Message?
     let agentPubkey: String?
     let mentions: [String]
+    let selectedNudges: [String]
+    let selectedBranch: String?
 }

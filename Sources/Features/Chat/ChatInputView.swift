@@ -45,7 +45,7 @@ private extension Color {
 // MARK: - ChatInputView
 
 /// Multi-line text input for composing chat messages
-/// Integrates AgentSelector and MentionAutocomplete for @mentions
+/// Integrates AgentSelector, MentionAutocomplete, Nudges, and Branch selection
 public struct ChatInputView: View {
     // MARK: Lifecycle
 
@@ -53,51 +53,77 @@ public struct ChatInputView: View {
     /// - Parameters:
     ///   - viewModel: The input view model
     ///   - agents: Online agents for selection and mentions
+    ///   - dataStore: DataStore for nudges
     ///   - ndk: The NDK instance for profile pictures
-    ///   - onSend: Callback when message is sent (text, targetAgentPubkey, mentionedPubkeys)
+    ///   - projectReference: The project reference for agent config
+    ///   - availableModels: Available models for agent config
+    ///   - availableTools: Available tools for agent config
+    ///   - availableBranches: Available git branches
+    ///   - onSend: Callback when message is sent
     public init(
         viewModel: ChatInputViewModel,
         agents: [ProjectAgent],
+        dataStore: DataStore,
         ndk: NDK,
+        projectReference: String,
+        availableModels: [String] = [],
+        availableTools: [String] = [],
+        availableBranches: [String] = [],
         onSend: @escaping (String, String?, [String]) -> Void
     ) {
         self.ndk = ndk
+        self.dataStore = dataStore
+        self.projectReference = projectReference
+        self.availableModels = availableModels
+        self.availableTools = availableTools
+        self.availableBranches = availableBranches
         self.onSend = onSend
         _viewModel = State(initialValue: viewModel)
         _agentSelectorVM = State(initialValue: AgentSelectorViewModel(agents: agents))
         _mentionVM = State(initialValue: MentionAutocompleteViewModel(agents: agents))
+        self.agents = agents
     }
 
     // MARK: Public
 
     public var body: some View {
         VStack(spacing: 0) {
-            // Mention autocomplete popup (shows above input)
-            if mentionVM.isVisible {
-                MentionAutocompleteView(viewModel: mentionVM, ndk: ndk) { replacement, pubkey in
-                    handleMentionSelection(replacement: replacement, pubkey: pubkey)
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
-            }
-
-            // Main input area
-            VStack(spacing: 12) {
-                // Agent selector row - always show so user knows who they're addressing
-                agentRow
-
-                // Unified input bar
-                inputBar
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(Color.platformBackground)
+            replyContextView
+            nudgesPillsView
+            mentionAutocompleteView
+            mainInputArea
         }
         .onChange(of: viewModel.inputText) { _, newValue in
             handleTextChange(newValue)
         }
         .onChange(of: agentSelectorVM.selectedAgentPubkey) { _, newPubkey in
             handleAgentSelection(newPubkey)
+        }
+        .sheet(isPresented: $showNudgeSelector) {
+            NudgeSelectorSheet(
+                selectedNudges: $viewModel.selectedNudges,
+                availableNudges: dataStore.nudges
+            )
+        }
+        .sheet(isPresented: $showBranchSelector) {
+            BranchSelectorSheet(
+                selectedBranch: $viewModel.selectedBranch,
+                availableBranches: availableBranches
+            )
+        }
+        .sheet(isPresented: $showAgentConfig) {
+            if let agent = agentSelectorVM.selectedAgentPubkey.flatMap({ pubkey in
+                agents.first(where: { $0.pubkey == pubkey })
+            }) {
+                AgentConfigSheet(
+                    isPresented: $showAgentConfig,
+                    agent: agent,
+                    availableModels: availableModels,
+                    availableTools: availableTools,
+                    projectReference: projectReference,
+                    ndk: ndk
+                )
+            }
         }
     }
 
@@ -106,37 +132,151 @@ public struct ChatInputView: View {
     @State private var viewModel: ChatInputViewModel
     @State private var agentSelectorVM: AgentSelectorViewModel
     @State private var mentionVM: MentionAutocompleteViewModel
+    @State private var showNudgeSelector = false
+    @State private var showBranchSelector = false
+    @State private var showAgentConfig = false
     @FocusState private var isInputFocused: Bool
 
     private let ndk: NDK
+    private let dataStore: DataStore
+    private let projectReference: String
+    private let availableModels: [String]
+    private let availableTools: [String]
+    private let availableBranches: [String]
+    private let agents: [ProjectAgent]
     private let onSend: (String, String?, [String]) -> Void
 
-    private var agentRow: some View {
-        HStack(spacing: 8) {
-            AgentSelectorButton(viewModel: agentSelectorVM)
-            branchChip
-            Spacer()
+    // MARK: - View Components
+
+    @ViewBuilder private var replyContextView: some View {
+        if let replyTo = viewModel.replyToMessage {
+            ReplyContextBanner(message: replyTo) {
+                viewModel.clearReplyTo()
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
         }
     }
 
-    @ViewBuilder private var branchChip: some View {
-        if let branch = viewModel.selectedBranch {
+    @ViewBuilder private var nudgesPillsView: some View {
+        if !viewModel.selectedNudges.isEmpty {
+            SelectedNudgesPills(
+                selectedNudges: viewModel.selectedNudges,
+                availableNudges: dataStore.nudges
+            ) { viewModel.toggleNudge($0) }
+                .padding(.vertical, 8)
+        }
+    }
+
+    @ViewBuilder private var mentionAutocompleteView: some View {
+        if mentionVM.isVisible {
+            MentionAutocompleteView(viewModel: mentionVM, ndk: ndk) { replacement, pubkey in
+                handleMentionSelection(replacement: replacement, pubkey: pubkey)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+        }
+    }
+
+    private var mainInputArea: some View {
+        VStack(spacing: 12) {
+            controlsRow
+
+            if viewModel.isExpanded {
+                expandedInputBar
+            } else {
+                compactInputBar
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color.platformBackground)
+    }
+
+    // MARK: - Controls Row
+
+    private var controlsRow: some View {
+        HStack(spacing: 8) {
+            nudgeButton
+            AgentSelectorButton(viewModel: agentSelectorVM)
+            branchButton
+            Spacer()
+            expandButton
+        }
+    }
+
+    private var nudgeButton: some View {
+        Button {
+            showNudgeSelector = true
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "square.slash")
+                    .font(.system(size: 14))
+                if !viewModel.selectedNudges.isEmpty {
+                    Text("\(viewModel.selectedNudges.count)")
+                        .font(.caption.bold())
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.blue)
+                        .clipShape(Circle())
+                }
+            }
+            .foregroundStyle(.primary)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var branchButton: some View {
+        Button {
+            showBranchSelector = true
+        } label: {
             HStack(spacing: 4) {
                 Image(systemName: "arrow.branch")
-                    .font(.system(size: 11, weight: .medium))
-                Text(branch)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 14))
+                if let branch = viewModel.selectedBranch {
+                    Text(branch)
+                        .font(.caption)
+                        .foregroundStyle(.green)
+                }
             }
-            .foregroundStyle(.green)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 5)
-            .background(.green.opacity(0.12), in: Capsule())
+            .foregroundStyle(viewModel.selectedBranch != nil ? .green : .primary)
         }
+        .buttonStyle(.plain)
     }
 
-    private var inputBar: some View {
+    private var expandButton: some View {
+        Button {
+            viewModel.setExpanded(!viewModel.isExpanded)
+        } label: {
+            Image(systemName: viewModel.isExpanded ? "chevron.down" : "chevron.up")
+                .font(.system(size: 14))
+                .foregroundStyle(.primary)
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Input Bars
+
+    private var compactInputBar: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            textEditor
+            ZStack(alignment: .leading) {
+                if viewModel.inputText.isEmpty {
+                    Text("Message...")
+                        .font(.system(size: 16))
+                        .foregroundStyle(.tertiary)
+                        .padding(.leading, 4)
+                }
+                TextEditor(text: $viewModel.inputText)
+                    .font(.system(size: 16))
+                    .scrollContentBackground(.hidden)
+                    .background(.clear)
+                    .focused($isInputFocused)
+                    .frame(minHeight: 36, maxHeight: 120)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 4)
+
             sendButton
         }
         .padding(.leading, 16)
@@ -144,63 +284,52 @@ public struct ChatInputView: View {
         .padding(.vertical, 6)
         .background(Color.platformSecondaryBackground)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay(inputBarBorder)
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+        )
     }
 
-    private var inputBarBorder: some View {
-        RoundedRectangle(cornerRadius: 24, style: .continuous)
-            .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
-    }
+    private var expandedInputBar: some View {
+        VStack(spacing: 8) {
+            TextEditor(text: $viewModel.inputText)
+                .font(.system(.body, design: .monospaced))
+                .scrollContentBackground(.hidden)
+                .background(Color.platformSecondaryBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .frame(minHeight: 200, maxHeight: 400)
+                .focused($isInputFocused)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+                )
 
-    private var textEditor: some View {
-        ZStack(alignment: .leading) {
-            textPlaceholder
-            textField
+            HStack {
+                Text("Cmd+Enter to send")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                sendButton
+            }
         }
-        .padding(.horizontal, 4)
-    }
-
-    @ViewBuilder private var textPlaceholder: some View {
-        if viewModel.inputText.isEmpty {
-            Text("Message...")
-                .font(.system(size: 16))
-                .foregroundStyle(.tertiary)
-                .padding(.leading, 4)
-        }
-    }
-
-    private var textField: some View {
-        TextEditor(text: $viewModel.inputText)
-            .font(.system(size: 16))
-            .scrollContentBackground(.hidden)
-            .background(.clear)
-            .focused($isInputFocused)
-            .frame(minHeight: 36, maxHeight: 120)
-            .fixedSize(horizontal: false, vertical: true)
     }
 
     private var sendButton: some View {
         Button {
             sendMessage()
         } label: {
-            sendButtonIcon
+            Image(systemName: "arrow.up")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 32, height: 32)
+                .background(
+                    Circle()
+                        .fill(viewModel.canSend ? Color.accentColor : Color.gray.opacity(0.4))
+                )
         }
         .buttonStyle(.plain)
         .disabled(!viewModel.canSend)
         .animation(.easeInOut(duration: 0.15), value: viewModel.canSend)
-    }
-
-    private var sendButtonIcon: some View {
-        Image(systemName: "arrow.up")
-            .font(.system(size: 14, weight: .bold))
-            .foregroundStyle(.white)
-            .frame(width: 32, height: 32)
-            .background(sendButtonBackground)
-    }
-
-    private var sendButtonBackground: some View {
-        Circle()
-            .fill(viewModel.canSend ? Color.accentColor : Color.gray.opacity(0.4))
     }
 
     private func sendMessage() {
@@ -213,6 +342,11 @@ public struct ChatInputView: View {
 
     private func handleTextChange(_ newText: String) {
         mentionVM.updateInput(text: newText, cursorPosition: newText.count)
+
+        // Auto-expand when text > 300 chars
+        if newText.count > 300, !viewModel.isExpanded {
+            viewModel.setExpanded(true)
+        }
     }
 
     private func handleAgentSelection(_ pubkey: String?) {

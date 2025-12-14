@@ -6,6 +6,7 @@
 
 import Foundation
 import Observation
+import TENEXCore
 
 // MARK: - ChatInputViewModel
 
@@ -26,6 +27,15 @@ public final class ChatInputViewModel {
 
     /// The currently selected branch ID
     public private(set) var selectedBranch: String?
+
+    /// Selected nudge IDs
+    public private(set) var selectedNudges: [String] = []
+
+    /// Message we're replying to (for swipe-to-reply)
+    public private(set) var replyToMessage: Message?
+
+    /// Whether the input bar is expanded
+    public private(set) var isExpanded = false
 
     /// Pubkeys mentioned in the message (for p-tags)
     public private(set) var mentionedPubkeys: [String] = []
@@ -79,10 +89,39 @@ public final class ChatInputViewModel {
         }
     }
 
-    /// Clear the input text and mentions
+    /// Toggle a nudge selection
+    /// - Parameter nudgeId: The nudge ID to toggle
+    public func toggleNudge(_ nudgeID: String) {
+        if selectedNudges.contains(nudgeID) {
+            selectedNudges.removeAll { $0 == nudgeID }
+        } else {
+            selectedNudges.append(nudgeID)
+        }
+    }
+
+    /// Set the message to reply to
+    /// - Parameter message: The message to reply to, or nil to clear
+    public func setReplyTo(_ message: Message?) {
+        replyToMessage = message
+    }
+
+    /// Clear the reply context
+    public func clearReplyTo() {
+        replyToMessage = nil
+    }
+
+    /// Set the expanded state
+    /// - Parameter expanded: Whether the input should be expanded
+    public func setExpanded(_ expanded: Bool) {
+        isExpanded = expanded
+    }
+
+    /// Clear the input text, mentions, nudges, and reply context
     public func clearInput() {
         inputText = ""
         mentionedPubkeys = []
+        selectedNudges = []
+        replyToMessage = nil
     }
 
     // MARK: Private

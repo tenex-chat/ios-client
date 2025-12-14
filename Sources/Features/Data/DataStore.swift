@@ -38,6 +38,9 @@ public final class DataStore {
     /// Project statuses keyed by project ID
     public private(set) var projectStatuses: [String: ProjectStatus] = [:]
 
+    /// All nudges (system prompt modifiers)
+    public private(set) var nudges: [Nudge] = []
+
     /// Whether projects are currently loading
     public private(set) var isLoadingProjects = false
 
@@ -46,6 +49,9 @@ public final class DataStore {
 
     /// Whether tools are currently loading
     public private(set) var isLoadingTools = false
+
+    /// Whether nudges are currently loading
+    public private(set) var isLoadingNudges = false
 
     /// Start subscriptions after authentication
     /// - Parameter userPubkey: The authenticated user's pubkey
@@ -64,6 +70,7 @@ public final class DataStore {
         agentsTask = Task { await subscribeToAgents() }
         toolsTask = Task { await subscribeToTools() }
         statusTask = Task { await subscribeToProjectStatuses(userPubkey: userPubkey) }
+        nudgesTask = Task { await subscribeToNudges() }
     }
 
     /// Stop all subscriptions and clear state
@@ -72,17 +79,20 @@ public final class DataStore {
         agentsTask?.cancel()
         toolsTask?.cancel()
         statusTask?.cancel()
+        nudgesTask?.cancel()
 
         projectsTask = nil
         agentsTask = nil
         toolsTask = nil
         statusTask = nil
+        nudgesTask = nil
 
         // Clear state
         projects = []
         agents = []
         tools = []
         projectStatuses = [:]
+        nudges = []
         userPubkey = nil
     }
 
@@ -131,6 +141,7 @@ public final class DataStore {
     private var agentsTask: Task<Void, Never>?
     private var toolsTask: Task<Void, Never>?
     private var statusTask: Task<Void, Never>?
+    private var nudgesTask: Task<Void, Never>?
 
     // MARK: - Private Subscription Methods
 
@@ -200,6 +211,22 @@ public final class DataStore {
                     }
                 }
                 projectStatuses[status.projectCoordinate] = status
+            }
+        }
+    }
+
+    private func subscribeToNudges() async {
+        isLoadingNudges = true
+        defer { isLoadingNudges = false }
+
+        let filter = NDKFilter(kinds: [4201], limit: 100)
+        let subscription = ndk.subscribe(filter: filter)
+        var nudgesByID: [String: Nudge] = [:]
+
+        for await event in subscription.events {
+            if let nudge = Nudge.from(event: event) {
+                nudgesByID[nudge.id] = nudge
+                nudges = Array(nudgesByID.values).sorted { $0.createdAt > $1.createdAt }
             }
         }
     }
