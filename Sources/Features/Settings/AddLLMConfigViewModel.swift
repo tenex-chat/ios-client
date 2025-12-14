@@ -17,9 +17,15 @@ public final class AddLLMConfigViewModel {
     // MARK: Lifecycle
 
     /// Initialize for creating a new configuration
-    /// - Parameter availableProviders: List of available providers
-    public init(availableProviders: [LLMProvider]) {
+    /// - Parameters:
+    ///   - availableProviders: List of available providers
+    ///   - modelDiscovery: Service for discovering available models
+    public init(
+        availableProviders: [LLMProvider],
+        modelDiscovery: ModelDiscoveryService = ModelDiscoveryServiceImpl()
+    ) {
         self.availableProviders = availableProviders
+        self.modelDiscovery = modelDiscovery
         name = ""
         provider = availableProviders.first ?? .openai
         model = ""
@@ -32,12 +38,15 @@ public final class AddLLMConfigViewModel {
     ///   - config: Existing configuration to edit
     ///   - apiKey: Current API key
     ///   - availableProviders: List of available providers
+    ///   - modelDiscovery: Service for discovering available models
     public init(
         config: LLMConfig,
         apiKey: String,
-        availableProviders: [LLMProvider]
+        availableProviders: [LLMProvider],
+        modelDiscovery: ModelDiscoveryService = ModelDiscoveryServiceImpl()
     ) {
         self.availableProviders = availableProviders
+        self.modelDiscovery = modelDiscovery
         name = config.name
         provider = config.provider
         model = config.model
@@ -72,6 +81,11 @@ public final class AddLLMConfigViewModel {
     /// Whether the form is valid
     public var isValid: Bool {
         validate()
+    }
+
+    /// Whether the selected provider supports model discovery
+    public var supportsModelDiscovery: Bool {
+        provider == .openai || provider == .openrouter || provider == .ollama
     }
 
     /// Whether base URL is required for the selected provider
@@ -167,7 +181,53 @@ public final class AddLLMConfigViewModel {
         )
     }
 
+    /// Fetch available models from the provider
+    public func fetchAvailableModels() async {
+        guard supportsModelDiscovery else {
+            return
+        }
+
+        isLoadingModels = true
+        modelFetchError = nil
+
+        do {
+            availableModels = try await modelDiscovery.fetchModels(
+                provider: provider,
+                apiKey: apiKey,
+                baseURL: baseURL.isEmpty ? nil : baseURL
+            )
+            showModelBrowser = true
+        } catch {
+            modelFetchError = error.localizedDescription
+            availableModels = []
+        }
+
+        isLoadingModels = false
+    }
+
+    /// Select a model from the browser
+    /// - Parameter modelInfo: The selected model
+    public func selectModel(_ modelInfo: ModelInfo) {
+        model = modelInfo.id
+        showModelBrowser = false
+    }
+
+    // MARK: Internal
+
+    /// Available models from discovery service
+    private(set) var availableModels: [ModelInfo] = []
+
+    /// Whether models are currently being fetched
+    private(set) var isLoadingModels = false
+
+    /// Error message from model fetch
+    private(set) var modelFetchError: String?
+
+    /// Whether to show the model browser sheet
+    var showModelBrowser = false
+
     // MARK: Private
 
     private var configID: String?
+    private let modelDiscovery: ModelDiscoveryService
 }
