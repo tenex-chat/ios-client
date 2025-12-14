@@ -11,17 +11,17 @@ import TENEXCore
 // MARK: - AgentProfileView
 
 /// View displaying an agent's profile with Feed and Settings tabs
-struct AgentProfileView: View {
+public struct AgentProfileView: View {
     // MARK: Lifecycle
 
-    init(pubkey: String, ndk: NDK) {
+    public init(pubkey: String, ndk: NDK) {
         self.pubkey = pubkey
         _viewModel = State(initialValue: AgentProfileViewModel(pubkey: pubkey, ndk: ndk))
     }
 
-    // MARK: Internal
+    // MARK: Public
 
-    var body: some View {
+    public var body: some View {
         VStack(spacing: 0) {
             AgentProfileTabBar(selectedTab: $selectedTab)
             Divider()
