@@ -110,9 +110,14 @@ public struct ChatView: View {
                     viewModel: inputViewModel,
                     agents: onlineAgents,
                     ndk: ndk
-                ) { text, _, _ in
+                ) { text, agentPubkey, mentions in
                     Task {
-                        await viewModel.sendMessage(text: text, replyTo: nil)
+                        await viewModel.sendMessage(
+                            text: text,
+                            targetAgentPubkey: agentPubkey,
+                            mentionedPubkeys: mentions,
+                            replyTo: nil
+                        )
                     }
                 }
             }
@@ -142,7 +147,8 @@ public struct ChatView: View {
                     MessageRow(
                         message: message,
                         currentUserPubkey: currentUserPubkey,
-                        onReplyTap: message.replyCount > 0 ? { focusedMessage = message } : nil
+                        onReplyTap: message.replyCount > 0 ? { focusedMessage = message } : nil,
+                        onRetry: makeRetryAction(for: message, viewModel: viewModel)
                     )
                     .padding(.horizontal, 16)
                 }
@@ -198,6 +204,17 @@ public struct ChatView: View {
             return "Someone is typing..."
         } else {
             return "\(count) people are typing..."
+        }
+    }
+
+    private func makeRetryAction(for message: Message, viewModel: ChatViewModel) -> (() -> Void)? {
+        guard message.status?.isFailed == true else {
+            return nil
+        }
+        return {
+            Task {
+                await viewModel.retrySendMessage(message)
+            }
         }
     }
 

@@ -103,8 +103,15 @@ public final class ChatViewModel {
     /// Send a new message to the thread
     /// - Parameters:
     ///   - text: The message text
+    ///   - targetAgentPubkey: Optional agent pubkey to route message to
+    ///   - mentionedPubkeys: Pubkeys of mentioned users to add as p-tags
     ///   - replyTo: Optional parent message for replies
-    public func sendMessage(text: String, replyTo: Message? = nil) async {
+    public func sendMessage(
+        text: String,
+        targetAgentPubkey: String? = nil,
+        mentionedPubkeys: [String] = [],
+        replyTo: Message? = nil
+    ) async {
         // Validate message text
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else {
@@ -131,40 +138,19 @@ public final class ChatViewModel {
         // Capture values for sendable closure
         let projectRef = projectReference
         let replyToMessage = replyTo
+        let agentPubkey = targetAgentPubkey
+        let mentions = mentionedPubkeys
 
         do {
-            // Publish reply using NDK's reply pattern (matches Svelte implementation)
-            // This creates a NIP-22 compliant reply to the thread event
+            // Publish reply using NDK's reply pattern (NIP-22 compliant)
+            let context = ReplyContext(
+                projectRef: projectRef,
+                replyTo: replyToMessage,
+                agentPubkey: agentPubkey,
+                mentions: mentions
+            )
             let (event, _) = try await ndk.publishReply(to: threadEvent) { builder in
-                // Filter out auto p-tags (like Svelte: reply.tags.filter(tag => tag[0] !== 'p'))
-                let filteredTags = builder.tags.filter { $0.first != "p" }
-
-                // Start fresh with filtered tags
-                var newBuilder = builder.setTags(filteredTags)
-
-                // Set content
-                newBuilder = newBuilder.content(trimmedText, extractImeta: false)
-
-                // Add project reference as 'a' tag (format: 31933:pubkey:d-tag)
-                newBuilder = newBuilder.tag(["a", projectRef])
-
-                // If replying to a specific message, add e-tag with 'reply' marker
-                if let replyToMessage {
-                    // Check if e-tag doesn't already exist for this message
-                    let hasETag = newBuilder.tags.contains { $0.first == "e" && $0[safe: 1] == replyToMessage.id }
-                    if !hasETag {
-                        newBuilder = newBuilder.tag(["e", replyToMessage.id, "", "reply"])
-                    }
-                    // Add p-tag for the author of the message being replied to
-                    let hasReplyAuthorPTag = newBuilder.tags.contains {
-                        $0.first == "p" && $0[safe: 1] == replyToMessage.pubkey
-                    }
-                    if !hasReplyAuthorPTag {
-                        newBuilder = newBuilder.tag(["p", replyToMessage.pubkey])
-                    }
-                }
-
-                return newBuilder
+                buildReplyTags(builder: builder, content: trimmedText, context: context)
             }
 
             // Update message with sent status and event ID
@@ -225,4 +211,53 @@ public final class ChatViewModel {
             errorMessage = "Failed to subscribe to messages."
         }
     }
+
+    /// Build tags for a reply message
+    private nonisolated func buildReplyTags(
+        builder: NDKEventBuilder,
+        content: String,
+        context: ReplyContext
+    ) -> NDKEventBuilder {
+        // Filter out auto p-tags
+        let filteredTags = builder.tags.filter { $0.first != "p" }
+        var newBuilder = builder.setTags(filteredTags)
+
+        // Set content and project reference
+        newBuilder = newBuilder.content(content, extractImeta: false)
+        newBuilder = newBuilder.tag(["a", context.projectRef])
+
+        // Add reply tags if replying to a specific message
+        if let replyTo = context.replyTo {
+            let hasETag = newBuilder.tags.contains { $0.first == "e" && $0[safe: 1] == replyTo.id }
+            if !hasETag {
+                newBuilder = newBuilder.tag(["e", replyTo.id, "", "reply"])
+            }
+            let hasReplyAuthorPTag = newBuilder.tags.contains { $0.first == "p" && $0[safe: 1] == replyTo.pubkey }
+            if !hasReplyAuthorPTag {
+                newBuilder = newBuilder.tag(["p", replyTo.pubkey])
+            }
+        }
+
+        // Add target agent p-tag for routing
+        if let agentPubkey = context.agentPubkey {
+            newBuilder = newBuilder.tag(["p", agentPubkey])
+        }
+
+        // Add mentioned user p-tags (excluding agent if already added)
+        for pubkey in context.mentions where pubkey != context.agentPubkey {
+            newBuilder = newBuilder.tag(["p", pubkey])
+        }
+
+        return newBuilder
+    }
+}
+
+// MARK: - ReplyContext
+
+/// Context for building a reply message
+private struct ReplyContext: Sendable {
+    let projectRef: String
+    let replyTo: Message?
+    let agentPubkey: String?
+    let mentions: [String]
 }
