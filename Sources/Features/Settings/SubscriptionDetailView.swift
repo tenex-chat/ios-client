@@ -141,23 +141,28 @@ struct SubscriptionDetailView: View {
         isLoading = true
         error = nil
 
-        do {
-            let ndkSubscription = ndk.subscribeToEvents(filters: subscription.filters)
-            var fetchedEvents: [NDKEvent] = []
+        var fetchedEvents: [NDKEvent] = []
 
-            for try await event in ndkSubscription {
-                fetchedEvents.append(event)
+        await withTaskGroup(of: [NDKEvent].self) { group in
+            for filter in subscription.filters {
+                group.addTask {
+                    var events: [NDKEvent] = []
+                    let subscription = ndk.subscribe(filter: filter)
+                    for await event in subscription.events {
+                        events.append(event)
+                    }
+                    return events
+                }
             }
 
-            await MainActor.run {
-                events = fetchedEvents.sorted { $0.createdAt > $1.createdAt }
-                isLoading = false
+            for await filterEvents in group {
+                fetchedEvents.append(contentsOf: filterEvents)
             }
-        } catch {
-            await MainActor.run {
-                self.error = error.localizedDescription
-                isLoading = false
-            }
+        }
+
+        await MainActor.run {
+            events = fetchedEvents.sorted { $0.createdAt > $1.createdAt }
+            isLoading = false
         }
     }
 }

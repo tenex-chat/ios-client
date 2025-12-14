@@ -119,25 +119,20 @@ public final class DataStore {
         isLoadingProjects = true
         defer { isLoadingProjects = false }
 
-        do {
-            let filter = Project.filter(for: userPubkey)
-            var projectsByID: [String: Project] = [:]
-            var projectOrder: [String] = []
+        let filter = Project.filter(for: userPubkey)
+        var projectsByID: [String: Project] = [:]
+        var projectOrder: [String] = []
 
-            let subscription = ndk.subscribeToEvents(filters: [filter])
+        let subscription = ndk.subscribe(filter: filter)
 
-            for try await event in subscription {
-                if let project = Project.from(event: event) {
-                    if projectsByID[project.id] == nil {
-                        projectOrder.append(project.id)
-                    }
-                    projectsByID[project.id] = project
-                    projects = projectOrder.compactMap { projectsByID[$0] }
+        for await event in subscription.events {
+            if let project = Project.from(event: event) {
+                if projectsByID[project.id] == nil {
+                    projectOrder.append(project.id)
                 }
+                projectsByID[project.id] = project
+                projects = projectOrder.compactMap { projectsByID[$0] }
             }
-        } catch {
-            // Subscription cancelled or failed
-            isLoadingProjects = false
         }
     }
 
@@ -145,20 +140,15 @@ public final class DataStore {
         isLoadingAgents = true
         defer { isLoadingAgents = false }
 
-        do {
-            let filter = NDKFilter(kinds: [4199], limit: 100)
-            let subscription = ndk.subscribeToEvents(filters: [filter])
-            var agentsByID: [String: AgentDefinition] = [:]
+        let filter = NDKFilter(kinds: [4199], limit: 100)
+        let subscription = ndk.subscribe(filter: filter)
+        var agentsByID: [String: AgentDefinition] = [:]
 
-            for try await event in subscription {
-                if let agent = AgentDefinition.from(event: event) {
-                    agentsByID[agent.id] = agent
-                    agents = Array(agentsByID.values)
-                }
+        for await event in subscription.events {
+            if let agent = AgentDefinition.from(event: event) {
+                agentsByID[agent.id] = agent
+                agents = Array(agentsByID.values)
             }
-        } catch {
-            // Subscription cancelled or failed
-            isLoadingAgents = false
         }
     }
 
@@ -166,35 +156,26 @@ public final class DataStore {
         isLoadingTools = true
         defer { isLoadingTools = false }
 
-        do {
-            let filter = NDKFilter(kinds: [4200], limit: 100)
-            let subscription = ndk.subscribeToEvents(filters: [filter])
-            var toolsByID: [String: MCPTool] = [:]
+        let filter = NDKFilter(kinds: [4200], limit: 100)
+        let subscription = ndk.subscribe(filter: filter)
+        var toolsByID: [String: MCPTool] = [:]
 
-            for try await event in subscription {
-                if let tool = MCPTool.from(event: event) {
-                    toolsByID[tool.id] = tool
-                    tools = Array(toolsByID.values)
-                }
+        for await event in subscription.events {
+            if let tool = MCPTool.from(event: event) {
+                toolsByID[tool.id] = tool
+                tools = Array(toolsByID.values)
             }
-        } catch {
-            // Subscription cancelled or failed
-            isLoadingTools = false
         }
     }
 
     private func subscribeToStatus(for projectID: String) async {
-        do {
-            let filter = ProjectStatus.filter(for: projectID)
-            let subscription = ndk.subscribeToEvents(filters: [filter])
+        let filter = ProjectStatus.filter(for: projectID)
+        let subscription = ndk.subscribe(filter: filter)
 
-            for try await event in subscription {
-                if let status = ProjectStatus.from(event: event) {
-                    projectStatuses[projectID] = status
-                }
+        for await event in subscription.events {
+            if let status = ProjectStatus.from(event: event) {
+                projectStatuses[projectID] = status
             }
-        } catch {
-            // Subscription cancelled or failed
         }
     }
 }

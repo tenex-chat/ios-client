@@ -81,29 +81,25 @@ public final class ChatViewModel {
 
     /// Subscribe to thread metadata (kind:513) to get the most recent title
     public func subscribeToThreadMetadata() async {
-        do {
-            // Create filter for metadata for this thread
-            let filter = ConversationMetadata.filter(for: threadID)
+        // Create filter for metadata for this thread
+        let filter = ConversationMetadata.filter(for: threadID)
 
-            let subscription = ndk.subscribeToEvents(filters: [filter])
+        let subscription = ndk.subscribe(filter: filter)
 
-            var latestMetadata: ConversationMetadata?
+        var latestMetadata: ConversationMetadata?
 
-            for try await event in subscription {
-                // Try to parse as ConversationMetadata
-                if let metadata = ConversationMetadata.from(event: event) {
-                    // Only use metadata if it's newer than what we already have
-                    if let existing = latestMetadata {
-                        guard metadata.createdAt > existing.createdAt else {
-                            continue
-                        }
+        for await event in subscription.events {
+            // Try to parse as ConversationMetadata
+            if let metadata = ConversationMetadata.from(event: event) {
+                // Only use metadata if it's newer than what we already have
+                if let existing = latestMetadata {
+                    guard metadata.createdAt > existing.createdAt else {
+                        continue
                     }
-                    latestMetadata = metadata
-                    threadTitle = metadata.title
                 }
+                latestMetadata = metadata
+                threadTitle = metadata.title
             }
-        } catch {
-            // Silently fail for metadata (non-critical)
         }
     }
 
@@ -156,8 +152,12 @@ public final class ChatViewModel {
                 agentPubkey: agentPubkey,
                 mentions: mentions
             )
-            let (event, _) = try await ndk.publishReply(to: threadEvent) { builder in
-                buildReplyTags(builder: builder, content: trimmedText, context: context)
+            let (event, _) = try await ndk.publish { _ in
+                buildReplyTags(
+                    builder: NDKEventBuilder.reply(to: threadEvent, ndk: ndk),
+                    content: trimmedText,
+                    context: context
+                )
             }
 
             // Update message with sent status and event ID
@@ -195,28 +195,23 @@ public final class ChatViewModel {
 
     /// Subscribe to all event types and route through ConversationState
     private func subscribeToAllEvents() async {
-        do {
-            // Create unified filter for all event types:
-            // - kind 1111: final messages
-            // - kind 21111: streaming deltas
-            // - kind 24111: typing start
-            // - kind 24112: typing stop
-            // Use uppercase 'E' tag to get ALL events in the thread
-            // (lowercase 'e' = direct parent, uppercase 'E' = root thread reference)
-            let filter = NDKFilter(
-                kinds: [1111, 21_111, 24_111, 24_112],
-                tags: ["E": Set([threadID])]
-            )
+        // Create unified filter for all event types:
+        // - kind 1111: final messages
+        // - kind 21111: streaming deltas
+        // - kind 24111: typing start
+        // - kind 24112: typing stop
+        // Use uppercase 'E' tag to get ALL events in the thread
+        // (lowercase 'e' = direct parent, uppercase 'E' = root thread reference)
+        let filter = NDKFilter(
+            kinds: [1111, 21_111, 24_111, 24_112],
+            tags: ["E": Set([threadID])]
+        )
 
-            let subscription = ndk.subscribeToEvents(filters: [filter])
+        let subscription = ndk.subscribe(filter: filter)
 
-            // Continuous subscription - runs forever
-            for try await event in subscription {
-                conversationState.processEvent(event)
-            }
-        } catch {
-            // Set error message if subscription fails
-            errorMessage = "Failed to subscribe to messages."
+        // Continuous subscription - runs forever
+        for await event in subscription.events {
+            conversationState.processEvent(event)
         }
     }
 
