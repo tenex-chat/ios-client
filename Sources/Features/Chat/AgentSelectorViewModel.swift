@@ -22,14 +22,14 @@ public final class AgentSelectorViewModel {
     ///   - agents: List of online agents from ProjectStatus
     ///   - defaultAgentPubkey: Optional default agent pubkey to preselect
     public init(agents: [ProjectAgent], defaultAgentPubkey: String? = nil) {
-        self.agents = agents
-        selectedAgentPubkey = defaultAgentPubkey ?? agents.first?.pubkey
+        self.agents = Self.sortAgents(agents)
+        selectedAgentPubkey = defaultAgentPubkey ?? self.agents.first?.pubkey
     }
 
     // MARK: Public
 
-    /// List of online agents from ProjectStatus
-    public var agents: [ProjectAgent]
+    /// List of online agents from ProjectStatus (sorted: PM first, then alphabetical)
+    public private(set) var agents: [ProjectAgent]
 
     /// The currently selected agent pubkey
     public private(set) var selectedAgentPubkey: String?
@@ -54,10 +54,10 @@ public final class AgentSelectorViewModel {
     /// Update the list of available agents
     /// - Parameter newAgents: Updated list of online agents
     public func updateAgents(_ newAgents: [ProjectAgent]) {
-        agents = newAgents
+        agents = Self.sortAgents(newAgents)
         // Clear selection if selected agent is no longer available
         if let selectedAgentPubkey, !newAgents.contains(where: { $0.pubkey == selectedAgentPubkey }) {
-            self.selectedAgentPubkey = newAgents.first?.pubkey
+            self.selectedAgentPubkey = agents.first?.pubkey
         }
     }
 
@@ -69,5 +69,19 @@ public final class AgentSelectorViewModel {
     /// Dismiss the agent selector sheet
     public func dismissSelector() {
         isPresented = false
+    }
+
+    // MARK: Private
+
+    /// Sort agents: PM first, then alphabetically by name
+    private static func sortAgents(_ agents: [ProjectAgent]) -> [ProjectAgent] {
+        agents.sorted { lhs, rhs in
+            // PM always comes first
+            if lhs.isPM != rhs.isPM {
+                return lhs.isPM
+            }
+            // Otherwise sort alphabetically by name
+            return lhs.name.localizedCaseInsensitiveCompare(rhs.name) == .orderedAscending
+        }
     }
 }
