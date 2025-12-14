@@ -30,14 +30,16 @@ final class AudioPlayer: NSObject {
     /// Play audio from data
     /// - Parameter audioData: Audio data to play
     func play(audioData: Data) async throws {
-        // Configure audio session for playback
-        let session = AVAudioSession.sharedInstance()
-        do {
-            try session.setCategory(.playback, mode: .default)
-            try session.setActive(true)
-        } catch {
-            throw AudioError.playbackFailed(error)
-        }
+        #if os(iOS)
+            /// Configure audio session for playback
+            let session = AVAudioSession.sharedInstance()
+            do {
+                try session.setCategory(.playback, mode: .default)
+                try session.setActive(true)
+            } catch {
+                throw AudioError.playbackFailed(error)
+            }
+        #endif
 
         // Create audio player
         do {
@@ -68,14 +70,16 @@ final class AudioPlayer: NSObject {
     /// Play audio from URL
     /// - Parameter url: URL of audio file
     func play(url: URL) async throws {
-        // Configure audio session for playback
-        let session = AVAudioSession.sharedInstance()
-        do {
-            try session.setCategory(.playback, mode: .default)
-            try session.setActive(true)
-        } catch {
-            throw AudioError.playbackFailed(error)
-        }
+        #if os(iOS)
+            /// Configure audio session for playback
+            let session = AVAudioSession.sharedInstance()
+            do {
+                try session.setCategory(.playback, mode: .default)
+                try session.setActive(true)
+            } catch {
+                throw AudioError.playbackFailed(error)
+            }
+        #endif
 
         // Create audio player
         do {

@@ -54,76 +54,8 @@ final class SystemTTSService: TTSService {
     }
 
     func synthesize(text: String, voiceID: String?) async throws -> Data {
-        // Create speech utterance
-        let utterance = AVSpeechUtterance(string: text)
-
-        // Set voice if specified
-        if let voiceID = voiceID?.lowercased(),
-           let identifier = voiceMapping[voiceID],
-           let voice = AVSpeechSynthesisVoice(identifier: identifier) {
-            utterance.voice = voice
-        } else {
-            // Use default voice
-            utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
-        }
-
-        // Configure utterance settings
-        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
-        utterance.pitchMultiplier = 1.0
-        utterance.volume = 1.0
-
-        // Capture audio to file
-        return try await withCheckedThrowingContinuation { continuation in
-            Task { @MainActor in
-                // Create temporary file for audio
-                let tempDir = FileManager.default.temporaryDirectory
-                let audioFile = tempDir.appendingPathComponent("tts_\(UUID().uuidString).caf")
-
-                do {
-                    // Set up audio session
-                    let session = AVAudioSession.sharedInstance()
-                    try session.setCategory(.playback, mode: .default)
-                    try session.setActive(true)
-
-                    // Write audio to file by using AVSpeechSynthesizer's built-in output
-                    // Note: AVSpeechSynthesizer doesn't have direct audio output API,
-                    // so we'll use the output callback approach
-
-                    var audioData = Data()
-                    var didFinish = false
-                    var didError: Error?
-
-                    // Create a delegate to capture completion
-                    let delegate = SpeechSynthesizerDelegate(
-                        onFinish: {
-                            didFinish = true
-                            // AVSpeechSynthesizer speaks to output, we need to record it
-                            // For now, return empty data
-                            // Proper implementation would require AVAudioEngine recording
-                            // swiftlint:disable:next no_print_statements
-                            print("[SystemTTSService] Warning: Direct audio capture not implemented")
-                            continuation.resume(returning: audioData)
-                        },
-                        onError: { error in
-                            didError = error
-                            continuation.resume(throwing: error)
-                        }
-                    )
-
-                    synthesizer.delegate = delegate
-
-                    // Speak the utterance
-                    synthesizer.speak(utterance)
-
-                    // Keep delegate alive
-                    withExtendedLifetime(delegate) {
-                        // Delegate will handle completion
-                    }
-                } catch {
-                    continuation.resume(throwing: AudioError.synthesisFailed(error))
-                }
-            }
-        }
+        let utterance = configureUtterance(text: text, voiceID: voiceID)
+        return try await performSynthesis(utterance: utterance)
     }
 
     // MARK: Private
@@ -137,6 +69,57 @@ final class SystemTTSService: TTSService {
         "daniel": "com.apple.ttsbundle.Daniel-compact",
         "karen": "com.apple.ttsbundle.Karen-compact",
     ]
+
+    private func configureUtterance(text: String, voiceID: String?) -> AVSpeechUtterance {
+        let utterance = AVSpeechUtterance(string: text)
+
+        if let voiceID = voiceID?.lowercased(),
+           let identifier = voiceMapping[voiceID],
+           let voice = AVSpeechSynthesisVoice(identifier: identifier) {
+            utterance.voice = voice
+        } else {
+            utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        }
+
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate
+        utterance.pitchMultiplier = 1.0
+        utterance.volume = 1.0
+
+        return utterance
+    }
+
+    private func performSynthesis(utterance: AVSpeechUtterance) async throws -> Data {
+        try await withCheckedThrowingContinuation { continuation in
+            Task { @MainActor in
+                do {
+                    #if os(iOS)
+                        let session = AVAudioSession.sharedInstance()
+                        try session.setCategory(.playback, mode: .default)
+                        try session.setActive(true)
+                    #endif
+
+                    var audioData = Data()
+                    let delegate = SpeechSynthesizerDelegate(
+                        onFinish: {
+                            // swiftlint:disable:next no_print_statements
+                            print("[SystemTTSService] Warning: Direct audio capture not implemented")
+                            continuation.resume(returning: audioData)
+                        },
+                        onError: { error in
+                            continuation.resume(throwing: error)
+                        }
+                    )
+
+                    synthesizer.delegate = delegate
+                    synthesizer.speak(utterance)
+
+                    withExtendedLifetime(delegate) {}
+                } catch {
+                    continuation.resume(throwing: AudioError.synthesisFailed(error))
+                }
+            }
+        }
+    }
 }
 
 // MARK: - SpeechSynthesizerDelegate

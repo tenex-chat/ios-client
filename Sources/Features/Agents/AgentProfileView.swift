@@ -36,10 +36,12 @@ public struct AgentProfileView: View {
             }
         }
         .navigationTitle(viewModel.agentName ?? "Agent Profile")
-        .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
-            viewModel.startSubscriptions()
-        }
+        #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+        #endif
+            .onAppear {
+                viewModel.startSubscriptions()
+            }
     }
 
     // MARK: Private
