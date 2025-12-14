@@ -26,10 +26,10 @@ public final class ChatInputViewModel {
     public private(set) var selectedAgent: String?
 
     /// The currently selected branch ID
-    public private(set) var selectedBranch: String?
+    public var selectedBranch: String?
 
     /// Selected nudge IDs
-    public private(set) var selectedNudges: [String] = []
+    public var selectedNudges: [String] = []
 
     /// Message we're replying to (for swipe-to-reply)
     public private(set) var replyToMessage: Message?

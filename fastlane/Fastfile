@@ -25,6 +25,23 @@ platform :ios do
     )
     # -------------------------------------------------------------------------
 
+    # Update code signing settings
+    # Set all targets to use Distribution certificate
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "TENEX.xcodeproj",
+      code_sign_identity: "Apple Distribution"
+    )
+
+    # Only the app target gets a provisioning profile (frameworks don't use them)
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      targets: ["TENEX"],
+      path: "TENEX.xcodeproj",
+      profile_name: "match AppStore chat.tenex.ios",
+      code_sign_identity: "Apple Distribution"
+    )
+
     # Build the app
     # We pass the build number (GitHub Run Number) via xcargs to avoid modifying generated files.
     # MARKETING_VERSION is set to 1.0.0 by default if not specified.
@@ -34,6 +51,7 @@ platform :ios do
       export_method: "app-store",
       clean: true,
       include_symbols: true,
+      destination: "generic/platform=iOS",
       xcargs: "CURRENT_PROJECT_VERSION=#{ENV["GITHUB_RUN_NUMBER"]} MARKETING_VERSION=1.0.0"
     )
 

@@ -7,6 +7,7 @@
 import Foundation
 import NDKSwiftCore
 import Observation
+import OSLog
 
 // MARK: - LoginViewModel
 
@@ -52,15 +53,21 @@ public final class LoginViewModel {
             isLoading = false
         }
 
-        // Trim whitespace from input
-        let trimmed = nsecInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Sanitize input - remove all whitespace and control characters
+        // macOS clipboard can include invisible characters when pasting
+        let sanitized = nsecInput
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .filter { !$0.isWhitespace && !$0.isNewline }
+
+        Logger().debug("Login attempt with nsec length: \(sanitized.count), prefix: \(String(sanitized.prefix(5)))")
 
         // Attempt sign in
         do {
-            let signer = try NDKPrivateKeySigner(nsec: trimmed)
+            let signer = try NDKPrivateKeySigner(nsec: sanitized)
             _ = try await authManager.addSession(signer)
             // Sign in successful, error message stays nil
         } catch {
+            Logger().error("Login failed: \(error.localizedDescription)")
             // Sign in failed, set error message
             errorMessage = "Invalid private key. Please check your nsec and try again."
         }

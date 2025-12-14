@@ -300,4 +300,74 @@ struct ProjectStatusEventTests {
         // Then: isOnline returns false
         #expect(status.isOnline == false)
     }
+
+    @Test("Parse branches from branch tags")
+    func parseBranchesFromTags() throws {
+        // Given: Event with branch tags
+        let event = NDKEvent.test(
+            kind: 24_010,
+            content: "",
+            tags: [
+                ["a", "31933:owner:test-project"],
+                ["branch", "master"],
+                ["branch", "feature/new-ui"],
+                ["branch", "bugfix/auth-issue"],
+            ],
+            pubkey: "testpubkey"
+        )
+
+        // When: Converting to ProjectStatus
+        let status = try #require(ProjectStatus.from(event: event))
+
+        // Then: Branches are correctly parsed
+        #expect(status.branches.count == 3)
+        #expect(status.branches.contains("master"))
+        #expect(status.branches.contains("feature/new-ui"))
+        #expect(status.branches.contains("bugfix/auth-issue"))
+    }
+
+    @Test("Handle no branches gracefully")
+    func handleNoBranches() throws {
+        // Given: Event without branch tags
+        let event = NDKEvent.test(
+            kind: 24_010,
+            content: "",
+            tags: [
+                ["a", "31933:owner:test-project"],
+                ["agent", "abc123", "Claude"],
+            ],
+            pubkey: "testpubkey"
+        )
+
+        // When: Converting to ProjectStatus
+        let status = try #require(ProjectStatus.from(event: event))
+
+        // Then: Branches array is empty
+        #expect(status.branches.isEmpty)
+    }
+
+    @Test("Skip malformed branch tags")
+    func skipMalformedBranchTags() throws {
+        // Given: Event with valid and malformed branch tags
+        let event = NDKEvent.test(
+            kind: 24_010,
+            content: "",
+            tags: [
+                ["a", "31933:owner:test-project"],
+                ["branch", "main"], // Valid
+                ["branch"], // Missing branch name - should skip
+                ["branch", ""], // Empty branch name - should skip
+                ["branch", "develop"], // Valid
+            ],
+            pubkey: "testpubkey"
+        )
+
+        // When: Converting to ProjectStatus
+        let status = try #require(ProjectStatus.from(event: event))
+
+        // Then: Only valid branches are parsed
+        #expect(status.branches.count == 2)
+        #expect(status.branches.contains("main"))
+        #expect(status.branches.contains("develop"))
+    }
 }

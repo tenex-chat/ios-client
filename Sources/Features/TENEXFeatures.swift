@@ -22,6 +22,18 @@ private struct AIConfigEnvironmentKey: EnvironmentKey {
     static let defaultValue: AIConfig? = nil
 }
 
+// MARK: - AIConfigStorageEnvironmentKey
+
+private struct AIConfigStorageEnvironmentKey: EnvironmentKey {
+    static let defaultValue: AIConfigStorage? = nil
+}
+
+// MARK: - AudioServiceEnvironmentKey
+
+private struct AudioServiceEnvironmentKey: EnvironmentKey {
+    static let defaultValue: AudioService? = nil
+}
+
 public extension EnvironmentValues {
     /// The NDK instance for the current environment
     ///
@@ -43,6 +55,28 @@ public extension EnvironmentValues {
     var aiConfig: AIConfig? {
         get { self[AIConfigEnvironmentKey.self] }
         set { self[AIConfigEnvironmentKey.self] = newValue }
+    }
+
+    /// The AI configuration storage for the current environment
+    ///
+    /// Use this to access the AI configuration storage from the environment:
+    /// ```swift
+    /// @Environment(\.aiConfigStorage) private var aiConfigStorage
+    /// ```
+    var aiConfigStorage: AIConfigStorage? {
+        get { self[AIConfigStorageEnvironmentKey.self] }
+        set { self[AIConfigStorageEnvironmentKey.self] = newValue }
+    }
+
+    /// The audio service for the current environment
+    ///
+    /// Use this to access the audio service from the environment:
+    /// ```swift
+    /// @Environment(\.audioService) private var audioService
+    /// ```
+    var audioService: AudioService? {
+        get { self[AudioServiceEnvironmentKey.self] }
+        set { self[AudioServiceEnvironmentKey.self] = newValue }
     }
 }
 

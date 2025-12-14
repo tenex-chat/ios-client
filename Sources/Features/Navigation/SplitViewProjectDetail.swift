@@ -85,6 +85,7 @@ struct SplitViewThreadList: View {
 
     @Environment(\.ndk) private var ndk
     @State private var viewModel: ThreadListViewModel?
+    @State private var filtersStore = ThreadFiltersStore()
 
     var body: some View {
         Group {
@@ -95,7 +96,12 @@ struct SplitViewThreadList: View {
                     // Show nothing while ViewModel initializes (no loading spinners per PLAN.md)
                     Color.clear
                         .task {
-                            let vm = ThreadListViewModel(ndk: ndk, projectID: projectID)
+                            let vm = ThreadListViewModel(
+                                ndk: ndk,
+                                projectID: projectID,
+                                filtersStore: filtersStore,
+                                currentUserPubkey: userPubkey
+                            )
                             viewModel = vm
                             vm.subscribe()
                         }
