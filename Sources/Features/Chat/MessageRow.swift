@@ -21,16 +21,19 @@ public struct MessageRow: View {
     ///   - currentUserPubkey: The current user's pubkey (to differentiate user vs agent)
     ///   - onReplyTap: Optional action when reply indicator is tapped
     ///   - onRetry: Optional action when retry button is tapped (for failed messages)
+    ///   - onAgentTap: Optional action when agent avatar/name is tapped
     public init(
         message: Message,
         currentUserPubkey: String?,
         onReplyTap: (() -> Void)? = nil,
-        onRetry: (() -> Void)? = nil
+        onRetry: (() -> Void)? = nil,
+        onAgentTap: (() -> Void)? = nil
     ) {
         self.message = message
         self.currentUserPubkey = currentUserPubkey
         self.onReplyTap = onReplyTap
         self.onRetry = onRetry
+        self.onAgentTap = onAgentTap
         isAgent = currentUserPubkey != nil && message.pubkey != currentUserPubkey
     }
 
@@ -38,47 +41,8 @@ public struct MessageRow: View {
 
     public var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            // Avatar
-            avatar
-
-            // Message content
-            VStack(alignment: .leading, spacing: 4) {
-                // Author and timestamp
-                HStack(spacing: 8) {
-                    if let ndk, isAgent {
-                        NDKUIUsername(ndk: ndk, pubkey: message.pubkey)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(.blue)
-                    } else {
-                        Text("You")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(.primary)
-                    }
-
-                    Text(message.createdAt, style: .relative)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.tertiary)
-                }
-
-                // Message content with markdown support
-                messageContent
-
-                // Status indicator for user's own messages
-                if !isAgent, let status = message.status {
-                    statusIndicator(for: status)
-                }
-
-                // Reply indicator (if message has replies)
-                if message.replyCount > 0, let onReplyTap {
-                    ReplyIndicatorView(
-                        replyCount: message.replyCount,
-                        authorPubkeys: message.replyAuthorPubkeys,
-                        onTap: onReplyTap
-                    )
-                    .padding(.top, 4)
-                }
-            }
-
+            avatarView
+            messageContentView
             Spacer()
         }
         .padding(.vertical, 8)
@@ -93,6 +57,7 @@ public struct MessageRow: View {
     private let currentUserPubkey: String?
     private let onReplyTap: (() -> Void)?
     private let onRetry: (() -> Void)?
+    private let onAgentTap: (() -> Void)?
     private let isAgent: Bool
 
     private var markdownText: AttributedString {
@@ -104,10 +69,70 @@ public struct MessageRow: View {
         }
     }
 
+    private var avatarView: some View {
+        Group {
+            if isAgent, let onAgentTap {
+                Button(action: onAgentTap) {
+                    avatar
+                }
+                .buttonStyle(.plain)
+            } else {
+                avatar
+            }
+        }
+    }
+
     private var avatar: some View {
         Image(systemName: "person.circle.fill")
             .font(.system(size: 36))
             .foregroundStyle(isAgent ? .blue : .gray)
+    }
+
+    private var messageContentView: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            authorHeader
+            messageContent
+
+            if !isAgent, let status = message.status {
+                statusIndicator(for: status)
+            }
+
+            if message.replyCount > 0, let onReplyTap {
+                ReplyIndicatorView(
+                    replyCount: message.replyCount,
+                    authorPubkeys: message.replyAuthorPubkeys,
+                    onTap: onReplyTap
+                )
+                .padding(.top, 4)
+            }
+        }
+    }
+
+    private var authorHeader: some View {
+        HStack(spacing: 8) {
+            if let ndk, isAgent {
+                if let onAgentTap {
+                    Button(action: onAgentTap) {
+                        NDKUIUsername(ndk: ndk, pubkey: message.pubkey)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.blue)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    NDKUIUsername(ndk: ndk, pubkey: message.pubkey)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.blue)
+                }
+            } else {
+                Text("You")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.primary)
+            }
+
+            Text(message.createdAt, style: .relative)
+                .font(.system(size: 12))
+                .foregroundStyle(.tertiary)
+        }
     }
 
     private var sendingStatusView: some View {

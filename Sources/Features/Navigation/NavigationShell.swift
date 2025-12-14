@@ -158,6 +158,13 @@ public struct NavigationShell: View {
                 Text("Loading...")
             }
 
+        case let .agentProfile(pubkey):
+            if let ndk {
+                AgentProfileView(pubkey: pubkey, ndk: ndk)
+            } else {
+                Text("Loading...")
+            }
+
         case .agentList:
             if let dataStore {
                 AgentListView(viewModel: AgentListViewModel(dataStore: dataStore))

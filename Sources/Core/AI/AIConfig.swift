@@ -136,6 +136,25 @@ public struct VoiceConfig: Identifiable, Codable, Sendable, Equatable {
     public var metadata: VoiceMetadata?
 }
 
+// MARK: - AgentVoiceConfig
+
+/// Per-agent voice configuration (keyed by agent pubkey)
+public struct AgentVoiceConfig: Codable, Sendable, Equatable {
+    // MARK: Lifecycle
+
+    public init(voiceID: String, speed: Double? = nil) {
+        self.voiceID = voiceID
+        self.speed = speed
+    }
+
+    // MARK: Public
+
+    /// Selected voice ID for this agent
+    public var voiceID: String
+    /// Agent-specific playback speed override (0.5 - 2.0)
+    public var speed: Double?
+}
+
 // MARK: - TTSSettings
 
 /// Text-to-speech settings

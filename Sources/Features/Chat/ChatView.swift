@@ -144,12 +144,16 @@ public struct ChatView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(viewModel.displayMessages) { message in
-                    MessageRow(
-                        message: message,
-                        currentUserPubkey: currentUserPubkey,
-                        onReplyTap: message.replyCount > 0 ? { focusedMessage = message } : nil,
-                        onRetry: makeRetryAction(for: message, viewModel: viewModel)
-                    )
+                    NavigationLink(value: AppRoute.agentProfile(pubkey: message.pubkey)) {
+                        MessageRow(
+                            message: message,
+                            currentUserPubkey: currentUserPubkey,
+                            onReplyTap: message.replyCount > 0 ? { focusedMessage = message } : nil,
+                            onRetry: makeRetryAction(for: message, viewModel: viewModel),
+                            onAgentTap: message.pubkey != currentUserPubkey ? {} : nil
+                        )
+                    }
+                    .buttonStyle(.plain)
                     .padding(.horizontal, 16)
                 }
 
