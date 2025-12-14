@@ -5,7 +5,7 @@
 //
 
 import Foundation
-import NostrSDK
+import NDKSwiftCore
 import OSLog
 
 // MARK: - AgentProfileViewModel
@@ -24,7 +24,7 @@ final class AgentProfileViewModel {
 
     private(set) var agentName: String?
     private(set) var agentRole: String?
-    private(set) var events: [NostrSDK.Event] = []
+    private(set) var events: [NDKEvent] = []
     private(set) var isLoading = false
 
     func loadAgentInfo() async {
@@ -63,7 +63,7 @@ final class AgentProfileViewModel {
     private let pubkey: String
     private let ndk: NDK
 
-    private func extractAgentInfo(from event: NostrSDK.Event) {
+    private func extractAgentInfo(from event: NDKEvent) {
         for tag in event.tags {
             switch tag.id {
             case "title",

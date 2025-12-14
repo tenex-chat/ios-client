@@ -4,7 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
-import NostrSDK
+import NDKSwiftCore
 import SwiftUI
 import TENEXCore
 
@@ -112,7 +112,7 @@ private struct FeedTabView: View {
 private struct EventRow: View {
     // MARK: Internal
 
-    let event: NostrSDK.Event
+    let event: NDKEvent
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
