@@ -44,7 +44,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     // MARK: Private
 
     @Environment(\.ndk) private var ndk
-    @Environment(\.dataStore) private var dataStore
+    @Environment(DataStore.self) private var dataStore
     @Environment(\.aiConfigStorage) private var aiConfigStorage
     @Environment(\.audioService) private var audioService
     @State private var viewModel: ChatViewModel?
@@ -361,9 +361,13 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                status.projectCoordinate == projectReference {
                 await MainActor.run {
                     onlineAgents = status.agents
-                    availableModels = status.models
-                    availableTools = status.tools
-                    availableBranches = status.branches
+
+                    // Extract unique models and tools from all agents
+                    availableModels = Array(Set(status.agents.compactMap { $0.model })).sorted()
+                    availableTools = Array(Set(status.agents.flatMap { $0.tools })).sorted()
+
+                    // TODO: Extract branches from ProjectStatus when available
+                    availableBranches = []
                 }
             }
         }
