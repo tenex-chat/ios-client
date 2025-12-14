@@ -25,9 +25,10 @@ platform :ios do
     )
     # -------------------------------------------------------------------------
 
-    # Update code signing settings for all targets
+    # Update code signing settings for app target only (frameworks use automatic signing)
     update_code_signing_settings(
       use_automatic_signing: false,
+      targets: ["TENEX"],
       path: "TENEX.xcodeproj",
       code_sign_identity: "Apple Distribution",
       bundle_identifier: "chat.tenex.ios",
