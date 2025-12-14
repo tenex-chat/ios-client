@@ -45,18 +45,37 @@ public struct AgentSelectorView: View {
                     }
                 }
         }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
     }
 
     // MARK: Private
 
     @State private var viewModel: AgentSelectorViewModel
 
+    private var avatarGradient: LinearGradient {
+        LinearGradient(
+            colors: [.blue, .purple],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("No Agents Online", systemImage: "person.2.slash")
+            Label("No Agents Online", systemImage: "sparkles")
         } description: {
             Text("No agents are currently available for this project.")
         }
+    }
+
+    private var globalBadge: some View {
+        Text("Global")
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(.blue.gradient, in: Capsule())
     }
 
     private func agentRow(_ agent: ProjectAgent) -> some View {
@@ -64,60 +83,61 @@ public struct AgentSelectorView: View {
             viewModel.selectAgent(agent.pubkey)
             viewModel.dismissSelector()
         } label: {
-            HStack(spacing: 12) {
-                // Agent avatar (placeholder - will use NDKUIProfilePicture when NDKSwiftUI bug is fixed)
-                agentAvatar(for: agent)
+            agentRowContent(agent)
+        }
+        .buttonStyle(.plain)
+    }
 
-                // Agent info
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Text(agent.name)
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundStyle(.primary)
+    private func agentRowContent(_ agent: ProjectAgent) -> some View {
+        HStack(spacing: 12) {
+            agentAvatar(for: agent)
+            agentInfo(agent)
+            Spacer()
+            selectionIndicator(for: agent)
+        }
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
+    }
 
-                        if agent.isGlobal {
-                            Text("Global")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(.blue.opacity(0.8), in: Capsule())
-                        }
-                    }
-
-                    if let model = agent.model {
-                        Text(model)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-
-                Spacer()
-
-                // Selection indicator
-                if viewModel.selectedAgentPubkey == agent.pubkey {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(.blue)
+    private func agentInfo(_ agent: ProjectAgent) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 6) {
+                Text(agent.name)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(.primary)
+                if agent.isGlobal {
+                    globalBadge
                 }
             }
-            .padding(.vertical, 8)
+            if let model = agent.model {
+                Text(model)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func selectionIndicator(for agent: ProjectAgent) -> some View {
+        if viewModel.selectedAgentPubkey == agent.pubkey {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 22))
+                .foregroundStyle(.blue)
         }
     }
 
     private func agentAvatar(for agent: ProjectAgent) -> some View {
-        let initial = agent.name.prefix(1).uppercased()
-        return Text(initial)
-            .font(.system(size: 16, weight: .semibold))
+        Text(agent.name.prefix(1).uppercased())
+            .font(.system(size: 16, weight: .bold))
             .foregroundStyle(.white)
             .frame(width: 40, height: 40)
-            .background(Color.blue.gradient, in: Circle())
+            .background(avatarGradient, in: Circle())
     }
 }
 
 // MARK: - AgentSelectorButton
 
-/// Compact button to show currently selected agent and open selector
+/// Compact chip button to show currently selected agent and open selector
 public struct AgentSelectorButton: View {
     // MARK: Lifecycle
 
@@ -131,37 +151,10 @@ public struct AgentSelectorButton: View {
         Button {
             viewModel.presentSelector()
         } label: {
-            HStack(spacing: 8) {
-                if let agent = viewModel.selectedAgent {
-                    // Show selected agent with profile picture
-                    agentAvatar(for: agent)
-
-                    Text(agent.name)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(.primary)
-                } else {
-                    // No agent selected
-                    Image(systemName: "person.circle")
-                        .font(.system(size: 20))
-                        .foregroundStyle(.secondary)
-
-                    Text("Select Agent")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.secondary)
-                }
-
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(.ultraThinMaterial, in: Capsule())
+            buttonContent
         }
-        .sheet(isPresented: Binding(
-            get: { viewModel.isPresented },
-            set: { viewModel.isPresented = $0 }
-        )) {
+        .buttonStyle(.plain)
+        .sheet(isPresented: $viewModel.isPresented) {
             AgentSelectorView(viewModel: viewModel)
         }
     }
@@ -170,11 +163,63 @@ public struct AgentSelectorButton: View {
 
     @Bindable private var viewModel: AgentSelectorViewModel
 
+    private var avatarGradient: LinearGradient {
+        LinearGradient(
+            colors: [.blue, .purple],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    private var buttonContent: some View {
+        HStack(spacing: 6) {
+            buttonIcon
+            chevron
+        }
+        .padding(.leading, 8)
+        .padding(.trailing, 10)
+        .padding(.vertical, 6)
+        .background(chipBackground)
+        .overlay(chipBorder)
+    }
+
+    @ViewBuilder private var buttonIcon: some View {
+        if let agent = viewModel.selectedAgent {
+            agentAvatar(for: agent)
+            Text(agent.name)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.primary)
+        } else {
+            Image(systemName: "sparkles")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.secondary)
+            Text("Agent")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var chevron: some View {
+        Image(systemName: "chevron.up.chevron.down")
+            .font(.system(size: 9, weight: .bold))
+            .foregroundStyle(.tertiary)
+    }
+
+    private var chipBackground: some View {
+        Capsule()
+            .fill(.ultraThinMaterial)
+    }
+
+    private var chipBorder: some View {
+        Capsule()
+            .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+    }
+
     private func agentAvatar(for agent: ProjectAgent) -> some View {
         Text(agent.name.prefix(1).uppercased())
-            .font(.system(size: 12, weight: .semibold))
+            .font(.system(size: 10, weight: .bold))
             .foregroundStyle(.white)
-            .frame(width: 24, height: 24)
-            .background(Color.blue.gradient, in: Circle())
+            .frame(width: 20, height: 20)
+            .background(avatarGradient, in: Circle())
     }
 }

@@ -22,36 +22,27 @@ public struct ProjectListView: View {
     // MARK: Public
 
     public var body: some View {
-        VStack(spacing: 0) {
-            // Project group tabs
-            ProjectGroupTabBar(
-                selectedGroupID: $viewModel.selectedGroupID,
-                groups: viewModel.groups,
-                onCreateGroup: {
-                    editingGroup = nil
-                    showingGroupEditor = true
-                },
-                onEditGroup: { group in
-                    editingGroup = group
-                    showingGroupEditor = true
-                },
-                onDeleteGroup: { group in
-                    viewModel.deleteGroup(id: group.id)
-                }
-            )
-
-            Divider()
-
-            // Project list or empty view
-            Group {
-                if viewModel.projects.isEmpty {
-                    emptyView
-                } else {
-                    projectList
-                }
+        Group {
+            if viewModel.projects.isEmpty {
+                emptyView
+            } else {
+                projectList
             }
         }
         .navigationTitle("Projects")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button(
+                    action: { showingCreateWizard = true },
+                    label: { Label("New Project", systemImage: "plus") }
+                )
+            }
+
+            ToolbarItem(placement: .topBarLeading) {
+                groupFilterMenu
+            }
+        }
         .sheet(isPresented: $showingGroupEditor) {
             ProjectGroupEditorSheet(
                 isPresented: $showingGroupEditor,
@@ -73,6 +64,11 @@ public struct ProjectListView: View {
                     }
                 } : nil
             )
+        }
+        .sheet(isPresented: $showingCreateWizard) {
+            if let dataStore, let ndk {
+                CreateProjectWizardView(ndk: ndk, dataStore: dataStore)
+            }
         }
     }
 
@@ -99,6 +95,78 @@ public struct ProjectListView: View {
             : "You don't have any projects yet"
     }
 
+    private var selectedGroup: ProjectGroup? {
+        viewModel.groups.first { $0.id == viewModel.selectedGroupID }
+    }
+
+    private var groupFilterMenuLabel: String {
+        selectedGroup?.name ?? "All Projects"
+    }
+
+    @ViewBuilder private var groupMenuItems: some View {
+        allProjectsButton
+        groupListSection
+        newGroupButton
+        selectedGroupActions
+    }
+
+    private var allProjectsButton: some View {
+        Button {
+            viewModel.selectedGroupID = nil
+        } label: {
+            Label("All Projects", systemImage: viewModel.selectedGroupID == nil ? "checkmark" : "")
+        }
+    }
+
+    @ViewBuilder private var groupListSection: some View {
+        if !viewModel.groups.isEmpty {
+            Divider()
+            ForEach(viewModel.groups) { group in
+                Button {
+                    viewModel.selectedGroupID = group.id
+                } label: {
+                    let icon = viewModel.selectedGroupID == group.id ? "checkmark" : ""
+                    Label(group.name, systemImage: icon)
+                }
+            }
+            Divider()
+        }
+    }
+
+    private var newGroupButton: some View {
+        Button {
+            editingGroup = nil
+            showingGroupEditor = true
+        } label: {
+            Label("New Group", systemImage: "plus")
+        }
+    }
+
+    @ViewBuilder private var selectedGroupActions: some View {
+        if let selectedGroup {
+            Divider()
+            Button {
+                editingGroup = selectedGroup
+                showingGroupEditor = true
+            } label: {
+                Label("Edit Group", systemImage: "pencil")
+            }
+            Button(role: .destructive) {
+                viewModel.deleteGroup(id: selectedGroup.id)
+            } label: {
+                Label("Delete Group", systemImage: "trash")
+            }
+        }
+    }
+
+    private var groupFilterMenu: some View {
+        Menu {
+            groupMenuItems
+        } label: {
+            Label(groupFilterMenuLabel, systemImage: "line.3.horizontal.decrease.circle")
+        }
+    }
+
     private var projectList: some View {
         List {
             ForEach(viewModel.projects) { project in
@@ -120,19 +188,6 @@ public struct ProjectListView: View {
             }
         }
         .listStyle(.plain)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button(
-                    action: { showingCreateWizard = true },
-                    label: { Label("New Project", systemImage: "plus") }
-                )
-            }
-        }
-        .sheet(isPresented: $showingCreateWizard) {
-            if let dataStore, let ndk {
-                CreateProjectWizardView(ndk: ndk, dataStore: dataStore)
-            }
-        }
     }
 
     private var emptyView: some View {
@@ -154,11 +209,6 @@ public struct ProjectListView: View {
             }
             .buttonStyle(.borderedProminent)
             .padding(.top)
-        }
-        .sheet(isPresented: $showingCreateWizard) {
-            if let dataStore, let ndk {
-                CreateProjectWizardView(ndk: ndk, dataStore: dataStore)
-            }
         }
     }
 }

@@ -35,6 +35,11 @@ struct TENEXApp: App {
                     // Restore session on app launch
                     try? await authManager.restoreSession()
 
+                    // Set signer on NDK from auth manager
+                    if let signer = authManager.signer {
+                        ndk.signer = signer
+                    }
+
                     // Connect to relays
                     await ndk.connect()
 

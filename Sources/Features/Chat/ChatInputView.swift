@@ -71,33 +71,28 @@ public struct ChatInputView: View {
     // MARK: Public
 
     public var body: some View {
-        VStack(spacing: 12) {
-            // Input toolbar
-            inputToolbar
-
-            // Text input with mention autocomplete overlay
-            ZStack(alignment: .topLeading) {
-                textInput
-
-                // Mention autocomplete popup
-                if mentionVM.isVisible {
-                    MentionAutocompleteView(viewModel: mentionVM, ndk: ndk) { replacement, pubkey in
-                        handleMentionSelection(replacement: replacement, pubkey: pubkey)
-                    }
-                    .padding(.top, -140) // Position above the input
+        VStack(spacing: 0) {
+            // Mention autocomplete popup (shows above input)
+            if mentionVM.isVisible {
+                MentionAutocompleteView(viewModel: mentionVM, ndk: ndk) { replacement, pubkey in
+                    handleMentionSelection(replacement: replacement, pubkey: pubkey)
                 }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
             }
 
-            // Agent and branch selectors
-            HStack(spacing: 8) {
-                AgentSelectorButton(viewModel: agentSelectorVM)
-                branchSelector
-                Spacer()
-                sendButton
+            // Main input area
+            VStack(spacing: 12) {
+                // Agent selector row - always show so user knows who they're addressing
+                agentRow
+
+                // Unified input bar
+                inputBar
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Color.platformBackground)
         }
-        .padding(12)
-        .background(Color.platformBackground)
         .onChange(of: viewModel.inputText) { _, newValue in
             handleTextChange(newValue)
         }
@@ -111,96 +106,109 @@ public struct ChatInputView: View {
     @State private var viewModel: ChatInputViewModel
     @State private var agentSelectorVM: AgentSelectorViewModel
     @State private var mentionVM: MentionAutocompleteViewModel
+    @FocusState private var isInputFocused: Bool
 
     private let ndk: NDK
     private let onSend: (String, String?, [String]) -> Void
 
-    private var inputToolbar: some View {
-        HStack(spacing: 16) {
-            attachmentButton
-            micButton
+    private var agentRow: some View {
+        HStack(spacing: 8) {
+            AgentSelectorButton(viewModel: agentSelectorVM)
+            branchChip
             Spacer()
         }
     }
 
-    private var attachmentButton: some View {
-        Button {
-            // Placeholder action
-        } label: {
-            Image(systemName: "paperclip")
-                .font(.system(size: 20))
-                .foregroundStyle(.secondary)
+    @ViewBuilder private var branchChip: some View {
+        if let branch = viewModel.selectedBranch {
+            HStack(spacing: 4) {
+                Image(systemName: "arrow.branch")
+                    .font(.system(size: 11, weight: .medium))
+                Text(branch)
+                    .font(.system(size: 12, weight: .medium))
+            }
+            .foregroundStyle(.green)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(.green.opacity(0.12), in: Capsule())
         }
     }
 
-    private var micButton: some View {
-        Button {
-            // Placeholder - voice mode not yet implemented
-        } label: {
-            Image(systemName: "mic")
-                .font(.system(size: 20))
-                .foregroundStyle(.secondary)
+    private var inputBar: some View {
+        HStack(alignment: .bottom, spacing: 8) {
+            textEditor
+            sendButton
+        }
+        .padding(.leading, 16)
+        .padding(.trailing, 6)
+        .padding(.vertical, 6)
+        .background(Color.platformSecondaryBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(inputBarBorder)
+    }
+
+    private var inputBarBorder: some View {
+        RoundedRectangle(cornerRadius: 24, style: .continuous)
+            .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+    }
+
+    private var textEditor: some View {
+        ZStack(alignment: .leading) {
+            textPlaceholder
+            textField
+        }
+        .padding(.horizontal, 4)
+    }
+
+    @ViewBuilder private var textPlaceholder: some View {
+        if viewModel.inputText.isEmpty {
+            Text("Message...")
+                .font(.system(size: 16))
+                .foregroundStyle(.tertiary)
+                .padding(.leading, 4)
         }
     }
 
-    private var textInput: some View {
+    private var textField: some View {
         TextEditor(text: $viewModel.inputText)
             .font(.system(size: 16))
-            .frame(minHeight: 40, maxHeight: 120)
-            .padding(8)
-            .background(Color.platformSecondaryBackground)
-            .cornerRadius(20)
-            .overlay(
-                RoundedRectangle(cornerRadius: 20)
-                    .stroke(Color.platformSeparator, lineWidth: 1)
-            )
-            .overlay(alignment: .topLeading) {
-                if viewModel.inputText.isEmpty {
-                    Text("Message...")
-                        .font(.system(size: 16))
-                        .foregroundStyle(.tertiary)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 16)
-                        .allowsHitTesting(false)
-                }
-            }
-    }
-
-    private var branchSelector: some View {
-        Group {
-            if let branch = viewModel.selectedBranch {
-                Button {
-                    // Show branch selector
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.branch")
-                            .font(.system(size: 14))
-                        Text(branch)
-                            .font(.system(size: 12))
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.green.opacity(0.1))
-                    .foregroundStyle(.green)
-                    .cornerRadius(14)
-                }
-            }
-        }
+            .scrollContentBackground(.hidden)
+            .background(.clear)
+            .focused($isInputFocused)
+            .frame(minHeight: 36, maxHeight: 120)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     private var sendButton: some View {
         Button {
-            let text = viewModel.inputText
-            let agentPubkey = agentSelectorVM.selectedAgentPubkey
-            let mentions = viewModel.mentionedPubkeys
-            onSend(text, agentPubkey, mentions)
-            viewModel.clearInput()
+            sendMessage()
         } label: {
-            Image(systemName: "arrow.up.circle.fill")
-                .font(.system(size: 32))
-                .foregroundStyle(viewModel.canSend ? .blue : .gray)
+            sendButtonIcon
         }
+        .buttonStyle(.plain)
         .disabled(!viewModel.canSend)
+        .animation(.easeInOut(duration: 0.15), value: viewModel.canSend)
+    }
+
+    private var sendButtonIcon: some View {
+        Image(systemName: "arrow.up")
+            .font(.system(size: 14, weight: .bold))
+            .foregroundStyle(.white)
+            .frame(width: 32, height: 32)
+            .background(sendButtonBackground)
+    }
+
+    private var sendButtonBackground: some View {
+        Circle()
+            .fill(viewModel.canSend ? Color.accentColor : Color.gray.opacity(0.4))
+    }
+
+    private func sendMessage() {
+        let text = viewModel.inputText
+        let agentPubkey = agentSelectorVM.selectedAgentPubkey
+        let mentions = viewModel.mentionedPubkeys
+        onSend(text, agentPubkey, mentions)
+        viewModel.clearInput()
     }
 
     private func handleTextChange(_ newText: String) {
