@@ -25,9 +25,15 @@ public final class ThreadListViewModel {
     /// - Parameters:
     ///   - ndk: The NDK instance for fetching threads
     ///   - projectId: The project addressable coordinate (kind:pubkey:dTag)
-    public init(ndk: NDK, projectID: String) {
+    ///   - archiveStorage: Storage for archived thread IDs
+    public init(
+        ndk: NDK,
+        projectID: String,
+        archiveStorage: ThreadArchiveStorage = UserDefaultsThreadArchiveStorage()
+    ) {
         self.ndk = ndk
         self.projectID = projectID
+        self.archiveStorage = archiveStorage
     }
 
     // MARK: Public
@@ -98,8 +104,11 @@ public final class ThreadListViewModel {
         // Store thread events for navigation
         self.threadEvents = threadEventsByID
 
+        // Filter out archived threads
+        let nonArchivedThreads = filterArchivedThreads(from: enrichedThreads)
+
         // Sort by creation date (newest first)
-        return enrichedThreads.sorted { $0.createdAt > $1.createdAt }
+        return nonArchivedThreads.sorted { $0.createdAt > $1.createdAt }
     }
 
     /// The current error message, if any
@@ -127,6 +136,18 @@ public final class ThreadListViewModel {
         messagesSubscription = ndk.subscribe(filter: messagesFilter)
     }
 
+    /// Archive a thread (hide from list)
+    /// - Parameter id: The thread ID to archive
+    public func archiveThread(id: String) async {
+        archiveStorage.archive(threadID: id)
+    }
+
+    /// Unarchive a thread (restore to list)
+    /// - Parameter id: The thread ID to unarchive
+    public func unarchiveThread(id: String) async {
+        archiveStorage.unarchive(threadID: id)
+    }
+
     // MARK: Internal
 
     private(set) var threadEventsSubscription: NDKSubscription<NDKEvent>?
@@ -137,4 +158,11 @@ public final class ThreadListViewModel {
 
     private let ndk: NDK
     private let projectID: String
+    private let archiveStorage: ThreadArchiveStorage
+
+    /// Filter out archived threads
+    private func filterArchivedThreads(from threads: [NostrThread]) -> [NostrThread] {
+        let archivedIDs = archiveStorage.archivedThreadIDs()
+        return threads.filter { !archivedIDs.contains($0.id) }
+    }
 }
