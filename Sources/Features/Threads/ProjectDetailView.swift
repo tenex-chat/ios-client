@@ -52,7 +52,7 @@ public struct ProjectDetailView: View {
     // MARK: Private
 
     @Environment(\.ndk) private var ndk
-    @Environment(AuthManager.self) private var authManager
+    @Environment(NDKAuthManager.self) private var authManager
     @State private var showingSettings = false
 
     private let project: Project
@@ -60,7 +60,7 @@ public struct ProjectDetailView: View {
     private var threadsTab: some View {
         ThreadListView(
             projectID: project.coordinate,
-            userPubkey: authManager.currentUser?.pubkey
+            userPubkey: authManager.activePubkey
         )
         .navigationTitle(project.title)
         .tabItem {

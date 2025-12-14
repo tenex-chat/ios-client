@@ -4,6 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftCore
 import OSLog
 import SwiftUI
 import TENEXCore
@@ -50,7 +51,7 @@ public struct NavigationShell: View {
 
     // MARK: Private
 
-    @Environment(AuthManager.self) private var authManager
+    @Environment(NDKAuthManager.self) private var authManager
     @Environment(DataStore.self) private var dataStore: DataStore?
     @Environment(\.ndk) private var ndk
     @State private var router = NavigationRouter()
@@ -142,17 +143,19 @@ public struct NavigationShell: View {
             if let project = dataStore?.projects.first(where: { $0.id == id }) {
                 ProjectDetailView(project: project)
             } else {
-                ProjectDetailPlaceholder(projectID: id)
+                Text("Project not found")
             }
 
         case let .threadList(projectID):
-            ThreadListPlaceholder(projectID: projectID)
+            ThreadListView(projectID: projectID, userPubkey: authManager.activePubkey)
 
-        case let .thread(projectID, threadID):
-            ThreadDetailPlaceholder(projectID: projectID, threadID: threadID)
+        case let .thread(projectID, _):
+            // Deep link to specific thread - show thread list (user can select thread)
+            ThreadListView(projectID: projectID, userPubkey: authManager.activePubkey)
 
-        case let .voiceMode(projectID, threadID):
-            VoiceModePlaceholder(projectID: projectID, threadID: threadID)
+        case let .voiceMode(projectID, _):
+            // Voice mode must be started from within a chat
+            ThreadListView(projectID: projectID, userPubkey: authManager.activePubkey)
 
         case let .agents(projectID):
             if let ndk {
@@ -208,154 +211,6 @@ public struct NavigationShell: View {
             isSigningOut = false
         }
 
-        do {
-            try await authManager.signOut()
-        } catch {
-            Logger().error("Failed to sign out: \(error.localizedDescription)")
-        }
-    }
-}
-
-// MARK: - ProjectListPlaceholder
-
-// These will be replaced with actual implementations in future milestones
-
-struct ProjectListPlaceholder: View {
-    var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "folder.fill")
-                .font(.system(size: 60))
-                .foregroundStyle(.blue)
-
-            Text("Project List")
-                .font(.title)
-                .fontWeight(.semibold)
-
-            Text("Coming in Milestone 1.2")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .navigationTitle("Projects")
-    }
-}
-
-// MARK: - ProjectDetailPlaceholder
-
-struct ProjectDetailPlaceholder: View {
-    let projectID: String
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "folder.badge.gearshape")
-                .font(.system(size: 60))
-                .foregroundStyle(.blue)
-
-            Text("Project Detail")
-                .font(.title)
-                .fontWeight(.semibold)
-
-            Text("Project ID: \(projectID)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Text("Coming in Milestone 1.2")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .navigationTitle("Project")
-    }
-}
-
-// MARK: - ThreadListPlaceholder
-
-struct ThreadListPlaceholder: View {
-    let projectID: String
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "bubble.left.and.bubble.right.fill")
-                .font(.system(size: 60))
-                .foregroundStyle(.blue)
-
-            Text("Thread List")
-                .font(.title)
-                .fontWeight(.semibold)
-
-            Text("Project ID: \(projectID)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Text("Coming in Milestone 2")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .navigationTitle("Threads")
-    }
-}
-
-// MARK: - ThreadDetailPlaceholder
-
-struct ThreadDetailPlaceholder: View {
-    let projectID: String
-    let threadID: String
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "message.fill")
-                .font(.system(size: 60))
-                .foregroundStyle(.blue)
-
-            Text("Thread Detail")
-                .font(.title)
-                .fontWeight(.semibold)
-
-            Text("Project: \(projectID)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Text("Thread: \(threadID)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            Text("Coming in Milestone 3")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .navigationTitle("Chat")
-    }
-}
-
-// MARK: - VoiceModePlaceholder
-
-struct VoiceModePlaceholder: View {
-    let projectID: String
-    let threadID: String?
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "waveform.circle.fill")
-                .font(.system(size: 80))
-                .foregroundStyle(.blue)
-
-            Text("Voice Mode")
-                .font(.title)
-                .fontWeight(.semibold)
-
-            Text("Project: \(projectID)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            if let threadID {
-                Text("Thread: \(threadID)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Text("Voice conversation with AI agents")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .navigationTitle("Voice Mode")
-        .preferredColorScheme(.dark)
+        authManager.logout()
     }
 }

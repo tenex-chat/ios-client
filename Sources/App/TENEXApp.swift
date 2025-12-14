@@ -13,6 +13,22 @@ import TENEXFeatures
 
 @main
 struct TENEXApp: App {
+    // MARK: Lifecycle
+
+    init() {
+        // Create NDK first
+        let ndk = NDK(
+            relayURLs: [
+                "wss://tenex.chat",
+            ],
+            outboxEnabled: false
+        )
+        _ndk = State(initialValue: ndk)
+
+        // Create auth manager with NDK reference
+        _authManager = State(initialValue: NDKAuthManager(ndk: ndk))
+    }
+
     // MARK: Internal
 
     // MARK: - Body
@@ -32,19 +48,14 @@ struct TENEXApp: App {
                         dataStore = DataStore(ndk: ndk)
                     }
 
-                    // Restore session on app launch
-                    try? await authManager.restoreSession()
-
-                    // Set signer on NDK from auth manager
-                    if let signer = authManager.signer {
-                        ndk.signer = signer
-                    }
+                    // Initialize auth manager (restores sessions and sets ndk.signer automatically)
+                    await authManager.initialize()
 
                     // Connect to relays
                     await ndk.connect()
 
                     // Start data subscriptions after auth
-                    if authManager.isAuthenticated, let pubkey = authManager.currentUser?.pubkey {
+                    if authManager.isAuthenticated, let pubkey = authManager.activePubkey {
                         dataStore?.startSubscriptions(for: pubkey)
                     }
                 }
@@ -56,20 +67,10 @@ struct TENEXApp: App {
 
     // MARK: - State
 
-    @State private var authManager = AuthManager()
+    @State private var ndk: NDK
+    @State private var authManager: NDKAuthManager
     @State private var dataStore: DataStore?
     @State private var aiConfig: AIConfig?
-    @State private var ndk: NDK = {
-        // Disable outbox model to query all connected relays
-        // (outbox requires NIP-65 relay metadata which we don't have yet)
-        let ndk = NDK(
-            relayURLs: [
-                "wss://tenex.chat",
-            ],
-            outboxEnabled: false
-        )
-        return ndk
-    }()
 
     // MARK: - Helpers
 
@@ -98,5 +99,5 @@ struct ContentView: View {
 
     // MARK: Private
 
-    @Environment(AuthManager.self) private var authManager
+    @Environment(NDKAuthManager.self) private var authManager
 }

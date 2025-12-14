@@ -5,6 +5,7 @@
 //
 
 import Foundation
+import NDKSwiftCore
 import Observation
 
 // MARK: - LoginViewModel
@@ -17,7 +18,7 @@ public final class LoginViewModel {
 
     /// Initialize the login view model
     /// - Parameter authManager: The auth manager to use for sign in
-    public init(authManager: AuthManager) {
+    public init(authManager: NDKAuthManager) {
         self.authManager = authManager
     }
 
@@ -56,7 +57,8 @@ public final class LoginViewModel {
 
         // Attempt sign in
         do {
-            try await authManager.signIn(with: trimmed)
+            let signer = try NDKPrivateKeySigner(nsec: trimmed)
+            _ = try await authManager.addSession(signer)
             // Sign in successful, error message stays nil
         } catch {
             // Sign in failed, set error message
@@ -66,5 +68,5 @@ public final class LoginViewModel {
 
     // MARK: Private
 
-    private let authManager: AuthManager
+    private let authManager: NDKAuthManager
 }
