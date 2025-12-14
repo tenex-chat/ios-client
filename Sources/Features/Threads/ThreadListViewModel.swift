@@ -207,11 +207,11 @@ public final class ThreadListViewModel {
         now: TimeInterval
     ) -> [NostrThread] {
         // Build map of threadID → lastReplyTime (from any user)
-        var threadLastReplyMap: [String: TimeInterval] = [:]
+        var threadLastReplyMap: [String: Timestamp] = [:]
 
         for message in messages {
-            if let threadID = message.tags(withName: "E").first?[safe: 1],
-               let createdAt = message.createdAt {
+            if let threadID = message.tags(withName: "E").first?[safe: 1] {
+                let createdAt = message.createdAt
                 let currentLast = threadLastReplyMap[threadID] ?? 0
                 if createdAt > currentLast {
                     threadLastReplyMap[threadID] = createdAt
@@ -225,7 +225,7 @@ public final class ThreadListViewModel {
 
             // If thread has any replies
             if let lastReplyTime {
-                let timeSinceLastReply = now - lastReplyTime
+                let timeSinceLastReply = now - TimeInterval(lastReplyTime)
                 // Show threads that have had a reply within the selected timeframe
                 return timeSinceLastReply <= threshold
             }
@@ -249,14 +249,14 @@ public final class ThreadListViewModel {
         }
 
         // Build two maps: threadID → lastOtherReplyTime and threadID → lastUserReplyTime
-        var threadLastOtherReplyMap: [String: TimeInterval] = [:]
-        var threadLastUserReplyMap: [String: TimeInterval] = [:]
+        var threadLastOtherReplyMap: [String: Timestamp] = [:]
+        var threadLastUserReplyMap: [String: Timestamp] = [:]
 
         for message in messages {
-            guard let threadID = message.tags(withName: "E").first?[safe: 1],
-                  let createdAt = message.createdAt else {
+            guard let threadID = message.tags(withName: "E").first?[safe: 1] else {
                 continue
             }
+            let createdAt = message.createdAt
 
             if message.pubkey == userPubkey {
                 // Track user's own replies
@@ -287,7 +287,7 @@ public final class ThreadListViewModel {
                 }
 
                 // Check if the time since the other person's reply exceeds the threshold
-                let timeSinceLastOtherReply = now - lastOtherReplyTime
+                let timeSinceLastOtherReply = now - TimeInterval(lastOtherReplyTime)
                 if timeSinceLastOtherReply < threshold {
                     // Reply is still within the threshold time, don't show yet
                     return false

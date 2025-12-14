@@ -148,7 +148,8 @@ private extension Message {
         threadID: "thread1",
         content: "Parent message.",
         createdAt: Date().addingTimeInterval(-3600),
-        replyTo: nil
+        replyTo: nil,
+        kind: 1111
     )
     static let previewFocused = Message(
         id: "focused",
@@ -156,7 +157,8 @@ private extension Message {
         threadID: "thread1",
         content: "Focused message with **markdown**.",
         createdAt: Date(),
-        replyTo: "parent"
+        replyTo: "parent",
+        kind: 1111
     )
     static let previewReply1 = Message(
         id: "reply1",
@@ -164,7 +166,8 @@ private extension Message {
         threadID: "thread1",
         content: "First reply.",
         createdAt: Date().addingTimeInterval(60),
-        replyTo: "focused"
+        replyTo: "focused",
+        kind: 1111
     )
     static let previewReply2 = Message(
         id: "reply2",
@@ -172,6 +175,7 @@ private extension Message {
         threadID: "thread1",
         content: "Second reply.",
         createdAt: Date().addingTimeInterval(120),
-        replyTo: "focused"
+        replyTo: "focused",
+        kind: 1111
     )
 }

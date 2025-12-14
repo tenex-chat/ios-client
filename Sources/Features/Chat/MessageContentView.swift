@@ -36,7 +36,6 @@ public struct MessageContentView: View {
     // MARK: Internal
 
     let message: Message
-    let onRetry: (() -> Void)?
 
     // MARK: Private
 

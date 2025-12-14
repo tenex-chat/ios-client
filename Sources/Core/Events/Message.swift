@@ -246,12 +246,18 @@ public struct Message: Identifiable, Sendable {
         content: String,
         createdAt: Date,
         replyTo: String?,
+        kind: UInt16,
         status: MessageStatus? = nil,
         isStreaming: Bool = false,
         replyCount: Int = 0,
         replyAuthorPubkeys: [String] = [],
         toolCall: ToolCall? = nil,
-        isReasoning: Bool = false
+        isReasoning: Bool = false,
+        branch: String? = nil,
+        phase: String? = nil,
+        pTaggedPubkeys: [String] = [],
+        suggestions: [String] = [],
+        rawEventJSON: String? = nil
     ) {
         self.id = id
         self.pubkey = pubkey
@@ -259,12 +265,18 @@ public struct Message: Identifiable, Sendable {
         self.content = content
         self.createdAt = createdAt
         self.replyTo = replyTo
+        self.kind = kind
         self.status = status
         self.isStreaming = isStreaming
         self.replyCount = replyCount
         self.replyAuthorPubkeys = replyAuthorPubkeys
         self.toolCall = toolCall
         self.isReasoning = isReasoning
+        self.branch = branch
+        self.phase = phase
+        self.pTaggedPubkeys = pTaggedPubkeys
+        self.suggestions = suggestions
+        self.rawEventJSON = rawEventJSON
     }
 
     // MARK: Public
@@ -305,6 +317,24 @@ public struct Message: Identifiable, Sendable {
     /// Whether this message contains AI reasoning/thinking content
     public let isReasoning: Bool
 
+    /// Event kind (11 for thread, 1111 for GenericReply)
+    public let kind: UInt16
+
+    /// Branch name from event tags
+    public let branch: String?
+
+    /// Phase name from event tags
+    public let phase: String?
+
+    /// P-tagged pubkeys from event
+    public let pTaggedPubkeys: [String]
+
+    /// Suggestion strings from event tags
+    public let suggestions: [String]
+
+    /// Raw event JSON for debugging
+    public let rawEventJSON: String?
+
     /// Whether this message is a tool call
     public var isToolCall: Bool { toolCall != nil }
 
@@ -312,22 +342,25 @@ public struct Message: Identifiable, Sendable {
     /// - Parameter event: The NDKEvent (must be kind:11 or kind:1111)
     /// - Returns: A Message instance, or nil if the event is invalid
     public static func from(event: NDKEvent) -> Self? {
+        let metadata = extractMetadata(from: event)
+
         // Handle kind:11 (thread event - the original post)
         if event.kind == 11 {
-            // For kind:11, the thread ID is the event's own ID
-            // and there's no parent (replyTo is nil)
-            let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
-            let isReasoning = event.tags(withName: "reasoning").first != nil
-
             return Self(
                 id: event.id,
                 pubkey: event.pubkey,
                 threadID: event.id,
                 content: event.content,
-                createdAt: createdAt,
+                createdAt: metadata.createdAt,
                 replyTo: nil,
+                kind: UInt16(event.kind),
                 status: nil,
-                isReasoning: isReasoning
+                isReasoning: metadata.isReasoning,
+                branch: metadata.branch,
+                phase: metadata.phase,
+                pTaggedPubkeys: metadata.pTaggedPubkeys,
+                suggestions: metadata.suggestions,
+                rawEventJSON: metadata.rawEventJSON
             )
         }
 
@@ -348,25 +381,25 @@ public struct Message: Identifiable, Sendable {
         // Extract optional parent message ID from 'e' tag
         let replyTo = event.tags(withName: "e").first?[safe: 1]
 
-        // Convert timestamp to Date
-        let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
-
         // Parse tool call data if present
         let toolCall = ToolCall.from(event: event)
-
-        // Check if this is a reasoning message
-        let isReasoning = event.tags(withName: "reasoning").first != nil
 
         return Self(
             id: event.id,
             pubkey: event.pubkey,
             threadID: threadID,
             content: event.content,
-            createdAt: createdAt,
+            createdAt: metadata.createdAt,
             replyTo: replyTo,
+            kind: UInt16(event.kind),
             status: nil,
             toolCall: toolCall,
-            isReasoning: isReasoning
+            isReasoning: metadata.isReasoning,
+            branch: metadata.branch,
+            phase: metadata.phase,
+            pTaggedPubkeys: metadata.pTaggedPubkeys,
+            suggestions: metadata.suggestions,
+            rawEventJSON: metadata.rawEventJSON
         )
     }
 
@@ -391,12 +424,18 @@ public struct Message: Identifiable, Sendable {
             content: content,
             createdAt: createdAt,
             replyTo: replyTo,
+            kind: kind,
             status: status,
             isStreaming: isStreaming,
             replyCount: replyCount,
             replyAuthorPubkeys: replyAuthorPubkeys,
             toolCall: toolCall,
-            isReasoning: isReasoning
+            isReasoning: isReasoning,
+            branch: branch,
+            phase: phase,
+            pTaggedPubkeys: pTaggedPubkeys,
+            suggestions: suggestions,
+            rawEventJSON: rawEventJSON
         )
     }
 
@@ -411,12 +450,18 @@ public struct Message: Identifiable, Sendable {
             content: content,
             createdAt: createdAt,
             replyTo: replyTo,
+            kind: kind,
             status: status,
             isStreaming: isStreaming,
             replyCount: replyCount,
             replyAuthorPubkeys: replyAuthorPubkeys,
             toolCall: toolCall,
-            isReasoning: isReasoning
+            isReasoning: isReasoning,
+            branch: branch,
+            phase: phase,
+            pTaggedPubkeys: pTaggedPubkeys,
+            suggestions: suggestions,
+            rawEventJSON: rawEventJSON
         )
     }
 
@@ -433,12 +478,68 @@ public struct Message: Identifiable, Sendable {
             content: content,
             createdAt: createdAt,
             replyTo: replyTo,
+            kind: kind,
             status: status,
             isStreaming: isStreaming,
             replyCount: replyCount,
             replyAuthorPubkeys: replyAuthorPubkeys,
             toolCall: toolCall,
-            isReasoning: isReasoning
+            isReasoning: isReasoning,
+            branch: branch,
+            phase: phase,
+            pTaggedPubkeys: pTaggedPubkeys,
+            suggestions: suggestions,
+            rawEventJSON: rawEventJSON
+        )
+    }
+
+    // MARK: Private
+
+    private struct EventMetadata {
+        let createdAt: Date
+        let isReasoning: Bool
+        let branch: String?
+        let phase: String?
+        let pTaggedPubkeys: [String]
+        let suggestions: [String]
+        let rawEventJSON: String?
+    }
+
+    private static func extractMetadata(from event: NDKEvent) -> EventMetadata {
+        let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
+        let isReasoning = event.tags(withName: "reasoning").first != nil
+        let branch = event.tags(withName: "branch").first?[safe: 1]
+        let phase = event.tags(withName: "phase").first?[safe: 1]
+        let pTaggedPubkeys = event.tags(withName: "p").compactMap { $0[safe: 1] }
+        let suggestions = event.tags(withName: "suggestion").compactMap { $0[safe: 1] }
+
+        let eventDict: [String: Any] = [
+            "id": event.id,
+            "pubkey": event.pubkey,
+            "created_at": event.createdAt,
+            "kind": event.kind,
+            "content": event.content,
+            "sig": event.sig,
+            "tags": event.tags.map { Array($0) },
+        ]
+        let rawEventJSON: String? = if let jsonData = try? JSONSerialization.data(
+            withJSONObject: eventDict,
+            options: .prettyPrinted
+        ),
+            let jsonString = String(data: jsonData, encoding: .utf8) {
+            jsonString
+        } else {
+            nil
+        }
+
+        return EventMetadata(
+            createdAt: createdAt,
+            isReasoning: isReasoning,
+            branch: branch,
+            phase: phase,
+            pTaggedPubkeys: pTaggedPubkeys,
+            suggestions: suggestions,
+            rawEventJSON: rawEventJSON
         )
     }
 }

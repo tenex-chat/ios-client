@@ -15,25 +15,26 @@ import TENEXCore
 public struct MessageRow: View {
     // MARK: Lifecycle
 
-    /// Initialize the message row
-    /// - Parameters:
-    ///   - message: The message to display
-    ///   - currentUserPubkey: The current user's pubkey (to differentiate user vs agent)
-    ///   - onReplyTap: Optional action when reply indicator is tapped
-    ///   - onRetry: Optional action when retry button is tapped (for failed messages)
-    ///   - onAgentTap: Optional action when agent avatar/name is tapped
     public init(
         message: Message,
         currentUserPubkey: String?,
+        isConsecutive: Bool = false,
+        hasNextConsecutive: Bool = false,
         onReplyTap: (() -> Void)? = nil,
-        onRetry: (() -> Void)? = nil,
-        onAgentTap: (() -> Void)? = nil
+        onAgentTap: (() -> Void)? = nil,
+        onQuote: (() -> Void)? = nil,
+        onTimestampTap: (() -> Void)? = nil,
+        showDebugInfo: Bool = false
     ) {
         self.message = message
         self.currentUserPubkey = currentUserPubkey
+        self.isConsecutive = isConsecutive
+        self.hasNextConsecutive = hasNextConsecutive
         self.onReplyTap = onReplyTap
-        self.onRetry = onRetry
         self.onAgentTap = onAgentTap
+        self.onQuote = onQuote
+        self.onTimestampTap = onTimestampTap
+        self.showDebugInfo = showDebugInfo
         isAgent = currentUserPubkey != nil && message.pubkey != currentUserPubkey
     }
 
@@ -41,32 +42,93 @@ public struct MessageRow: View {
 
     public var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            avatarView
-            messageContentView
+            avatarColumnView
+            VStack(alignment: .leading, spacing: 4) {
+                if !isConsecutive {
+                    MessageHeaderView(
+                        message: message,
+                        currentUserPubkey: currentUserPubkey,
+                        showDebugInfo: showDebugInfo,
+                        onAgentTap: onAgentTap,
+                        onTimestampTap: onTimestampTap
+                    )
+                }
+
+                MessageContentView(message: message)
+
+                if !isAgent, let status = message.status {
+                    statusIndicator(for: status)
+                }
+
+                if message.replyCount > 0, let onReplyTap {
+                    ReplyIndicatorView(
+                        replyCount: message.replyCount,
+                        authorPubkeys: message.replyAuthorPubkeys,
+                        onTap: onReplyTap
+                    )
+                    .padding(.top, 4)
+                }
+
+                if !message.suggestions.isEmpty {
+                    suggestionsView
+                }
+            }
             Spacer()
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, isConsecutive ? 2 : 8)
+        .contextMenu {
+            contextMenuContent
+        }
     }
 
     // MARK: Private
 
     @Environment(\.ndk) private var ndk
-    @State private var cursorVisible = false
+    @State private var showRawEvent = false
 
     private let message: Message
     private let currentUserPubkey: String?
+    private let isConsecutive: Bool
+    private let hasNextConsecutive: Bool
     private let onReplyTap: (() -> Void)?
-    private let onRetry: (() -> Void)?
     private let onAgentTap: (() -> Void)?
+    private let onQuote: (() -> Void)?
+    private let onTimestampTap: (() -> Void)?
+    private let showDebugInfo: Bool
     private let isAgent: Bool
 
-    private var markdownText: AttributedString {
-        do {
-            return try AttributedString(markdown: message.content)
-        } catch {
-            // Fallback to plain text if markdown parsing fails
-            return AttributedString(message.content)
+    private var avatarColumnView: some View {
+        VStack(spacing: 0) {
+            if isConsecutive {
+                threadContinuityLine
+            } else {
+                avatarView
+            }
+            if hasNextConsecutive {
+                threadContinuityLineBelow
+            }
         }
+        .frame(width: 36)
+    }
+
+    private var threadContinuityLine: some View {
+        VStack(spacing: 0) {
+            Rectangle()
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: 2)
+                .frame(maxHeight: .infinity)
+            Circle()
+                .fill(Color.gray.opacity(0.5))
+                .frame(width: 8, height: 8)
+        }
+        .frame(height: 20)
+    }
+
+    private var threadContinuityLineBelow: some View {
+        Rectangle()
+            .fill(Color.gray.opacity(0.3))
+            .frame(width: 2)
+            .frame(maxHeight: .infinity)
     }
 
     private var avatarView: some View {
@@ -88,50 +150,66 @@ public struct MessageRow: View {
             .foregroundStyle(isAgent ? .blue : .gray)
     }
 
-    private var messageContentView: some View {
+    private var suggestionsView: some View {
         VStack(alignment: .leading, spacing: 4) {
-            authorHeader
-            messageContent
-
-            if !isAgent, let status = message.status {
-                statusIndicator(for: status)
-            }
-
-            if message.replyCount > 0, let onReplyTap {
-                ReplyIndicatorView(
-                    replyCount: message.replyCount,
-                    authorPubkeys: message.replyAuthorPubkeys,
-                    onTap: onReplyTap
-                )
-                .padding(.top, 4)
+            ForEach(message.suggestions, id: \.self) { suggestion in
+                Button {} label: {
+                    Text(suggestion)
+                        .font(.caption)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(4)
+                }
+                .buttonStyle(.plain)
             }
         }
+        .padding(.top, 4)
     }
 
-    private var authorHeader: some View {
-        HStack(spacing: 8) {
-            if let ndk {
-                if isAgent, let onAgentTap {
-                    Button(action: onAgentTap) {
-                        NDKUIUsername(ndk: ndk, pubkey: message.pubkey)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(.blue)
-                    }
-                    .buttonStyle(.plain)
-                } else {
-                    NDKUIUsername(ndk: ndk, pubkey: message.pubkey)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(isAgent ? .blue : .primary)
-                }
-            } else {
-                Text(String(message.pubkey.prefix(8)))
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.primary)
+    @ViewBuilder private var contextMenuContent: some View {
+        if let onReplyTap {
+            Button {
+                onReplyTap()
+            } label: {
+                Label("Reply", systemImage: "arrowshape.turn.up.left")
             }
+        }
 
-            Text(message.createdAt, style: .relative)
-                .font(.system(size: 12))
-                .foregroundStyle(.tertiary)
+        if let onQuote {
+            Button {
+                onQuote()
+            } label: {
+                Label("Quote", systemImage: "quote.bubble")
+            }
+        }
+
+        Button {
+            copyToClipboard(message.content)
+        } label: {
+            Label("Copy Content", systemImage: "doc.on.doc")
+        }
+
+        if let rawEventJSON = message.rawEventJSON {
+            Button {
+                copyToClipboard(rawEventJSON)
+            } label: {
+                Label("Copy Raw Event", systemImage: "doc.on.doc.fill")
+            }
+        }
+
+        Button {
+            copyToClipboard(message.id)
+        } label: {
+            Label("Copy ID", systemImage: "number")
+        }
+
+        if message.rawEventJSON != nil {
+            Button {
+                showRawEvent = true
+            } label: {
+                Label("View Raw Event", systemImage: "chevron.left.forwardslash.chevron.right")
+            }
         }
     }
 
@@ -149,67 +227,6 @@ public struct MessageRow: View {
         }
     }
 
-    private var messageContent: some View {
-        Group {
-            if message.isReasoning {
-                // Reasoning event - render with collapsible block
-                ReasoningBlockView(message: message)
-            } else if let toolCall = message.toolCall {
-                // Tool call - render with specialized renderer
-                ToolCallView(toolCall: toolCall)
-            } else if message.isStreaming {
-                // Streaming message with blinking cursor
-                streamingContent
-            } else if message.content.contains("```") {
-                // Contains code blocks - render with special formatting
-                codeBlockContent
-            } else {
-                // Regular markdown content
-                Text(markdownText)
-                    .font(.system(size: 16))
-                    .lineSpacing(1.4)
-                    .foregroundStyle(.primary)
-                    .textSelection(.enabled)
-            }
-        }
-    }
-
-    private var streamingContent: some View {
-        HStack(alignment: .bottom, spacing: 2) {
-            Text(markdownText)
-                .font(.system(size: 16))
-                .lineSpacing(1.4)
-                .foregroundStyle(.primary)
-
-            // Blinking cursor
-            Rectangle()
-                .fill(.primary)
-                .frame(width: 2, height: 16)
-                .opacity(cursorVisible ? 1 : 0)
-                .onAppear {
-                    withAnimation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
-                        cursorVisible = true
-                    }
-                }
-        }
-    }
-
-    private var codeBlockContent: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(splitByCodeBlocks(), id: \.offset) { item in
-                if item.isCode {
-                    codeBlock(item.text)
-                } else if !item.text.isEmpty {
-                    Text(item.text)
-                        .font(.system(size: 16))
-                        .lineSpacing(1.4)
-                        .foregroundStyle(.primary)
-                }
-            }
-        }
-        .textSelection(.enabled)
-    }
-
     @ViewBuilder
     private func statusIndicator(for status: MessageStatus) -> some View {
         HStack(spacing: 6) {
@@ -223,72 +240,25 @@ public struct MessageRow: View {
             }
         }
         .padding(.top, 4)
+        .sheet(isPresented: $showRawEvent) {
+            RawEventSheet(rawEventJSON: message.rawEventJSON, isPresented: $showRawEvent)
+        }
     }
 
     private func failedStatusView(error: String) -> some View {
         HStack(spacing: 6) {
             Image(systemName: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(.red)
             Text("Failed").font(.caption).foregroundStyle(.red)
-            if let onRetry {
-                Button { onRetry() } label: {
-                    Text("Retry").font(.caption.bold()).foregroundStyle(.blue)
-                }
-                .buttonStyle(.plain)
-            }
             Text(error).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
         }
     }
 
-    private func codeBlock(_ code: String) -> some View {
-        Text(code)
-            .font(.system(size: 13, design: .monospaced))
-            .foregroundStyle(.primary)
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.secondary.opacity(0.1))
-            .cornerRadius(8)
-    }
-
-    private func splitByCodeBlocks() -> [(text: String, isCode: Bool, offset: Int)] {
-        let pattern = "```[^`]*```"
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]) else {
-            return [(message.content, false, 0)]
-        }
-
-        let content = message.content
-        let matches = regex.matches(in: content, range: NSRange(location: 0, length: content.utf16.count))
-
-        var result: [(String, Bool, Int)] = []
-        var lastIndex = content.startIndex
-
-        for (offset, match) in matches.enumerated() {
-            // Convert NSRange to String.Index range
-            guard let matchRange = Range(match.range, in: content) else {
-                continue
-            }
-
-            // Add text before code block
-            if lastIndex < matchRange.lowerBound {
-                let text = String(content[lastIndex ..< matchRange.lowerBound])
-                result.append((text, false, offset * 2))
-            }
-
-            // Add code block (remove ``` markers)
-            let codeBlock = String(content[matchRange])
-            let cleanCode = codeBlock
-                .replacingOccurrences(of: "^```[a-zA-Z]*\n?", with: "", options: .regularExpression)
-                .replacingOccurrences(of: "\n?```$", with: "", options: .regularExpression)
-            result.append((cleanCode, true, offset * 2 + 1))
-
-            lastIndex = matchRange.upperBound
-        }
-
-        // Add remaining text after last code block
-        if lastIndex < content.endIndex {
-            let text = String(content[lastIndex ..< content.endIndex])
-            result.append((text, false, matches.count * 2))
-        }
-
-        return result
+    private func copyToClipboard(_ text: String) {
+        #if os(iOS)
+            UIPasteboard.general.string = text
+        #else
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+        #endif
     }
 }

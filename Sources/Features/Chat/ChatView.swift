@@ -216,14 +216,20 @@ public struct ChatView: View {
     private func messageList(viewModel: ChatViewModel, messages: [Message]) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(messages) { message in
+                ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
+                    let isConsecutive = isConsecutiveMessage(at: index, in: messages)
+                    let hasNextConsecutive = hasNextConsecutiveMessage(at: index, in: messages)
+
                     NavigationLink(value: AppRoute.agentProfile(pubkey: message.pubkey)) {
                         MessageRow(
                             message: message,
                             currentUserPubkey: currentUserPubkey,
+                            isConsecutive: isConsecutive,
+                            hasNextConsecutive: hasNextConsecutive,
                             onReplyTap: message.replyCount > 0 ? { focusOnMessage(message) } : nil,
-                            onRetry: makeRetryAction(for: message, viewModel: viewModel),
-                            onAgentTap: message.pubkey != currentUserPubkey ? {} : nil
+                            onAgentTap: message.pubkey != currentUserPubkey ? {} : nil,
+                            onQuote: { quoteMessage(message, viewModel: viewModel) },
+                            showDebugInfo: false
                         )
                     }
                     .buttonStyle(.plain)
@@ -323,17 +329,6 @@ public struct ChatView: View {
         }
     }
 
-    private func makeRetryAction(for message: Message, viewModel: ChatViewModel) -> (() -> Void)? {
-        guard message.status?.isFailed == true else {
-            return nil
-        }
-        return {
-            Task {
-                await viewModel.retrySendMessage(message)
-            }
-        }
-    }
-
     /// Subscribe to ProjectStatus events to get online agents
     private func subscribeToProjectStatus() async {
         guard let ndk else {
@@ -351,5 +346,33 @@ public struct ChatView: View {
                 }
             }
         }
+    }
+
+    private func isConsecutiveMessage(at index: Int, in messages: [Message]) -> Bool {
+        guard index > 0, index < messages.count else {
+            return false
+        }
+        let currentMessage = messages[index]
+        let previousMessage = messages[index - 1]
+        return currentMessage.pubkey == previousMessage.pubkey &&
+            currentMessage.pTaggedPubkeys.isEmpty
+    }
+
+    private func hasNextConsecutiveMessage(at index: Int, in messages: [Message]) -> Bool {
+        guard index < messages.count - 1 else {
+            return false
+        }
+        let currentMessage = messages[index]
+        let nextMessage = messages[index + 1]
+        return currentMessage.pubkey == nextMessage.pubkey &&
+            nextMessage.pTaggedPubkeys.isEmpty
+    }
+
+    private func quoteMessage(_ message: Message, viewModel _: ChatViewModel) {
+        let quotedText = message.content
+            .split(separator: "\n")
+            .map { "> \($0)" }
+            .joined(separator: "\n")
+        inputViewModel.inputText = quotedText + "\n\n"
     }
 }

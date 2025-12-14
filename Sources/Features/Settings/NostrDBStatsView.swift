@@ -162,17 +162,37 @@ struct NostrDBStatsView: View {
         }
     }
 
-    private func eventsByKindSection(_: NdbStat) -> some View {
+    private func eventsByKindSection(_ stats: NdbStat) -> some View {
         Section("Events by Kind") {
-            Text("Event statistics by kind")
-                .foregroundStyle(.secondary)
+            ForEach(Array(NdbCommonKind.allCases.enumerated()), id: \.offset) { _, kind in
+                if let counts = stats.commonKinds[kind] {
+                    KindStatRow(kind: kind, counts: counts)
+                }
+            }
+
+            if !stats.otherKinds.isEmpty {
+                HStack {
+                    Text("Other Kinds")
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(stats.otherKinds.count)")
+                            .font(.system(.body, design: .monospaced))
+                        Text(FormattingUtilities.formatBytes(Int64(stats.otherKinds.totalSize)))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
         }
     }
 
-    private func databaseIndexesSection(_: NdbStat) -> some View {
+    private func databaseIndexesSection(_ stats: NdbStat) -> some View {
         Section("Database Indexes") {
-            Text("Database index statistics")
-                .foregroundStyle(.secondary)
+            ForEach(Array(NdbDatabase.allCases.enumerated()), id: \.offset) { _, db in
+                if let counts = stats.databases[db] {
+                    DatabaseStatRow(database: db, counts: counts)
+                }
+            }
         }
     }
 
@@ -198,16 +218,11 @@ struct NostrDBStatsView: View {
             return
         }
 
-        do {
-            stats = nostrDBCache.getStats()
-            databaseSize = nostrDBCache.getDatabaseSize()
-            cachePath = nostrDBCache.getCachePath()
-            inMemoryCount = nostrDBCache.inMemoryEventCount
-            isLoading = false
-        } catch {
-            self.error = error.localizedDescription
-            isLoading = false
-        }
+        stats = await nostrDBCache.getStats()
+        databaseSize = await nostrDBCache.getDatabaseSize()
+        cachePath = await nostrDBCache.getCachePath()
+        inMemoryCount = await nostrDBCache.inMemoryEventCount
+        isLoading = false
     }
 
     private func copyToClipboard(_ text: String) {

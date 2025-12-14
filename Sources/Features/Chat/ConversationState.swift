@@ -118,27 +118,10 @@ public final class ConversationState {
         typingIndicators.removeAll()
     }
 
-    // MARK: - Optimistic Message Management
-
-    /// Add an optimistic message (for immediate UI feedback before network confirmation)
+    /// Add a message directly (e.g., the root thread event which isn't returned by subscriptions)
     /// - Parameter message: The message to add
-    public func addOptimisticMessage(_ message: Message) {
+    public func addMessage(_ message: Message) {
         messages[message.id] = message
-    }
-
-    /// Update an optimistic message with its final ID after network confirmation
-    /// - Parameters:
-    ///   - tempId: The temporary ID used for the optimistic message
-    ///   - message: The final message with real ID
-    public func replaceOptimisticMessage(tempID: String, with message: Message) {
-        messages.removeValue(forKey: tempID)
-        messages[message.id] = message
-    }
-
-    /// Remove a message by ID (e.g., when retrying a failed message)
-    /// - Parameter id: The message ID to remove
-    public func removeMessage(id: String) {
-        messages.removeValue(forKey: id)
     }
 
     // MARK: Private
@@ -152,6 +135,7 @@ public final class ConversationState {
             content: event.content,
             createdAt: Date(timeIntervalSince1970: TimeInterval(event.createdAt)),
             replyTo: nil,
+            kind: UInt16(event.kind),
             status: .sent
         )
         messages[event.id] = message
@@ -192,6 +176,7 @@ public final class ConversationState {
             content: session.reconstructedContent,
             createdAt: Date(timeIntervalSince1970: TimeInterval(session.latestEvent.createdAt)),
             replyTo: nil,
+            kind: UInt16(session.latestEvent.kind),
             status: nil,
             isStreaming: true
         )

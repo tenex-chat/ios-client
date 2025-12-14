@@ -39,8 +39,9 @@ public final class ChatViewModel {
             conversationState = ConversationState(rootEventID: threadEvent.id)
 
             // Add the thread event (kind:11) as the first message
+            // This is needed because the subscription only fetches kind:1111 replies
             if let threadMessage = Message.from(event: threadEvent) {
-                conversationState.addOptimisticMessage(threadMessage)
+                conversationState.addMessage(threadMessage)
             }
 
             // Start continuous subscription in background
@@ -158,19 +159,6 @@ public final class ChatViewModel {
         )
     }
 
-    /// Retry sending a failed message
-    /// - Parameter message: The message to retry
-    public func retrySendMessage(_ message: Message) async {
-        // Remove the failed message
-        conversationState.removeMessage(id: message.id)
-
-        // Send it again
-        let parentMessage = message.replyTo.flatMap { replyToID in
-            displayMessages.first { $0.id == replyToID }
-        }
-        await sendMessage(text: message.content, replyTo: parentMessage)
-    }
-
     // MARK: Private
 
     private let ndk: NDK
@@ -183,29 +171,13 @@ public final class ChatViewModel {
         agentPubkey: String,
         mentionedPubkeys: [String]
     ) async {
-        // Create temporary ID for optimistic message
-        let tempID = UUID().uuidString
-
-        let optimisticMessage = Message(
-            id: tempID,
-            pubkey: userPubkey,
-            threadID: projectReference,
-            content: content,
-            createdAt: Date(),
-            replyTo: nil,
-            status: .sending
-        )
-
-        // Add optimistic message
-        conversationState.addOptimisticMessage(optimisticMessage)
-
         // Capture values for sendable closure
         let projectRef = projectReference
         let mentions = mentionedPubkeys
         let ndkInstance = ndk
 
         do {
-            // Build thread event (kind:11)
+            // Build and publish thread event (kind:11)
             let (event, _) = try await ndk.publish { _ in
                 buildThreadTags(
                     ndk: ndkInstance,
@@ -222,9 +194,9 @@ public final class ChatViewModel {
             // Update conversation state with new root ID
             conversationState = ConversationState(rootEventID: event.id)
 
-            // Add the thread as the first message
+            // Add the thread as the first message (subscription only fetches kind:1111 replies)
             if let threadMessage = Message.from(event: event) {
-                conversationState.addOptimisticMessage(threadMessage)
+                conversationState.addMessage(threadMessage)
             }
 
             // Start subscription for replies
@@ -232,10 +204,7 @@ public final class ChatViewModel {
                 await subscribeToAllEvents()
             }
         } catch {
-            // Update message with failed status
-            let failedMessage = optimisticMessage
-                .with(status: .failed(error: error.localizedDescription))
-            conversationState.replaceOptimisticMessage(tempID: tempID, with: failedMessage)
+            errorMessage = "Failed to create thread: \(error.localizedDescription)"
         }
     }
 
@@ -250,55 +219,26 @@ public final class ChatViewModel {
             return
         }
 
-        // Create temporary ID for optimistic message
-        let tempID = UUID().uuidString
-
-        // Create optimistic message
-        let optimisticMessage = Message(
-            id: tempID,
-            pubkey: userPubkey,
-            threadID: projectReference,
-            content: text,
-            createdAt: Date(),
-            replyTo: replyTo?.id,
-            status: .sending
-        )
-
-        // Add to conversation state immediately (optimistic update)
-        conversationState.addOptimisticMessage(optimisticMessage)
-
         // Capture values for sendable closure
         let projectRef = projectReference
         let replyToMessage = replyTo
         let agentPubkey = targetAgentPubkey
         let mentions = mentionedPubkeys
 
-        do {
-            // Publish reply using NDK's reply pattern (NIP-22 compliant)
-            let context = ReplyContext(
-                projectRef: projectRef,
-                replyTo: replyToMessage,
-                agentPubkey: agentPubkey,
-                mentions: mentions
+        // Publish reply - NDK handles signing, publishing, and retries
+        // The subscription will pick up the event automatically
+        let context = ReplyContext(
+            projectRef: projectRef,
+            replyTo: replyToMessage,
+            agentPubkey: agentPubkey,
+            mentions: mentions
+        )
+        _ = try? await ndk.publish { _ in
+            buildReplyTags(
+                builder: NDKEventBuilder.reply(to: threadEvent, ndk: ndk),
+                content: text,
+                context: context
             )
-            let (event, _) = try await ndk.publish { _ in
-                buildReplyTags(
-                    builder: NDKEventBuilder.reply(to: threadEvent, ndk: ndk),
-                    content: text,
-                    context: context
-                )
-            }
-
-            // Update message with sent status and event ID
-            let sentMessage = optimisticMessage
-                .with(id: event.id)
-                .with(status: .sent)
-            conversationState.replaceOptimisticMessage(tempID: tempID, with: sentMessage)
-        } catch {
-            // Update message with failed status
-            let failedMessage = optimisticMessage
-                .with(status: .failed(error: error.localizedDescription))
-            conversationState.replaceOptimisticMessage(tempID: tempID, with: failedMessage)
         }
     }
 
