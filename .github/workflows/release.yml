@@ -37,6 +37,9 @@ jobs:
       - name: Generate Project
         run: tuist generate --no-open
 
+      - name: Install SwiftLint
+        run: brew install swiftlint
+
       - name: Setup Ruby
         uses: ruby/setup-ruby@v1
         with:
