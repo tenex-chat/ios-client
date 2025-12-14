@@ -16,18 +16,21 @@ public struct ProjectAgent: Identifiable, Sendable, Equatable {
     ///   - pubkey: The agent's Nostr pubkey
     ///   - name: The agent's display name
     ///   - isGlobal: Whether the agent is global
+    ///   - isPM: Whether this agent is the PM (first agent in 24010 event)
     ///   - model: Optional LLM model
     ///   - tools: Available tools
     public init(
         pubkey: String,
         name: String,
         isGlobal: Bool = false,
+        isPM: Bool = false,
         model: String? = nil,
         tools: [String] = []
     ) {
         self.pubkey = pubkey
         self.name = name
         self.isGlobal = isGlobal
+        self.isPM = isPM
         self.model = model
         self.tools = tools
     }
@@ -42,6 +45,9 @@ public struct ProjectAgent: Identifiable, Sendable, Equatable {
 
     /// Whether this agent is global (available across all projects)
     public let isGlobal: Bool
+
+    /// Whether this agent is the PM (Project Manager) - the first agent in the 24010 event
+    public let isPM: Bool
 
     /// The LLM model this agent is using (from model tags)
     public var model: String?

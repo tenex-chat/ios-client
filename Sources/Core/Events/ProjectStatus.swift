@@ -101,8 +101,10 @@ public struct ProjectStatus: Sendable {
     }
 
     /// Parse agent tags: ["agent", <pubkey>, <name>, "global"?]
+    /// The first agent tag is the PM (Project Manager)
     private static func parseAgentTags(from event: NDKEvent) -> [String: ProjectAgent] {
         var agentsByName: [String: ProjectAgent] = [:]
+        var isFirstAgent = true
         for tag in event.tags(withName: "agent") {
             guard tag.count > 2, !tag[1].isEmpty, !tag[2].isEmpty else {
                 continue
@@ -111,10 +113,12 @@ public struct ProjectStatus: Sendable {
                 pubkey: tag[1],
                 name: tag[2],
                 isGlobal: tag.count > 3 && tag[3] == "global",
+                isPM: isFirstAgent,
                 model: nil,
                 tools: []
             )
             agentsByName[tag[2]] = agent
+            isFirstAgent = false
         }
         return agentsByName
     }
