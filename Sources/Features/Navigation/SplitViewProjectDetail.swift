@@ -242,8 +242,8 @@ struct SplitViewChatDetail: View {
     @State private var subscription: NDKSubscription<NDKEvent>?
 
     private func startSubscription() {
-        // Cancel previous subscription when threadID changes (replacing subscription stops the old one)
-        subscription = nil
+        // Cancel previous subscription when threadID changes
+        subscription?.stop()
 
         guard let ndk else {
             return
