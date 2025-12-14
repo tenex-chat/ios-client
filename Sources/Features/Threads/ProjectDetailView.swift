@@ -26,13 +26,11 @@ public struct ProjectDetailView: View {
         TabView {
             threadsTab
 
-            NavigationStack {
-                comingSoonView(for: "Docs")
-                    .navigationTitle(project.title)
-            }
-            .tabItem {
-                Label("Docs", systemImage: "doc.fill")
-            }
+            comingSoonView(for: "Docs")
+                .navigationTitle(project.title)
+                .tabItem {
+                    Label("Docs", systemImage: "doc.fill")
+                }
 
             agentsTab
 
@@ -64,13 +62,11 @@ public struct ProjectDetailView: View {
     private let project: Project
 
     private var threadsTab: some View {
-        NavigationStack {
-            ThreadListView(
-                projectID: project.coordinate,
-                userPubkey: authManager.currentUser?.pubkey
-            )
-            .navigationTitle(project.title)
-        }
+        ThreadListView(
+            projectID: project.coordinate,
+            userPubkey: authManager.currentUser?.pubkey
+        )
+        .navigationTitle(project.title)
         .tabItem {
             Label("Threads", systemImage: "message.fill")
         }
@@ -79,20 +75,16 @@ public struct ProjectDetailView: View {
     private var agentsTab: some View {
         Group {
             if let ndk {
-                NavigationStack {
-                    AgentsTabView(
-                        viewModel: AgentsTabViewModel(
-                            ndk: ndk,
-                            projectID: project.coordinate
-                        )
+                AgentsTabView(
+                    viewModel: AgentsTabViewModel(
+                        ndk: ndk,
+                        projectID: project.coordinate
                     )
-                    .navigationTitle(project.title)
-                }
+                )
+                .navigationTitle(project.title)
             } else {
-                NavigationStack {
-                    Text("NDK not available")
-                        .navigationTitle(project.title)
-                }
+                Text("NDK not available")
+                    .navigationTitle(project.title)
             }
         }
         .tabItem {
@@ -101,13 +93,11 @@ public struct ProjectDetailView: View {
     }
 
     private var feedTab: some View {
-        NavigationStack {
-            FeedTabView(projectID: project.coordinate)
-                .navigationTitle(project.title)
-        }
-        .tabItem {
-            Label("Feed", systemImage: "list.bullet")
-        }
+        FeedTabView(projectID: project.coordinate)
+            .navigationTitle(project.title)
+            .tabItem {
+                Label("Feed", systemImage: "list.bullet")
+            }
     }
 
     private func comingSoonView(for feature: String) -> some View {

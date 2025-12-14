@@ -70,7 +70,9 @@ public struct AgentsTabView: View {
         List {
             Section {
                 ForEach(viewModel.agents) { agent in
-                    AgentRow(agent: agent, ndk: viewModel.ndk)
+                    NavigationLink(value: AppRoute.agentProfile(pubkey: agent.pubkey)) {
+                        AgentRow(agent: agent, ndk: viewModel.ndk)
+                    }
                 }
             } header: {
                 Text("Online Agents")

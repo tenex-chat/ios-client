@@ -11,6 +11,8 @@ let packageSettings = PackageSettings(
         "NDKSwiftNostrDB": .framework,
         "NDKSwiftTesting": .framework,
         "NDKSwiftUI": .framework,
+        "ElevenLabsSwift": .framework,
+        "WhisperKit": .framework,
     ]
 )
 #endif
@@ -20,5 +22,7 @@ let package = Package(
     name: "TENEXDependencies",
     dependencies: [
         .package(url: "https://github.com/pablof7z/NDKSwift.git", branch: "master"),
+        .package(url: "https://github.com/ArchieGoodwin/ElevenlabsSwift.git", from: "0.8.0"),
+        .package(url: "https://github.com/argmaxinc/WhisperKit.git", from: "0.5.0"),
     ]
 )
