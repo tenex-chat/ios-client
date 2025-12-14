@@ -323,27 +323,15 @@ public final class ChatViewModel {
             return
         }
 
-        // Create two filters in one subscription:
-        // Filter 1: kind 1111 (final messages) - no limits
-        let finalMessagesFilter = NDKFilter(
-            kinds: [1111],
+        // Create combined filter with all kinds
+        // - kinds: 1111 (final messages), 21111, 24111, 24112 (ephemeral)
+        // - Use uppercase 'E' tag to get ALL events in the thread
+        let combinedFilter = NDKFilter(
+            kinds: [1111, 21_111, 24_111, 24_112],
             tags: ["E": Set([threadID])]
         )
 
-        // Filter 2: ephemeral events (21111, 24111, 24112)
-        // - since: 1 minute ago to prevent overwhelming with old events
-        // - limit: 5 to cap the number of ephemeral events
-        let oneMinuteAgo = Timestamp(Date().addingTimeInterval(-60).timeIntervalSince1970)
-        let ephemeralFilter = NDKFilter(
-            kinds: [21_111, 24_111, 24_112],
-            since: oneMinuteAgo,
-            limit: 5,
-            tags: ["E": Set([threadID])]
-        )
-
-        // Use uppercase 'E' tag to get ALL events in the thread
-        // (lowercase 'e' = direct parent, uppercase 'E' = root thread reference)
-        let subscription = ndk.subscribe(filter: finalMessagesFilter.or(ephemeralFilter))
+        let subscription = ndk.subscribe(filter: combinedFilter)
 
         // Continuous subscription - runs forever
         for await event in subscription.events {
