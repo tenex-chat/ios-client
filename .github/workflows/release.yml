@@ -7,7 +7,7 @@ on:
 jobs:
   release:
     name: Release to TestFlight
-    runs-on: macos-14
+    runs-on: macos-15
 
     steps:
       - uses: actions/checkout@v4
