@@ -12,7 +12,7 @@ import TENEXCore
 /// Orchestrates TTS, STT, recording, and playback with automatic fallbacks
 @MainActor
 @Observable
-final class AudioService {
+public final class AudioService {
     // MARK: Lifecycle
 
     init(storage: AIConfigStorage, capabilityDetector: AICapabilityDetector) {
