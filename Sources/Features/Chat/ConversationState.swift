@@ -144,8 +144,7 @@ public final class ConversationState {
             content: event.content,
             createdAt: Date(timeIntervalSince1970: TimeInterval(event.createdAt)),
             replyTo: nil,
-            kind: UInt16(event.kind),
-            status: .sent
+            kind: UInt16(event.kind)
         )
         messages[event.id] = message
 
@@ -189,7 +188,6 @@ public final class ConversationState {
             createdAt: Date(timeIntervalSince1970: TimeInterval(session.latestEvent.createdAt)),
             replyTo: nil,
             kind: UInt16(session.latestEvent.kind),
-            status: nil,
             isStreaming: true
         )
     }

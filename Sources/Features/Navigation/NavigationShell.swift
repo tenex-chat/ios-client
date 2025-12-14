@@ -100,8 +100,7 @@ public struct NavigationShell: View {
         Group {
             if let dataStore {
                 ProjectListView(
-                    viewModel: ProjectListViewModel(dataStore: dataStore),
-                    selectedProjectID: $selectedProjectID
+                    viewModel: ProjectListViewModel(dataStore: dataStore)
                 )
             } else {
                 Text("Loading...")

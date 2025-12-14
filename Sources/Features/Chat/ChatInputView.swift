@@ -52,8 +52,7 @@ public struct ChatInputView: View {
     /// Initialize the chat input view
     /// - Parameters:
     ///   - viewModel: The input view model
-    ///   - agents: Online agents for selection and mentions
-    ///   - dataStore: DataStore for nudges
+    ///   - dataStore: DataStore for nudges and agents
     ///   - ndk: The NDK instance for profile pictures
     ///   - projectReference: The project reference for agent config
     ///   - availableModels: Available models for agent config
@@ -62,7 +61,6 @@ public struct ChatInputView: View {
     ///   - onSend: Callback when message is sent
     public init(
         viewModel: ChatInputViewModel,
-        agents: [ProjectAgent],
         dataStore: DataStore,
         ndk: NDK,
         projectReference: String,
@@ -79,9 +77,14 @@ public struct ChatInputView: View {
         self.availableBranches = availableBranches
         self.onSend = onSend
         _viewModel = State(initialValue: viewModel)
-        _agentSelectorVM = State(initialValue: AgentSelectorViewModel(agents: agents))
-        _mentionVM = State(initialValue: MentionAutocompleteViewModel(agents: agents))
-        self.agents = agents
+        _agentSelectorVM = State(initialValue: AgentSelectorViewModel(
+            dataStore: dataStore,
+            projectReference: projectReference
+        ))
+        _mentionVM = State(initialValue: MentionAutocompleteViewModel(
+            dataStore: dataStore,
+            projectReference: projectReference
+        ))
     }
 
     // MARK: Public
@@ -113,7 +116,7 @@ public struct ChatInputView: View {
         }
         .sheet(isPresented: $showAgentConfig) {
             if let agent = agentSelectorVM.selectedAgentPubkey.flatMap({ pubkey in
-                agents.first(where: { $0.pubkey == pubkey })
+                agentSelectorVM.agents.first(where: { $0.pubkey == pubkey })
             }) {
                 AgentConfigSheet(
                     isPresented: $showAgentConfig,
@@ -150,7 +153,6 @@ public struct ChatInputView: View {
     private let availableModels: [String]
     private let availableTools: [String]
     private let availableBranches: [String]
-    private let agents: [ProjectAgent]
     private let onSend: (String, String?, [String]) -> Void
 
     // MARK: - View Components

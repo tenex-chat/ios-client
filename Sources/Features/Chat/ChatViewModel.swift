@@ -14,7 +14,7 @@ import TENEXCore
 /// View model for the chat screen
 @MainActor
 @Observable
-public final class ChatViewModel {
+public final class ChatViewModel { // swiftlint:disable:this type_body_length
     // MARK: Lifecycle
 
     /// Initialize the chat view model
@@ -312,12 +312,16 @@ public final class ChatViewModel {
             selectedNudges: nudges,
             selectedBranch: branch
         )
-        _ = try? await ndk.publish { _ in
-            buildReplyTags(
-                builder: NDKEventBuilder.reply(to: threadEvent, ndk: ndk),
-                content: text,
-                context: context
-            )
+        do {
+            _ = try await ndk.publish { _ in
+                buildReplyTags(
+                    builder: NDKEventBuilder.reply(to: threadEvent, ndk: ndk),
+                    content: text,
+                    context: context
+                )
+            }
+        } catch {
+            errorMessage = "Failed to send message: \(error.localizedDescription)"
         }
     }
 
@@ -347,11 +351,22 @@ public final class ChatViewModel {
 
         // Use uppercase 'E' tag to get ALL events in the thread
         // (lowercase 'e' = direct parent, uppercase 'E' = root thread reference)
-        let subscription = ndk.subscribe(filters: [finalMessagesFilter, ephemeralFilter])
+        // Subscribe to both filters and process events from both
+        let messagesSubscription = ndk.subscribe(filter: finalMessagesFilter)
+        let ephemeralSubscription = ndk.subscribe(filter: ephemeralFilter)
 
-        // Continuous subscription - runs forever
-        for await event in subscription.events {
-            conversationState.processEvent(event)
+        // Continuous subscriptions - run both in parallel
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask {
+                for await event in messagesSubscription.events {
+                    await self.conversationState.processEvent(event)
+                }
+            }
+            group.addTask {
+                for await event in ephemeralSubscription.events {
+                    await self.conversationState.processEvent(event)
+                }
+            }
         }
     }
 

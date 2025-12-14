@@ -128,6 +128,18 @@ public final class DataStore {
         try await ndk.publish(event)
     }
 
+    // MARK: Internal
+
+    // MARK: - Testing Support
+
+    /// Set project status for testing purposes only
+    /// - Parameters:
+    ///   - status: The project status to set
+    ///   - coordinate: The project coordinate
+    func setProjectStatus(_ status: ProjectStatus, for coordinate: String) {
+        projectStatuses[coordinate] = status
+    }
+
     // MARK: Private
 
     // MARK: - Dependencies

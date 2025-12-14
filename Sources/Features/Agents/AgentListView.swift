@@ -20,21 +20,19 @@ public struct AgentListView: View {
     // MARK: Public
 
     public var body: some View {
-        NavigationStack {
-            contentView
-                .navigationTitle("Agents")
-                .toolbar {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button(
-                            action: { showingEditor = true },
-                            label: { Label("Add Agent", systemImage: "plus") }
-                        )
-                    }
+        contentView
+            .navigationTitle("Agents")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button(
+                        action: { showingEditor = true },
+                        label: { Label("Add Agent", systemImage: "plus") }
+                    )
                 }
-                .sheet(isPresented: $showingEditor) {
-                    editorSheet
-                }
-        }
+            }
+            .sheet(isPresented: $showingEditor) {
+                editorSheet
+            }
     }
 
     // MARK: Private

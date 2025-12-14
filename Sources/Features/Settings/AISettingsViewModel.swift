@@ -96,8 +96,9 @@ public final class AISettingsViewModel {
                 originalConfig = loaded
             } else {
                 // No saved config, use default
-                config = AIConfig()
-                originalConfig = nil
+                let defaultConfig = AIConfig()
+                config = defaultConfig
+                originalConfig = defaultConfig
             }
         } catch {
             loadError = "Failed to load configuration: \(error.localizedDescription)"

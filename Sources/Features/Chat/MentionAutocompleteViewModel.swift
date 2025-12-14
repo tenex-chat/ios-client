@@ -30,16 +30,16 @@ public struct Mention: Equatable, Sendable {
 public final class MentionAutocompleteViewModel {
     // MARK: Lifecycle
 
-    /// Initialize with available agents
-    /// - Parameter agents: List of online agents from ProjectStatus
-    public init(agents: [ProjectAgent]) {
-        self.agents = agents
+    /// Initialize with DataStore and project reference
+    /// - Parameters:
+    ///   - dataStore: The data store containing project statuses
+    ///   - projectReference: The project coordinate to get agents for
+    public init(dataStore: DataStore, projectReference: String) {
+        self.dataStore = dataStore
+        self.projectReference = projectReference
     }
 
     // MARK: Public
-
-    /// All available agents
-    public var agents: [ProjectAgent]
 
     /// Filtered agents based on current query
     public private(set) var filteredAgents: [ProjectAgent] = []
@@ -52,6 +52,11 @@ public final class MentionAutocompleteViewModel {
 
     /// Detected mentions in the current input
     public private(set) var mentions: [Mention] = []
+
+    /// All available agents from project status
+    public var agents: [ProjectAgent] {
+        dataStore.getProjectStatus(projectCoordinate: projectReference)?.agents ?? []
+    }
 
     /// Update the input text and detect @mention trigger
     /// - Parameters:
@@ -127,16 +132,10 @@ public final class MentionAutocompleteViewModel {
         triggerRange
     }
 
-    /// Update the list of available agents
-    /// - Parameter newAgents: Updated agent list
-    public func updateAgents(_ newAgents: [ProjectAgent]) {
-        agents = newAgents
-        if isVisible {
-            filterAgents()
-        }
-    }
-
     // MARK: Private
+
+    @ObservationIgnored private let dataStore: DataStore
+    @ObservationIgnored private let projectReference: String
 
     private var currentText = ""
     private var currentCursorPosition = 0

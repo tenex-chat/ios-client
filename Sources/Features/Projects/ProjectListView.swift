@@ -14,13 +14,9 @@ public struct ProjectListView: View {
     // MARK: Lifecycle
 
     /// Initialize the project list view
-    /// - Parameters:
-    ///   - viewModel: The view model for the project list
-    ///   - selectedProjectID: Optional binding for split view selection mode
-    public init(viewModel: ProjectListViewModel, selectedProjectID: Binding<String?>? = nil) {
+    /// - Parameter viewModel: The view model for the project list
+    public init(viewModel: ProjectListViewModel) {
         self.viewModel = viewModel
-        _selectedProjectID = selectedProjectID ?? .constant(nil)
-        usesSelection = selectedProjectID != nil
     }
 
     // MARK: Public
@@ -45,9 +41,15 @@ public struct ProjectListView: View {
                     )
                 }
 
-                ToolbarItem(placement: .automatic) {
-                    groupFilterMenu
-                }
+                #if os(iOS)
+                    ToolbarItem(placement: .topBarLeading) {
+                        groupFilterMenu
+                    }
+                #else
+                    ToolbarItem(placement: .navigation) {
+                        groupFilterMenu
+                    }
+                #endif
             }
             .sheet(isPresented: $showingGroupEditor) {
                 ProjectGroupEditorSheet(
@@ -84,11 +86,8 @@ public struct ProjectListView: View {
     @State private var showingCreateWizard = false
     @State private var showingGroupEditor = false
     @State private var editingGroup: ProjectGroup?
-    @Binding private var selectedProjectID: String?
     @Environment(\.ndk) private var ndk
     @Environment(DataStore.self) private var dataStore: DataStore?
-
-    private let usesSelection: Bool
 
     private var allProjects: [Project] {
         viewModel.allNonArchivedProjects
@@ -176,25 +175,13 @@ public struct ProjectListView: View {
         }
     }
 
-    @ViewBuilder private var projectList: some View {
-        if usesSelection {
-            // Split view mode: use selection binding
-            List(viewModel.projects, selection: $selectedProjectID) { project in
-                projectRowContent(for: project)
-                    .tag(project.coordinate)
+    private var projectList: some View {
+        List {
+            ForEach(viewModel.projects) { project in
+                projectRow(for: project)
             }
-            .listStyle(.plain)
-        } else {
-            // Stack navigation mode: use NavigationLink
-            List {
-                ForEach(viewModel.projects) { project in
-                    NavigationLink(value: AppRoute.project(id: project.id)) {
-                        projectRowContent(for: project)
-                    }
-                }
-            }
-            .listStyle(.plain)
         }
+        .listStyle(.plain)
     }
 
     private var emptyView: some View {
@@ -220,19 +207,21 @@ public struct ProjectListView: View {
     }
 
     @ViewBuilder
-    private func projectRowContent(for project: Project) -> some View {
+    private func projectRow(for project: Project) -> some View {
         let isOnline = dataStore?.isProjectOnline(projectCoordinate: project.coordinate) ?? false
-        ProjectRow(project: project, isOnline: isOnline)
-            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
-            .listRowSeparator(.hidden)
-            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                archiveButton(for: project)
+        NavigationLink(value: AppRoute.project(id: project.id)) {
+            ProjectRow(project: project, isOnline: isOnline)
+        }
+        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+        .listRowSeparator(.hidden)
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            archiveButton(for: project)
+        }
+        .swipeActions(edge: .leading, allowsFullSwipe: true) {
+            if !isOnline {
+                startButton(for: project)
             }
-            .swipeActions(edge: .leading, allowsFullSwipe: true) {
-                if !isOnline {
-                    startButton(for: project)
-                }
-            }
+        }
     }
 
     private func archiveButton(for project: Project) -> some View {
@@ -271,28 +260,18 @@ struct ProjectRow: View {
         .padding(.horizontal, 20)
         .padding(.top, 12)
         .contentShape(Rectangle())
-        #if os(iOS)
-            .hoverEffect(.highlight)
-        #endif
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(project.title)
-            .accessibilityHint(project.description ?? "Open project")
     }
 
     // MARK: Private
-
-    /// Dynamic Type scaling for avatar size
-    @ScaledMetric(relativeTo: .title) private var avatarSize: CGFloat = 56
-    @ScaledMetric(relativeTo: .title) private var avatarFontSize: CGFloat = 24
 
     private var avatarView: some View {
         ZStack(alignment: .bottomTrailing) {
             RoundedRectangle(cornerRadius: 12)
                 .fill(project.color)
-                .frame(width: avatarSize, height: avatarSize)
+                .frame(width: 56, height: 56)
                 .overlay {
                     Text(project.title.prefix(1).uppercased())
-                        .font(.system(size: avatarFontSize, weight: .semibold))
+                        .font(.system(size: 24, weight: .semibold))
                         .foregroundStyle(.white)
                 }
             statusIndicator
@@ -305,10 +284,10 @@ struct ProjectRow: View {
             .frame(width: 14, height: 14)
             .overlay {
                 Circle()
-                #if os(macOS)
-                    .stroke(Color(nsColor: .windowBackgroundColor), lineWidth: 2)
-                #else
+                #if os(iOS)
                     .stroke(Color(uiColor: .systemBackground), lineWidth: 2)
+                #else
+                    .stroke(Color(nsColor: .windowBackgroundColor), lineWidth: 2)
                 #endif
             }
             .shadow(color: isOnline ? .green.opacity(0.5) : .clear, radius: 4)

@@ -175,7 +175,7 @@ private struct ProjectStatusDetailView: View {
             }
         }
         .navigationTitle(project.title)
-        #if !os(macOS)
+        #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
         #endif
             .toolbar {

@@ -19,23 +19,28 @@ public final class AgentSelectorViewModel {
 
     /// Initialize the agent selector view model
     /// - Parameters:
-    ///   - agents: List of online agents from ProjectStatus
+    ///   - dataStore: The data store containing project statuses
+    ///   - projectReference: The project coordinate to get agents for
     ///   - defaultAgentPubkey: Optional default agent pubkey to preselect
-    public init(agents: [ProjectAgent], defaultAgentPubkey: String? = nil) {
-        self.agents = agents
-        selectedAgentPubkey = defaultAgentPubkey ?? agents.first?.pubkey
+    public init(dataStore: DataStore, projectReference: String, defaultAgentPubkey: String? = nil) {
+        self.dataStore = dataStore
+        self.projectReference = projectReference
+        let currentAgents = dataStore.getProjectStatus(projectCoordinate: projectReference)?.agents ?? []
+        selectedAgentPubkey = defaultAgentPubkey ?? currentAgents.first?.pubkey
     }
 
     // MARK: Public
-
-    /// List of online agents from ProjectStatus
-    public var agents: [ProjectAgent]
 
     /// The currently selected agent pubkey
     public private(set) var selectedAgentPubkey: String?
 
     /// Whether the selector sheet is presented
     public var isPresented = false
+
+    /// List of online agents from ProjectStatus
+    public var agents: [ProjectAgent] {
+        dataStore.getProjectStatus(projectCoordinate: projectReference)?.agents ?? []
+    }
 
     /// Get the currently selected agent
     public var selectedAgent: ProjectAgent? {
@@ -51,16 +56,6 @@ public final class AgentSelectorViewModel {
         selectedAgentPubkey = pubkey
     }
 
-    /// Update the list of available agents
-    /// - Parameter newAgents: Updated list of online agents
-    public func updateAgents(_ newAgents: [ProjectAgent]) {
-        agents = newAgents
-        // Clear selection if selected agent is no longer available
-        if let selectedAgentPubkey, !newAgents.contains(where: { $0.pubkey == selectedAgentPubkey }) {
-            self.selectedAgentPubkey = newAgents.first?.pubkey
-        }
-    }
-
     /// Present the agent selector sheet
     public func presentSelector() {
         isPresented = true
@@ -70,4 +65,9 @@ public final class AgentSelectorViewModel {
     public func dismissSelector() {
         isPresented = false
     }
+
+    // MARK: Private
+
+    @ObservationIgnored private let dataStore: DataStore
+    @ObservationIgnored private let projectReference: String
 }

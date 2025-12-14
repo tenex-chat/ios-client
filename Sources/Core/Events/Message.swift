@@ -233,7 +233,6 @@ public struct Message: Identifiable, Sendable {
     ///   - content: The message content
     ///   - createdAt: When the message was created
     ///   - replyTo: Optional parent message ID
-    ///   - status: The status of the message
     ///   - isStreaming: Whether this is a synthetic streaming message
     ///   - replyCount: Number of replies to this message
     ///   - replyAuthorPubkeys: Pubkeys of reply authors (for avatar display, max 3)
@@ -247,7 +246,6 @@ public struct Message: Identifiable, Sendable {
         createdAt: Date,
         replyTo: String?,
         kind: UInt16,
-        status: MessageStatus? = nil,
         isStreaming: Bool = false,
         replyCount: Int = 0,
         replyAuthorPubkeys: [String] = [],
@@ -266,7 +264,6 @@ public struct Message: Identifiable, Sendable {
         self.createdAt = createdAt
         self.replyTo = replyTo
         self.kind = kind
-        self.status = status
         self.isStreaming = isStreaming
         self.replyCount = replyCount
         self.replyAuthorPubkeys = replyAuthorPubkeys
@@ -281,7 +278,7 @@ public struct Message: Identifiable, Sendable {
 
     // MARK: Public
 
-    /// The message identifier (event ID or temporary ID for optimistic messages)
+    /// The message identifier (event ID)
     public let id: String
 
     /// The pubkey of the message author
@@ -298,9 +295,6 @@ public struct Message: Identifiable, Sendable {
 
     /// Optional parent message ID (from 'e' tag for threading)
     public let replyTo: String?
-
-    /// The status of the message (for optimistic UI updates)
-    public let status: MessageStatus?
 
     /// Whether this is a synthetic streaming message (content still being received)
     public let isStreaming: Bool
@@ -354,7 +348,6 @@ public struct Message: Identifiable, Sendable {
                 createdAt: metadata.createdAt,
                 replyTo: nil,
                 kind: UInt16(event.kind),
-                status: nil,
                 isReasoning: metadata.isReasoning,
                 branch: metadata.branch,
                 phase: metadata.phase,
@@ -392,7 +385,6 @@ public struct Message: Identifiable, Sendable {
             createdAt: metadata.createdAt,
             replyTo: replyTo,
             kind: UInt16(event.kind),
-            status: nil,
             toolCall: toolCall,
             isReasoning: metadata.isReasoning,
             branch: metadata.branch,
@@ -413,32 +405,6 @@ public struct Message: Identifiable, Sendable {
         )
     }
 
-    /// Create a copy of this message with a new status
-    /// - Parameter status: The new status
-    /// - Returns: A new Message with the updated status
-    public func with(status: MessageStatus?) -> Self {
-        Self(
-            id: id,
-            pubkey: pubkey,
-            threadID: threadID,
-            content: content,
-            createdAt: createdAt,
-            replyTo: replyTo,
-            kind: kind,
-            status: status,
-            isStreaming: isStreaming,
-            replyCount: replyCount,
-            replyAuthorPubkeys: replyAuthorPubkeys,
-            toolCall: toolCall,
-            isReasoning: isReasoning,
-            branch: branch,
-            phase: phase,
-            pTaggedPubkeys: pTaggedPubkeys,
-            suggestions: suggestions,
-            rawEventJSON: rawEventJSON
-        )
-    }
-
     /// Create a copy of this message with a new ID
     /// - Parameter id: The new ID
     /// - Returns: A new Message with the updated ID
@@ -451,7 +417,6 @@ public struct Message: Identifiable, Sendable {
             createdAt: createdAt,
             replyTo: replyTo,
             kind: kind,
-            status: status,
             isStreaming: isStreaming,
             replyCount: replyCount,
             replyAuthorPubkeys: replyAuthorPubkeys,
@@ -479,7 +444,6 @@ public struct Message: Identifiable, Sendable {
             createdAt: createdAt,
             replyTo: replyTo,
             kind: kind,
-            status: status,
             isStreaming: isStreaming,
             replyCount: replyCount,
             replyAuthorPubkeys: replyAuthorPubkeys,
