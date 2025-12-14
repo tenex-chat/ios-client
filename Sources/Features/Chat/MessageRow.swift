@@ -151,7 +151,10 @@ public struct MessageRow: View {
 
     private var messageContent: some View {
         Group {
-            if message.isStreaming {
+            if let toolCall = message.toolCall {
+                // Tool call - render with specialized renderer
+                ToolCallView(toolCall: toolCall)
+            } else if message.isStreaming {
                 // Streaming message with blinking cursor
                 streamingContent
             } else if message.content.contains("```") {
