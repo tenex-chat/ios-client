@@ -33,6 +33,7 @@ public struct AISettingsView: View {
         .task {
             await viewModel.load()
         }
+        .onDisappear { if viewModel.hasUnsavedChanges { Task { try? await viewModel.save() } } }
         .sheet(isPresented: $showingAddLLMConfig) {
             addLLMConfigSheet
         }
