@@ -10,14 +10,18 @@ import TENEXCore
 // MARK: - MessageBubble
 
 /// Individual message bubble in the conversation
-struct MessageBubble: View {
-    // MARK: Internal
+public struct MessageBubble: View {
+    // MARK: Lifecycle
 
-    let message: CallMessage
-    let accentColor: Color
-    let onReplay: () -> Void
+    public init(message: CallMessage, accentColor: Color, onReplay: @escaping () -> Void) {
+        self.message = message
+        self.accentColor = accentColor
+        self.onReplay = onReplay
+    }
 
-    var body: some View {
+    // MARK: Public
+
+    public var body: some View {
         HStack(alignment: .top, spacing: 8) {
             if !isUser {
                 Spacer(minLength: 40)
@@ -30,6 +34,12 @@ struct MessageBubble: View {
             }
         }
     }
+
+    // MARK: Internal
+
+    let message: CallMessage
+    let accentColor: Color
+    let onReplay: () -> Void
 
     // MARK: Private
 

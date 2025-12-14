@@ -10,6 +10,58 @@ import Observation
 import OSLog
 import TENEXCore
 
+// MARK: - VODRecordingActor
+
+/// Actor to serialize VOD file writes and prevent race conditions
+actor VODRecordingActor {
+    /// Initialize VOD recording with metadata
+    func initializeRecording(at url: URL, metadata: [String: Any]) throws {
+        let data = try JSONSerialization.data(withJSONObject: metadata, options: .prettyPrinted)
+        try data.write(to: url)
+    }
+
+    /// Append a message to VOD recording
+    func appendMessage(to url: URL, messageEntry: [String: Any]) throws {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return
+        }
+
+        // Read existing VOD data
+        let existingData = try Data(contentsOf: url)
+        var vodData = try JSONSerialization.jsonObject(with: existingData) as? [String: Any] ?? [:]
+
+        // Get existing messages array
+        var messages = vodData["messages"] as? [[String: Any]] ?? []
+
+        // Append message
+        messages.append(messageEntry)
+        vodData["messages"] = messages
+
+        // Write back to file atomically
+        let updatedData = try JSONSerialization.data(withJSONObject: vodData, options: .prettyPrinted)
+        try updatedData.write(to: url, options: .atomic)
+    }
+
+    /// Finalize VOD recording with end metadata
+    func finalizeRecording(at url: URL, endTime: String, duration: TimeInterval) throws {
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            return
+        }
+
+        // Read existing VOD data
+        let existingData = try Data(contentsOf: url)
+        var vodData = try JSONSerialization.jsonObject(with: existingData) as? [String: Any] ?? [:]
+
+        // Add end time and duration
+        vodData["endTime"] = endTime
+        vodData["duration"] = duration
+
+        // Write back to file atomically
+        let updatedData = try JSONSerialization.data(withJSONObject: vodData, options: .prettyPrinted)
+        try updatedData.write(to: url, options: .atomic)
+    }
+}
+
 // MARK: - CallState
 
 /// Enhanced call state machine with VOD support
@@ -82,6 +134,8 @@ public enum CallParticipant: Sendable, Equatable {
 
 // MARK: - CallViewModel
 
+// swiftlint:disable type_body_length
+
 /// Enhanced view model for agent calls with auto-TTS, STT, and VOD recording
 @MainActor
 @Observable
@@ -95,12 +149,12 @@ public final class CallViewModel {
     ///   - agent: Agent to call
     ///   - enableVOD: Whether to record the call for playback (Video/Voice on Demand)
     ///   - autoTTS: Whether to automatically speak agent responses
-    ///   - onSendMessage: Callback to send message to agent
+    ///   - onSendMessage: Callback to send message to agent (messageText, agentPubkey, tags in Nostr format)
     public init(
         audioService: AudioService,
         projectID: String,
         agent: ProjectAgent,
-        onSendMessage: @escaping (String, String, [String]) async throws -> Void,
+        onSendMessage: @escaping (String, String, [[String]]) async throws -> Void,
         enableVOD: Bool = true,
         autoTTS: Bool = true
     ) {
@@ -186,20 +240,27 @@ public final class CallViewModel {
         // Add system message
         let systemMessage = CallMessage(
             sender: .agent(pubkey: agent.pubkey, name: agent.name, voiceID: agent.voiceID),
-            content: "Call started. How can I help you?"
+            content: Self.welcomeMessage
         )
         messages.append(systemMessage)
 
         // Speak welcome message if auto-TTS is enabled
         if autoTTS {
             state = .playingResponse
-            do {
-                try await audioService.speak(text: systemMessage.content, voiceID: agent.voiceID)
-                state = .listening
-            } catch {
-                self.error = error.localizedDescription
-                state = .listening
+            ttsTask = Task {
+                do {
+                    try await audioService.speak(text: systemMessage.content, voiceID: agent.voiceID)
+                    if !Task.isCancelled {
+                        state = .listening
+                    }
+                } catch {
+                    if !Task.isCancelled {
+                        self.error = error.localizedDescription
+                        state = .listening
+                    }
+                }
             }
+            await ttsTask?.value
         }
     }
 
@@ -209,6 +270,10 @@ public final class CallViewModel {
         if state == .recording {
             await audioService.cancelRecording()
         }
+
+        // Cancel any ongoing TTS task
+        ttsTask?.cancel()
+        ttsTask = nil
 
         // Stop any playback
         audioService.stopSpeaking()
@@ -309,8 +374,8 @@ public final class CallViewModel {
         state = .waitingForAgent
 
         do {
-            // Send message with voice mode and call tags
-            try await onSendMessage(messageText, agent.pubkey, ["mode", "voice", "type", "call"])
+            // Send message with voice mode and call tags in proper Nostr format
+            try await onSendMessage(messageText, agent.pubkey, [["mode", "voice"], ["type", "call"]])
 
             // Note: Agent response will be handled by handleAgentResponse()
         } catch {
@@ -319,9 +384,8 @@ public final class CallViewModel {
             currentTranscript = messageText
             state = .listening
             // Remove the message since it failed to send
-            if let index = messages.lastIndex(where: { $0.id == userMessage.id }) {
-                messages.remove(at: index)
-            }
+            // Safe to use removeLast() since we just appended it
+            messages.removeLast()
         }
     }
 
@@ -348,13 +412,20 @@ public final class CallViewModel {
 
         // Play TTS if auto-TTS is enabled
         if autoTTS {
-            do {
-                try await audioService.speak(text: text, voiceID: agent.voiceID)
-                state = .listening
-            } catch {
-                self.error = error.localizedDescription
-                state = .listening
+            ttsTask = Task {
+                do {
+                    try await audioService.speak(text: text, voiceID: agent.voiceID)
+                    if !Task.isCancelled {
+                        state = .listening
+                    }
+                } catch {
+                    if !Task.isCancelled {
+                        self.error = error.localizedDescription
+                        state = .listening
+                    }
+                }
             }
+            await ttsTask?.value
         } else {
             state = .listening
         }
@@ -395,11 +466,74 @@ public final class CallViewModel {
 
     // MARK: Private
 
+    // MARK: - Constants
+
+    private static let welcomeMessage = "Call started. How can I help you?"
+    private static let vodRetentionDays = 30
+
     private let audioService: AudioService
     private let projectID: String
-    private let onSendMessage: (String, String, [String]) async throws -> Void
+    private let onSendMessage: (String, String, [[String]]) async throws -> Void
     private var callStartTime: Date?
     private let logger = Logger(subsystem: "com.tenex.ios", category: "CallViewModel")
+    private let vodActor = VODRecordingActor()
+    private var ttsTask: Task<Void, Never>?
+
+    // MARK: - VOD Directory Management
+
+    /// Get the dedicated VOD recordings directory
+    private static func vodRecordingsDirectory() -> URL {
+        let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return documentsURL.appendingPathComponent("VODRecordings", isDirectory: true)
+    }
+
+    /// Ensure VOD recordings directory exists
+    private func ensureVODDirectory() throws {
+        let vodDir = Self.vodRecordingsDirectory()
+        if !FileManager.default.fileExists(atPath: vodDir.path) {
+            try FileManager.default.createDirectory(at: vodDir, withIntermediateDirectories: true)
+        }
+    }
+
+    /// Clean up old VOD recordings (older than retention period)
+    private func cleanupOldVODRecordings() {
+        Task.detached { [logger] in
+            do {
+                let vodDir = Self.vodRecordingsDirectory()
+                guard FileManager.default.fileExists(atPath: vodDir.path) else {
+                    return
+                }
+
+                let fileManager = FileManager.default
+                let files = try fileManager.contentsOfDirectory(
+                    at: vodDir,
+                    includingPropertiesForKeys: [.creationDateKey],
+                    options: [.skipsHiddenFiles]
+                )
+
+                let cutoffDate = Calendar.current.date(
+                    byAdding: .day,
+                    value: -Self.vodRetentionDays,
+                    to: Date()
+                ) ?? Date()
+
+                for fileURL in files {
+                    guard let attributes = try? fileManager.attributesOfItem(atPath: fileURL.path),
+                          let creationDate = attributes[.creationDate] as? Date
+                    else {
+                        continue
+                    }
+
+                    if creationDate < cutoffDate {
+                        try? fileManager.removeItem(at: fileURL)
+                        logger.info("Deleted old VOD recording: \(fileURL.lastPathComponent)")
+                    }
+                }
+            } catch {
+                logger.error("Failed to cleanup old VOD recordings: \(error.localizedDescription)")
+            }
+        }
+    }
 
     // MARK: - VOD Recording
 
@@ -409,24 +543,30 @@ public final class CallViewModel {
             return
         }
 
-        let tempDir = FileManager.default.temporaryDirectory
-        let fileName = "call_\(projectID)_\(agent.pubkey)_\(Date().timeIntervalSince1970).json"
-        let fileURL = tempDir.appendingPathComponent(fileName)
-
-        vodRecordingURL = fileURL
-
-        // Initialize VOD file with metadata
-        let metadata: [String: Any] = [
-            "projectID": projectID,
-            "agentPubkey": agent.pubkey,
-            "agentName": agent.name,
-            "startTime": ISO8601DateFormatter().string(from: Date()),
-            "messages": [],
-        ]
-
         do {
-            let data = try JSONSerialization.data(withJSONObject: metadata, options: .prettyPrinted)
-            try data.write(to: fileURL)
+            // Ensure VOD directory exists
+            try ensureVODDirectory()
+
+            // Clean up old recordings in background
+            cleanupOldVODRecordings()
+
+            // Create file in dedicated directory
+            let vodDir = Self.vodRecordingsDirectory()
+            let fileName = "call_\(projectID)_\(agent.pubkey)_\(Date().timeIntervalSince1970).json"
+            let fileURL = vodDir.appendingPathComponent(fileName)
+
+            vodRecordingURL = fileURL
+
+            // Initialize VOD file with metadata using actor
+            let metadata: [String: Any] = [
+                "projectID": projectID,
+                "agentPubkey": agent.pubkey,
+                "agentName": agent.name,
+                "startTime": ISO8601DateFormatter().string(from: Date()),
+                "messages": [],
+            ]
+
+            try await vodActor.initializeRecording(at: fileURL, metadata: metadata)
         } catch {
             self.error = "Failed to start VOD recording: \(error.localizedDescription)"
             vodRecordingURL = nil
@@ -440,13 +580,6 @@ public final class CallViewModel {
         }
 
         do {
-            // Read existing VOD data
-            let existingData = try Data(contentsOf: url)
-            var vodData = try JSONSerialization.jsonObject(with: existingData) as? [String: Any] ?? [:]
-
-            // Get existing messages array
-            var messages = vodData["messages"] as? [[String: Any]] ?? []
-
             // Create message entry
             let messageEntry: [String: Any] = [
                 "id": message.id,
@@ -455,13 +588,8 @@ public final class CallViewModel {
                 "timestamp": ISO8601DateFormatter().string(from: message.timestamp),
             ]
 
-            // Append message
-            messages.append(messageEntry)
-            vodData["messages"] = messages
-
-            // Write back to file
-            let updatedData = try JSONSerialization.data(withJSONObject: vodData, options: .prettyPrinted)
-            try updatedData.write(to: url)
+            // Use actor to safely append message
+            try await vodActor.appendMessage(to: url, messageEntry: messageEntry)
         } catch {
             // Silently fail - don't interrupt the call
             logger.error("Failed to record message to VOD: \(error.localizedDescription)")
@@ -475,19 +603,12 @@ public final class CallViewModel {
         }
 
         do {
-            // Read existing VOD data
-            let existingData = try Data(contentsOf: url)
-            var vodData = try JSONSerialization.jsonObject(with: existingData) as? [String: Any] ?? [:]
-
-            // Add end time and duration
-            vodData["endTime"] = ISO8601DateFormatter().string(from: Date())
-            vodData["duration"] = callDuration
-
-            // Write back to file
-            let updatedData = try JSONSerialization.data(withJSONObject: vodData, options: .prettyPrinted)
-            try updatedData.write(to: url)
+            let endTime = ISO8601DateFormatter().string(from: Date())
+            try await vodActor.finalizeRecording(at: url, endTime: endTime, duration: callDuration)
         } catch {
             logger.error("Failed to finalize VOD recording: \(error.localizedDescription)")
         }
     }
 }
+
+// swiftlint:enable type_body_length

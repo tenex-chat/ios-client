@@ -54,8 +54,8 @@ public struct CallView: View {
     // MARK: Private
 
     @State private var viewModel: CallViewModel
-    @State private var showingTranscript = false
 
+    // Note: NDK instance reserved for future profile picture support
     private let ndk: NDK
     private let projectColor: Color
     private let onDismiss: () -> Void
