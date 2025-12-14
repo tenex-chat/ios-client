@@ -137,6 +137,13 @@ public struct ChatInputView: View {
     @State private var showAgentConfig = false
     @FocusState private var isInputFocused: Bool
 
+    /// Dynamic Type scaling for send button
+    @ScaledMetric(relativeTo: .body) private var sendButtonSize: CGFloat = 32
+    @ScaledMetric(relativeTo: .body) private var sendIconSize: CGFloat = 14
+
+    /// Reduce Motion accessibility setting
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     private let ndk: NDK
     private let dataStore: DataStore
     private let projectReference: String
@@ -303,6 +310,8 @@ public struct ChatInputView: View {
                     RoundedRectangle(cornerRadius: 12)
                         .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
                 )
+                .accessibilityLabel("Message input")
+                .accessibilityHint("Enter your message here")
 
             HStack {
                 Text("Cmd+Enter to send")
@@ -329,7 +338,15 @@ public struct ChatInputView: View {
         }
         .buttonStyle(.plain)
         .disabled(!viewModel.canSend)
-        .animation(.easeInOut(duration: 0.15), value: viewModel.canSend)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.15), value: viewModel.canSend)
+        #if os(macOS)
+            .keyboardShortcut(.return, modifiers: .command)
+        #endif
+        #if os(iOS)
+        .hoverEffect(.lift)
+        #endif
+        .accessibilityLabel("Send message")
+        .accessibilityHint(viewModel.canSend ? "Double tap to send" : "Enter a message first")
     }
 
     private func sendMessage() {

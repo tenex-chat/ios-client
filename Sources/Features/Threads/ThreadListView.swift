@@ -190,6 +190,13 @@ struct ThreadRow: View {
             }
         }
         .padding(.vertical, 8)
+        .contentShape(Rectangle())
+        #if os(iOS)
+            .hoverEffect(.highlight)
+        #endif
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(thread.title)
+            .accessibilityHint("\(thread.replyCount) replies. \(thread.summary ?? "Open thread")")
     }
 
     // MARK: Private
