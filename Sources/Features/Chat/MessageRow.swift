@@ -151,7 +151,10 @@ public struct MessageRow: View {
 
     private var messageContent: some View {
         Group {
-            if let toolCall = message.toolCall {
+            if message.isReasoning {
+                // Reasoning event - render with collapsible block
+                ReasoningBlockView(message: message)
+            } else if let toolCall = message.toolCall {
                 // Tool call - render with specialized renderer
                 ToolCallView(toolCall: toolCall)
             } else if message.isStreaming {

@@ -238,6 +238,7 @@ public struct Message: Identifiable, Sendable {
     ///   - replyCount: Number of replies to this message
     ///   - replyAuthorPubkeys: Pubkeys of reply authors (for avatar display, max 3)
     ///   - toolCall: Optional tool call data if this message represents a tool invocation
+    ///   - isReasoning: Whether this message contains AI reasoning/thinking content
     public init(
         id: String,
         pubkey: String,
@@ -249,7 +250,8 @@ public struct Message: Identifiable, Sendable {
         isStreaming: Bool = false,
         replyCount: Int = 0,
         replyAuthorPubkeys: [String] = [],
-        toolCall: ToolCall? = nil
+        toolCall: ToolCall? = nil,
+        isReasoning: Bool = false
     ) {
         self.id = id
         self.pubkey = pubkey
@@ -262,6 +264,7 @@ public struct Message: Identifiable, Sendable {
         self.replyCount = replyCount
         self.replyAuthorPubkeys = replyAuthorPubkeys
         self.toolCall = toolCall
+        self.isReasoning = isReasoning
     }
 
     // MARK: Public
@@ -299,6 +302,9 @@ public struct Message: Identifiable, Sendable {
     /// Tool call data if this message represents a tool invocation
     public let toolCall: ToolCall?
 
+    /// Whether this message contains AI reasoning/thinking content
+    public let isReasoning: Bool
+
     /// Whether this message is a tool call
     public var isToolCall: Bool { toolCall != nil }
 
@@ -311,6 +317,7 @@ public struct Message: Identifiable, Sendable {
             // For kind:11, the thread ID is the event's own ID
             // and there's no parent (replyTo is nil)
             let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
+            let isReasoning = event.tags(withName: "reasoning").first != nil
 
             return Self(
                 id: event.id,
@@ -319,7 +326,8 @@ public struct Message: Identifiable, Sendable {
                 content: event.content,
                 createdAt: createdAt,
                 replyTo: nil,
-                status: nil
+                status: nil,
+                isReasoning: isReasoning
             )
         }
 
@@ -346,6 +354,9 @@ public struct Message: Identifiable, Sendable {
         // Parse tool call data if present
         let toolCall = ToolCall.from(event: event)
 
+        // Check if this is a reasoning message
+        let isReasoning = event.tags(withName: "reasoning").first != nil
+
         return Self(
             id: event.id,
             pubkey: event.pubkey,
@@ -354,7 +365,8 @@ public struct Message: Identifiable, Sendable {
             createdAt: createdAt,
             replyTo: replyTo,
             status: nil,
-            toolCall: toolCall
+            toolCall: toolCall,
+            isReasoning: isReasoning
         )
     }
 
@@ -364,7 +376,7 @@ public struct Message: Identifiable, Sendable {
     public static func filter(for threadID: String) -> NDKFilter {
         NDKFilter(
             kinds: [1111],
-            tags: ["e": Set([threadID])]
+            tags: ["E": Set([threadID])]
         )
     }
 
@@ -383,7 +395,8 @@ public struct Message: Identifiable, Sendable {
             isStreaming: isStreaming,
             replyCount: replyCount,
             replyAuthorPubkeys: replyAuthorPubkeys,
-            toolCall: toolCall
+            toolCall: toolCall,
+            isReasoning: isReasoning
         )
     }
 
@@ -402,7 +415,8 @@ public struct Message: Identifiable, Sendable {
             isStreaming: isStreaming,
             replyCount: replyCount,
             replyAuthorPubkeys: replyAuthorPubkeys,
-            toolCall: toolCall
+            toolCall: toolCall,
+            isReasoning: isReasoning
         )
     }
 
@@ -423,7 +437,8 @@ public struct Message: Identifiable, Sendable {
             isStreaming: isStreaming,
             replyCount: replyCount,
             replyAuthorPubkeys: replyAuthorPubkeys,
-            toolCall: toolCall
+            toolCall: toolCall,
+            isReasoning: isReasoning
         )
     }
 }
