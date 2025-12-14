@@ -42,12 +42,12 @@ public final class ChatViewModel {
 
         // Only set up conversation state and subscription for existing threads
         if let threadEvent {
-            conversationState = ConversationState(
-                rootEventID: threadEvent.id,
-                onAgentMessage: { [weak self] message in
-                    self?.handleAgentMessage(message)
-                }
-            )
+            conversationState = ConversationState(rootEventID: threadEvent.id)
+
+            // Set agent message callback after initialization to avoid capture issues
+            conversationState.onAgentMessage = { [weak self] message in
+                self?.handleAgentMessage(message)
+            }
 
             // Add the thread event (kind:11) as the first message
             // This is needed because the subscription only fetches kind:1111 replies
@@ -61,12 +61,12 @@ public final class ChatViewModel {
             }
         } else {
             // New thread mode - create empty conversation state (will be updated after thread creation)
-            conversationState = ConversationState(
-                rootEventID: "",
-                onAgentMessage: { [weak self] message in
-                    self?.handleAgentMessage(message)
-                }
-            )
+            conversationState = ConversationState(rootEventID: "")
+
+            // Set agent message callback after initialization to avoid capture issues
+            conversationState.onAgentMessage = { [weak self] message in
+                self?.handleAgentMessage(message)
+            }
         }
     }
 
@@ -260,12 +260,12 @@ public final class ChatViewModel {
             threadEvent = event
 
             // Update conversation state with new root ID
-            conversationState = ConversationState(
-                rootEventID: event.id,
-                onAgentMessage: { [weak self] message in
-                    self?.handleAgentMessage(message)
-                }
-            )
+            conversationState = ConversationState(rootEventID: event.id)
+
+            // Set agent message callback after initialization to avoid capture issues
+            conversationState.onAgentMessage = { [weak self] message in
+                self?.handleAgentMessage(message)
+            }
 
             // Add the thread as the first message (subscription only fetches kind:1111 replies)
             if let threadMessage = Message.from(event: event) {

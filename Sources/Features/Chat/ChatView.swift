@@ -8,10 +8,22 @@ import NDKSwiftCore
 import SwiftUI
 import TENEXCore
 
+// MARK: - ScrollOffsetPreferenceKey
+
+/// Preference key for tracking scroll offset to detect user scroll position
+private struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 // MARK: - ChatView
 
 /// Main chat view displaying messages in a thread
 public struct ChatView: View { // swiftlint:disable:this type_body_length
+
     // MARK: Lifecycle
 
     /// Initialize the chat view
@@ -54,6 +66,10 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     @State private var availableModels: [String] = []
     @State private var availableTools: [String] = []
     @State private var availableBranches: [String] = []
+
+    // Scroll management state
+    @State private var shouldAutoScroll = true
+    @State private var lastMessageCount = 0
 
     private let threadEvent: NDKEvent?
     private let projectReference: String
@@ -229,39 +245,134 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     }
 
     private func messageList(viewModel: ChatViewModel, messages: [Message]) -> some View {
+        ScrollViewReader { proxy in
+            messageScrollView(viewModel: viewModel, messages: messages)
+                .coordinateSpace(name: "scroll")
+                .onPreferenceChange(ScrollOffsetPreferenceKey.self) { offset in
+                    handleScrollOffsetChange(offset)
+                }
+                .onAppear {
+                    handleScrollViewAppear(proxy: proxy, messageCount: messages.count)
+                }
+                .onChange(of: messages.count) { _, newCount in
+                    handleMessageCountChange(proxy: proxy, newCount: newCount)
+                }
+                .onChange(of: viewModel.conversationState.streamingSessions.count) { _, _ in
+                    handleStreamingSessionsChange(proxy: proxy)
+                }
+        }
+    }
+
+    private func messageScrollView(viewModel: ChatViewModel, messages: [Message]) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
-                    let isConsecutive = isConsecutiveMessage(at: index, in: messages)
-                    let hasNextConsecutive = hasNextConsecutiveMessage(at: index, in: messages)
-
-                    NavigationLink(value: AppRoute.agentProfile(pubkey: message.pubkey)) {
-                        MessageRow(
-                            message: message,
-                            currentUserPubkey: currentUserPubkey,
-                            isConsecutive: isConsecutive,
-                            hasNextConsecutive: hasNextConsecutive,
-                            onReplyTap: message.replyCount > 0 ? { focusOnMessage(message) } : nil,
-                            onAgentTap: message.pubkey != currentUserPubkey ? {} : nil,
-                            onQuote: { quoteMessage(message, viewModel: viewModel) },
-                            onReplySwipe: {
-                                inputViewModel.setReplyTo(message)
-                            },
-                            showDebugInfo: false
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .padding(.horizontal, 16)
-                }
-
-                // Typing indicators at bottom
-                if !viewModel.typingUsers.isEmpty {
-                    typingIndicator(viewModel: viewModel)
-                        .padding(.horizontal, 16)
-                        .padding(.top, 16)
-                }
+            LazyVStack(alignment: .leading, spacing: 0) {
+                messageRows(viewModel: viewModel, messages: messages)
+                typingIndicatorView(viewModel: viewModel)
+                bottomAnchor
             }
             .padding(.vertical, 16)
+        }
+    }
+
+    @ViewBuilder
+    private func messageRows(viewModel: ChatViewModel, messages: [Message]) -> some View {
+        ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
+            messageRowView(viewModel: viewModel, message: message, index: index, messages: messages)
+        }
+    }
+
+    private func messageRowView(
+        viewModel: ChatViewModel,
+        message: Message,
+        index: Int,
+        messages: [Message]
+    ) -> some View {
+        let isConsecutive = isConsecutiveMessage(at: index, in: messages)
+        let hasNextConsecutive = hasNextConsecutiveMessage(at: index, in: messages)
+
+        return VStack(spacing: 0) {
+            NavigationLink(value: AppRoute.agentProfile(pubkey: message.pubkey)) {
+                MessageRow(
+                    message: message,
+                    currentUserPubkey: currentUserPubkey,
+                    isConsecutive: isConsecutive,
+                    hasNextConsecutive: hasNextConsecutive,
+                    onReplyTap: message.replyCount > 0 ? { focusOnMessage(message) } : nil,
+                    onAgentTap: message.pubkey != currentUserPubkey ? {} : nil,
+                    onQuote: { quoteMessage(message, viewModel: viewModel) },
+                    onReplySwipe: {
+                        inputViewModel.setReplyTo(message)
+                    },
+                    showDebugInfo: false
+                )
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .id(message.id)
+
+            // Track visibility of last message to detect scroll position
+            if index == messages.count - 1 {
+                scrollPositionTracker
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func typingIndicatorView(viewModel: ChatViewModel) -> some View {
+        if !viewModel.typingUsers.isEmpty {
+            typingIndicator(viewModel: viewModel)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+        }
+    }
+
+    private var bottomAnchor: some View {
+        Color.clear
+            .frame(height: 1)
+            .id("bottom")
+    }
+
+    private var scrollPositionTracker: some View {
+        Color.clear
+            .frame(height: 1)
+            .background(
+                GeometryReader { geo in
+                    Color.clear.preference(
+                        key: ScrollOffsetPreferenceKey.self,
+                        value: geo.frame(in: .named("scroll")).minY
+                    )
+                }
+            )
+    }
+
+    private func handleScrollOffsetChange(_ offset: CGFloat) {
+        // User is at bottom if offset is small (within 100 points)
+        shouldAutoScroll = offset < 100
+    }
+
+    private func handleScrollViewAppear(proxy: ScrollViewProxy, messageCount: Int) {
+        withAnimation {
+            proxy.scrollTo("bottom", anchor: .bottom)
+        }
+        lastMessageCount = messageCount
+    }
+
+    private func handleMessageCountChange(proxy: ScrollViewProxy, newCount: Int) {
+        // Only auto-scroll if user is near bottom and new messages were added
+        if shouldAutoScroll && newCount > lastMessageCount {
+            withAnimation {
+                proxy.scrollTo("bottom", anchor: .bottom)
+            }
+        }
+        lastMessageCount = newCount
+    }
+
+    private func handleStreamingSessionsChange(proxy: ScrollViewProxy) {
+        // Scroll when streaming starts if at bottom
+        if shouldAutoScroll {
+            withAnimation {
+                proxy.scrollTo("bottom", anchor: .bottom)
+            }
         }
     }
 

@@ -43,7 +43,7 @@ public final class ConversationState {
     public let rootEventID: String
 
     /// Callback when a final agent message arrives (for auto-TTS)
-    public let onAgentMessage: ((Message) -> Void)?
+    public var onAgentMessage: ((Message) -> Void)?
 
     /// Final messages keyed by event ID (for deduplication)
     public private(set) var messages: [String: Message] = [:]
