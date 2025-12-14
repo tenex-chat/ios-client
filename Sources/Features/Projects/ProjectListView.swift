@@ -330,8 +330,5 @@ struct ProjectRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.bottom, 12)
-        .overlay(alignment: .bottom) {
-            Divider()
-        }
     }
 }
