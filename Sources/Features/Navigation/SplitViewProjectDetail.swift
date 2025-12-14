@@ -89,29 +89,32 @@ struct SplitViewThreadList: View {
     var body: some View {
         Group {
             if let ndk {
-                contentView(ndk: ndk)
+                if let viewModel {
+                    threadListContent(viewModel: viewModel)
+                } else {
+                    emptyView
+                        .task {
+                            let vm = ThreadListViewModel(ndk: ndk, projectID: projectID)
+                            viewModel = vm
+                            vm.subscribe()
+                        }
+                }
             } else {
-                Text("NDK not available")
+                ContentUnavailableView(
+                    "Not Connected",
+                    systemImage: "network.slash",
+                    description: Text("Unable to connect to Nostr network")
+                )
             }
         }
     }
 
     @ViewBuilder
-    private func contentView(ndk: NDK) -> some View {
-        let vm = viewModel ?? ThreadListViewModel(ndk: ndk, projectID: projectID)
-
-        Group {
-            if vm.threads.isEmpty {
-                emptyView
-            } else {
-                threadList(viewModel: vm)
-            }
-        }
-        .task {
-            if viewModel == nil {
-                viewModel = vm
-                vm.subscribe()
-            }
+    private func threadListContent(viewModel: ThreadListViewModel) -> some View {
+        if viewModel.threads.isEmpty {
+            emptyView
+        } else {
+            threadList(viewModel: viewModel)
         }
     }
 
@@ -201,41 +204,41 @@ struct SplitViewChatDetail: View {
 
     var body: some View {
         Group {
-            if ndk != nil, let threadEvent, let userPubkey {
-                ChatView(
-                    threadEvent: threadEvent,
-                    projectReference: projectID,
-                    currentUserPubkey: userPubkey
-                )
-            } else if userPubkey == nil {
+            if userPubkey == nil {
                 ContentUnavailableView(
                     "Not Signed In",
                     systemImage: "person.crop.circle.badge.xmark",
                     description: Text("Sign in to view and send messages")
                 )
+            } else if let threadEvent = subscription?.data.first, let userPubkey {
+                ChatView(
+                    threadEvent: threadEvent,
+                    projectReference: projectID,
+                    currentUserPubkey: userPubkey
+                )
             } else {
-                ProgressView("Loading thread...")
+                ContentUnavailableView(
+                    "Thread Not Found",
+                    systemImage: "message.badge.questionmark",
+                    description: Text("This thread may not exist or hasn't loaded yet")
+                )
             }
         }
         .task(id: threadID) {
-            await loadThread()
+            startSubscription()
         }
     }
 
     // MARK: Private
 
     @Environment(\.ndk) private var ndk
-    @State private var threadEvent: NDKEvent?
+    @State private var subscription: NDKSubscription<NDKEvent>?
 
-    private func loadThread() async {
+    private func startSubscription() {
         guard let ndk else {
             return
         }
         let filter = NDKFilter(ids: [threadID])
-        let subscription = ndk.subscribe(filter: filter)
-        for await event in subscription.events {
-            threadEvent = event
-            break
-        }
+        subscription = ndk.subscribe(filter: filter)
     }
 }
