@@ -18,9 +18,11 @@ public struct ThreadListView: View {
     /// - Parameters:
     ///   - projectID: The project identifier
     ///   - userPubkey: The current user's pubkey (for chat navigation)
-    public init(projectID: String, userPubkey: String? = nil) {
+    ///   - filtersStore: The filters store for managing thread filters
+    public init(projectID: String, userPubkey: String? = nil, filtersStore: ThreadFiltersStore = ThreadFiltersStore()) {
         self.projectID = projectID
         self.userPubkey = userPubkey
+        self.filtersStore = filtersStore
     }
 
     // MARK: Public
@@ -42,6 +44,7 @@ public struct ThreadListView: View {
 
     private let projectID: String
     private let userPubkey: String?
+    private let filtersStore: ThreadFiltersStore
 
     private var emptyView: some View {
         VStack(spacing: 20) {
@@ -61,7 +64,12 @@ public struct ThreadListView: View {
 
     @ViewBuilder
     private func contentView(ndk: NDK) -> some View {
-        let vm = viewModel ?? ThreadListViewModel(ndk: ndk, projectID: projectID)
+        let vm = viewModel ?? ThreadListViewModel(
+            ndk: ndk,
+            projectID: projectID,
+            filtersStore: filtersStore,
+            currentUserPubkey: userPubkey
+        )
 
         Group {
             if vm.threads.isEmpty {
