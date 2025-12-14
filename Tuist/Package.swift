@@ -11,7 +11,7 @@ let packageSettings = PackageSettings(
         "NDKSwiftNostrDB": .framework,
         "NDKSwiftTesting": .framework,
         "NDKSwiftUI": .framework,
-        "ElevenLabsSwift": .framework,
+        "ElevenlabsSwift": .framework,
         "WhisperKit": .framework,
     ]
 )
@@ -20,6 +20,10 @@ let packageSettings = PackageSettings(
 // See PLAN.md Milestone 1 for NDKSwift integration.
 let package = Package(
     name: "TENEXDependencies",
+    platforms: [
+        .iOS(.v17),
+        .macOS(.v14),
+    ],
     dependencies: [
         .package(url: "https://github.com/pablof7z/NDKSwift.git", branch: "master"),
         .package(url: "https://github.com/ArchieGoodwin/ElevenlabsSwift.git", from: "0.8.0"),
