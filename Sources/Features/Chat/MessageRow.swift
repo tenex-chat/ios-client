@@ -24,7 +24,6 @@ public struct MessageRow: View {
         onAgentTap: (() -> Void)? = nil,
         onQuote: (() -> Void)? = nil,
         onTimestampTap: (() -> Void)? = nil,
-        onReplySwipe: (() -> Void)? = nil,
         showDebugInfo: Bool = false
     ) {
         self.message = message
@@ -35,30 +34,24 @@ public struct MessageRow: View {
         self.onAgentTap = onAgentTap
         self.onQuote = onQuote
         self.onTimestampTap = onTimestampTap
-        self.onReplySwipe = onReplySwipe
         self.showDebugInfo = showDebugInfo
-        isAgent = currentUserPubkey != nil && message.pubkey != currentUserPubkey
+        self.isAgent = currentUserPubkey != nil && message.pubkey != currentUserPubkey
     }
 
     // MARK: Public
 
     public var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            replyIconView
-            avatarColumnView
-            messageContent
+            self.avatarColumnView
+            self.messageContent
             Spacer()
         }
-        .offset(x: dragOffset)
-        .gesture(swipeGesture)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: dragOffset)
-        .animation(.spring(response: 0.3, dampingFraction: 0.7), value: isDragging)
-        .padding(.vertical, isConsecutive ? 2 : 8)
+        .padding(.vertical, self.isConsecutive ? 2 : 8)
         .contextMenu {
-            contextMenuContent
+            self.contextMenuContent
         }
-        .sheet(isPresented: $showRawEvent) {
-            RawEventSheet(rawEventJSON: message.rawEventJSON, isPresented: $showRawEvent)
+        .sheet(isPresented: self.$showRawEvent) {
+            RawEventSheet(rawEventJSON: self.message.rawEventJSON, isPresented: self.$showRawEvent)
         }
     }
 
@@ -66,8 +59,6 @@ public struct MessageRow: View {
 
     @Environment(\.ndk) private var ndk
     @State private var showRawEvent = false
-    @State private var dragOffset: CGFloat = 0
-    @State private var isDragging = false
 
     private let message: Message
     private let currentUserPubkey: String?
@@ -77,91 +68,47 @@ public struct MessageRow: View {
     private let onAgentTap: (() -> Void)?
     private let onQuote: (() -> Void)?
     private let onTimestampTap: (() -> Void)?
-    private let onReplySwipe: (() -> Void)?
     private let showDebugInfo: Bool
     private let isAgent: Bool
 
-    private var swipeGesture: some Gesture {
-        DragGesture()
-            .onChanged { value in
-                guard onReplySwipe != nil else {
-                    return
-                }
-                // Only activate if horizontal swipe is dominant (not vertical scrolling)
-                let horizontalAmount = abs(value.translation.width)
-                let verticalAmount = abs(value.translation.height)
-
-                if horizontalAmount > verticalAmount,
-                   value.translation.width > 0,
-                   value.translation.width < 100 {
-                    dragOffset = value.translation.width
-                    isDragging = true
-                }
-            }
-            .onEnded { value in
-                guard onReplySwipe != nil else {
-                    return
-                }
-                let horizontalAmount = abs(value.translation.width)
-                let verticalAmount = abs(value.translation.height)
-
-                if horizontalAmount > verticalAmount, value.translation.width > 50 {
-                    onReplySwipe?()
-                }
-                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    dragOffset = 0
-                    isDragging = false
-                }
-            }
-    }
-
-    @ViewBuilder private var replyIconView: some View {
-        if isDragging, dragOffset > 50 {
-            Image(systemName: "arrowshape.turn.up.left")
-                .font(.system(size: 20))
-                .foregroundStyle(.blue)
-                .transition(.scale.combined(with: .opacity))
-        }
-    }
-
     private var messageContent: some View {
         VStack(alignment: .leading, spacing: 4) {
-            if !isConsecutive {
+            if !self.isConsecutive {
                 MessageHeaderView(
-                    message: message,
-                    currentUserPubkey: currentUserPubkey,
-                    showDebugInfo: showDebugInfo,
-                    onAgentTap: onAgentTap,
-                    onTimestampTap: onTimestampTap
+                    message: self.message,
+                    currentUserPubkey: self.currentUserPubkey,
+                    showDebugInfo: self.showDebugInfo,
+                    onAgentTap: self.onAgentTap,
+                    onTimestampTap: self.onTimestampTap
                 )
             }
 
-            MessageContentView(message: message)
+            MessageContentView(message: self.message)
 
-            if message.replyCount > 0, let onReplyTap {
+            if self.message.replyCount > 0, let onReplyTap {
                 ReplyIndicatorView(
-                    replyCount: message.replyCount,
-                    authorPubkeys: message.replyAuthorPubkeys,
+                    replyCount: self.message.replyCount,
+                    authorPubkeys: self.message.replyAuthorPubkeys,
                     onTap: onReplyTap
                 )
                 .padding(.top, 4)
             }
 
-            if !message.suggestions.isEmpty {
-                suggestionsView
+            if !self.message.suggestions.isEmpty {
+                self.suggestionsView
             }
         }
     }
 
     private var avatarColumnView: some View {
         VStack(spacing: 0) {
-            if isConsecutive {
-                threadContinuityLine
+            if self.isConsecutive {
+                self.threadContinuityLine
             } else {
-                avatarView
+                self.avatarView
             }
-            if hasNextConsecutive {
-                threadContinuityLineBelow
+            if self.hasNextConsecutive {
+                self.threadContinuityLineBelow
             }
         }
         .frame(width: 36)
@@ -189,30 +136,30 @@ public struct MessageRow: View {
 
     private var avatarView: some View {
         Group {
-            if isAgent, let onAgentTap {
+            if self.isAgent, let onAgentTap {
                 Button(action: onAgentTap) {
-                    avatar
+                    self.avatar
                 }
                 .buttonStyle(.plain)
             } else {
-                avatar
+                self.avatar
             }
         }
     }
 
     @ViewBuilder private var avatar: some View {
         if let ndk {
-            NDKUIProfilePicture(ndk: ndk, pubkey: message.pubkey, size: 36)
+            NDKUIProfilePicture(ndk: ndk, pubkey: self.message.pubkey, size: 36)
         } else {
             Image(systemName: "person.circle.fill")
                 .font(.system(size: 36))
-                .foregroundStyle(isAgent ? .blue : .gray)
+                .foregroundStyle(self.isAgent ? .blue : .gray)
         }
     }
 
     private var suggestionsView: some View {
         VStack(alignment: .leading, spacing: 4) {
-            ForEach(message.suggestions, id: \.self) { suggestion in
+            ForEach(self.message.suggestions, id: \.self) { suggestion in
                 Button {} label: {
                     Text(suggestion)
                         .font(.caption)
@@ -245,28 +192,28 @@ public struct MessageRow: View {
         }
 
         Button {
-            copyToClipboard(message.content)
+            self.copyToClipboard(self.message.content)
         } label: {
             Label("Copy Content", systemImage: "doc.on.doc")
         }
 
         if let rawEventJSON = message.rawEventJSON {
             Button {
-                copyToClipboard(rawEventJSON)
+                self.copyToClipboard(rawEventJSON)
             } label: {
                 Label("Copy Raw Event", systemImage: "doc.on.doc.fill")
             }
         }
 
         Button {
-            copyToClipboard(message.id)
+            self.copyToClipboard(self.message.id)
         } label: {
             Label("Copy ID", systemImage: "number")
         }
 
-        if message.rawEventJSON != nil {
+        if self.message.rawEventJSON != nil {
             Button {
-                showRawEvent = true
+                self.showRawEvent = true
             } label: {
                 Label("View Raw Event", systemImage: "chevron.left.forwardslash.chevron.right")
             }
