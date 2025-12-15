@@ -16,9 +16,12 @@ public struct AgentSelectorView: View {
     // MARK: Lifecycle
 
     /// Initialize the agent selector view
-    /// - Parameter viewModel: The agent selector view model
-    public init(viewModel: AgentSelectorViewModel) {
+    /// - Parameters:
+    ///   - viewModel: The agent selector view model
+    ///   - onSettings: Optional callback when settings button is tapped for an agent
+    public init(viewModel: AgentSelectorViewModel, onSettings: ((ProjectAgent) -> Void)? = nil) {
         _viewModel = State(initialValue: viewModel)
+        self.onSettings = onSettings
     }
 
     // MARK: Public
@@ -55,6 +58,8 @@ public struct AgentSelectorView: View {
     @Environment(\.ndk) private var ndk
     @State private var viewModel: AgentSelectorViewModel
 
+    private let onSettings: ((ProjectAgent) -> Void)?
+
     private var emptyState: some View {
         ContentUnavailableView {
             Label("No Agents Online", systemImage: "sparkles")
@@ -73,13 +78,28 @@ public struct AgentSelectorView: View {
     }
 
     private func agentRow(_ agent: ProjectAgent) -> some View {
-        Button {
-            self.viewModel.selectAgent(agent.pubkey)
-            self.viewModel.dismissSelector()
-        } label: {
-            self.agentRowContent(agent)
+        HStack(spacing: 12) {
+            Button {
+                self.viewModel.selectAgent(agent.pubkey)
+                self.viewModel.dismissSelector()
+            } label: {
+                self.agentRowContent(agent)
+            }
+            .buttonStyle(.plain)
+
+            if let onSettings {
+                Button {
+                    onSettings(agent)
+                } label: {
+                    Image(systemName: "gear")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
         }
-        .buttonStyle(.plain)
     }
 
     private func agentRowContent(_ agent: ProjectAgent) -> some View {

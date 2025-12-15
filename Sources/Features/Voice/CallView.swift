@@ -11,7 +11,7 @@ import TENEXCore
 
 // MARK: - CallView
 
-// swiftlint:disable type_body_length
+// swiftlint:disable type_body_length file_length
 
 /// Enhanced call view with auto-TTS, STT, and VOD recording
 /// Displays agent avatar, conversation history, audio controls, and status
@@ -92,7 +92,9 @@ public struct CallView: View {
     @State private var showHoldHint = false
     @State private var sessionStartTime: Date?
     @State private var isShowingSettings = false
-    @State private var isShowingAgentSelector = false
+    @State private var agentSelectorVM: AgentSelectorViewModel?
+    @State private var showAgentConfig = false
+    @State private var configAgent: ProjectAgent?
 
     @Environment(\.aiConfigStorage) private var aiConfigStorage
 
@@ -180,20 +182,6 @@ public struct CallView: View {
         self.viewModel.state == .playingResponse || self.viewModel.isPaused || self.viewModel.agentIsProcessing
     }
 
-    /// State for the center avatar display
-    private var centerAvatarState: CenterAvatarState {
-        if self.viewModel.isPaused {
-            return .paused
-        }
-        if self.viewModel.state == .playingResponse {
-            return .speaking
-        }
-        if self.viewModel.agentIsProcessing {
-            return .processing
-        }
-        return .idle
-    }
-
     private var backgroundGradient: some View {
         LinearGradient(
             colors: [Color.black, self.projectColor.opacity(0.3), Color.black],
@@ -238,9 +226,15 @@ public struct CallView: View {
 
     @ViewBuilder private var agentSelectorArea: some View {
         Button {
-            if self.availableAgents.count > 1 {
-                self.isShowingAgentSelector = true
+            guard self.availableAgents.count > 1 else {
+                return
             }
+            let vm = AgentSelectorViewModel(
+                agents: self.availableAgents,
+                defaultAgentPubkey: self.viewModel.agent.pubkey
+            )
+            vm.isPresented = true
+            self.agentSelectorVM = vm
         } label: {
             HStack(spacing: 12) {
                 self.agentStatusInfo
@@ -253,22 +247,28 @@ public struct CallView: View {
             }
         }
         .buttonStyle(.plain)
-        .sheet(isPresented: self.$isShowingAgentSelector) {
-            CallAgentSelectorSheet(
-                agents: self.availableAgents,
-                currentAgentPubkey: self.viewModel.agent.pubkey,
-                availableModels: self.availableModels,
-                availableTools: self.availableTools,
-                projectReference: self.projectReference,
-                ndk: self.ndk,
-                onSelect: { agent in
-                    self.viewModel.changeAgent(agent)
-                    self.isShowingAgentSelector = false
-                },
-                onCancel: {
-                    self.isShowingAgentSelector = false
-                }
-            )
+        .sheet(item: self.$agentSelectorVM) { vm in
+            AgentSelectorView(viewModel: vm) { self.configAgent = $0; self.showAgentConfig = true }
+        }
+        .sheet(isPresented: self.$showAgentConfig) {
+            if let agent = configAgent {
+                AgentConfigSheet(
+                    isPresented: self.$showAgentConfig,
+                    agent: agent,
+                    availableModels: self.availableModels,
+                    availableTools: self.availableTools,
+                    projectReference: self.projectReference,
+                    ndk: self.ndk
+                )
+            }
+        }
+        .onChange(of: self.agentSelectorVM?.selectedAgentPubkey) { _, newPubkey in
+            guard let newPubkey,
+                  let agent = self.availableAgents.first(where: { $0.pubkey == newPubkey })
+            else {
+                return
+            }
+            self.viewModel.changeAgent(agent)
         }
     }
 
@@ -319,12 +319,13 @@ public struct CallView: View {
 
     @ViewBuilder private var centerVisualization: some View {
         if self.shouldShowAgentInCenter {
-            // Show agent avatar when agent is active (processing, speaking, or paused)
             CenterAgentAvatar(
                 agentName: self.viewModel.agent.name,
                 agentColor: self.agentColor,
                 agentInitials: self.agentInitials,
-                state: self.centerAvatarState,
+                isSpeaking: self.viewModel.state == .playingResponse,
+                isProcessing: self.viewModel.agentIsProcessing,
+                isPaused: self.viewModel.isPaused,
                 onTap: {
                     self.hapticManager.settingsToggle()
                     self.viewModel.togglePause()
@@ -336,7 +337,6 @@ public struct CallView: View {
             )
             .transition(.opacity.combined(with: .scale(scale: 0.9)))
         } else {
-            // Show voice visualizer when waiting for user/agent
             VStack(spacing: 24) {
                 VoiceVisualizerView(
                     audioLevel: self.viewModel.audioLevel,

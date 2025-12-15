@@ -14,10 +14,10 @@ import TENEXCore
 /// Uses ProjectAgent from ProjectStatus (kind:24010) for online agents
 @MainActor
 @Observable
-public final class AgentSelectorViewModel {
+public final class AgentSelectorViewModel: Identifiable {
     // MARK: Lifecycle
 
-    /// Initialize the agent selector view model
+    /// Initialize the agent selector view model with data store
     /// - Parameters:
     ///   - dataStore: The data store containing project statuses
     ///   - projectReference: The project coordinate to get agents for
@@ -25,12 +25,26 @@ public final class AgentSelectorViewModel {
     public init(dataStore: DataStore, projectReference: String, defaultAgentPubkey: String? = nil) {
         self.dataStore = dataStore
         self.projectReference = projectReference
+        self.agentsList = nil
         let currentAgents = Self
             .sortAgents(dataStore.getProjectStatus(projectCoordinate: projectReference)?.agents ?? [])
-        selectedAgentPubkey = defaultAgentPubkey ?? currentAgents.first?.pubkey
+        self.selectedAgentPubkey = defaultAgentPubkey ?? currentAgents.first?.pubkey
+    }
+
+    /// Initialize the agent selector view model with a static list of agents
+    /// - Parameters:
+    ///   - agents: The list of agents to display
+    ///   - defaultAgentPubkey: Optional default agent pubkey to preselect
+    public init(agents: [ProjectAgent], defaultAgentPubkey: String? = nil) {
+        self.dataStore = nil
+        self.projectReference = nil
+        self.agentsList = Self.sortAgents(agents)
+        self.selectedAgentPubkey = defaultAgentPubkey ?? self.agentsList?.first?.pubkey
     }
 
     // MARK: Public
+
+    public let id = UUID()
 
     /// The currently selected agent pubkey
     public private(set) var selectedAgentPubkey: String?
@@ -40,7 +54,13 @@ public final class AgentSelectorViewModel {
 
     /// List of online agents from ProjectStatus (sorted: PM first, then alphabetical)
     public var agents: [ProjectAgent] {
-        Self.sortAgents(dataStore.getProjectStatus(projectCoordinate: projectReference)?.agents ?? [])
+        if let agentsList {
+            return agentsList
+        }
+        guard let dataStore, let projectReference else {
+            return []
+        }
+        return Self.sortAgents(dataStore.getProjectStatus(projectCoordinate: projectReference)?.agents ?? [])
     }
 
     /// Get the currently selected agent
@@ -48,29 +68,30 @@ public final class AgentSelectorViewModel {
         guard let selectedAgentPubkey else {
             return nil
         }
-        return agents.first { $0.pubkey == selectedAgentPubkey }
+        return self.agents.first { $0.pubkey == selectedAgentPubkey }
     }
 
     /// Select an agent by pubkey
     /// - Parameter pubkey: The agent's Nostr pubkey
     public func selectAgent(_ pubkey: String) {
-        selectedAgentPubkey = pubkey
+        self.selectedAgentPubkey = pubkey
     }
 
     /// Present the agent selector sheet
     public func presentSelector() {
-        isPresented = true
+        self.isPresented = true
     }
 
     /// Dismiss the agent selector sheet
     public func dismissSelector() {
-        isPresented = false
+        self.isPresented = false
     }
 
     // MARK: Private
 
-    @ObservationIgnored private let dataStore: DataStore
-    @ObservationIgnored private let projectReference: String
+    @ObservationIgnored private let dataStore: DataStore?
+    @ObservationIgnored private let projectReference: String?
+    @ObservationIgnored private let agentsList: [ProjectAgent]?
 
     /// Sort agents: PM first, then alphabetically by name
     private static func sortAgents(_ agents: [ProjectAgent]) -> [ProjectAgent] {
