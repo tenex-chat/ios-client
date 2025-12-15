@@ -52,11 +52,14 @@ platform :ios do
       clean: true,
       include_symbols: true,
       destination: "generic/platform=iOS",
+      output_directory: "./build",
+      output_name: "TENEX.ipa",
       xcargs: "CURRENT_PROJECT_VERSION=#{ENV["GITHUB_RUN_NUMBER"]} MARKETING_VERSION=1.0.0"
     )
 
     # Upload to TestFlight
     upload_to_testflight(
+      ipa: "./build/TENEX.ipa",
       skip_waiting_for_build_processing: true
     )
   end
