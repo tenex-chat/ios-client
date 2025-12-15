@@ -23,10 +23,10 @@ public struct ProjectListView: View {
 
     public var body: some View {
         Group {
-            if viewModel.projects.isEmpty {
-                emptyView
+            if self.viewModel.projects.isEmpty {
+                self.emptyView
             } else {
-                projectList
+                self.projectList
             }
         }
         .navigationTitle("Projects")
@@ -36,44 +36,44 @@ public struct ProjectListView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button(
-                        action: { showingCreateWizard = true },
+                        action: { self.showingCreateWizard = true },
                         label: { Label("New Project", systemImage: "plus") }
                     )
                 }
 
                 #if os(iOS)
                     ToolbarItem(placement: .topBarLeading) {
-                        groupFilterMenu
+                        self.groupFilterMenu
                     }
                 #else
                     ToolbarItem(placement: .navigation) {
-                        groupFilterMenu
+                        self.groupFilterMenu
                     }
                 #endif
             }
-            .sheet(isPresented: $showingGroupEditor) {
+            .sheet(isPresented: self.$showingGroupEditor) {
                 ProjectGroupEditorSheet(
-                    isPresented: $showingGroupEditor,
-                    allProjects: allProjects,
-                    existingGroup: editingGroup,
+                    isPresented: self.$showingGroupEditor,
+                    allProjects: self.allProjects,
+                    existingGroup: self.editingGroup,
                     onSave: { name, projectIDs in
                         if let existingGroup = editingGroup {
                             var updatedGroup = existingGroup
                             updatedGroup.name = name
                             updatedGroup.projectIDs = projectIDs
-                            viewModel.updateGroup(updatedGroup)
+                            self.viewModel.updateGroup(updatedGroup)
                         } else {
-                            viewModel.createGroup(name: name, projectIDs: projectIDs)
+                            self.viewModel.createGroup(name: name, projectIDs: projectIDs)
                         }
                     },
-                    onDelete: editingGroup != nil ? {
+                    onDelete: self.editingGroup != nil ? {
                         if let group = editingGroup {
-                            viewModel.deleteGroup(id: group.id)
+                            self.viewModel.deleteGroup(id: group.id)
                         }
                     } : nil
                 )
             }
-            .sheet(isPresented: $showingCreateWizard) {
+            .sheet(isPresented: self.$showingCreateWizard) {
                 if let dataStore, let ndk {
                     CreateProjectWizardView(ndk: ndk, dataStore: dataStore)
                 }
@@ -90,50 +90,50 @@ public struct ProjectListView: View {
     @Environment(DataStore.self) private var dataStore: DataStore?
 
     private var allProjects: [Project] {
-        viewModel.allNonArchivedProjects
+        self.viewModel.allNonArchivedProjects
     }
 
     private var emptyStateTitle: String {
-        viewModel.selectedGroupID != nil ? "No Projects in This Group" : "No Projects"
+        self.viewModel.selectedGroupID != nil ? "No Projects in This Group" : "No Projects"
     }
 
     private var emptyStateMessage: String {
-        viewModel.selectedGroupID != nil
+        self.viewModel.selectedGroupID != nil
             ? "This group doesn't have any projects yet"
             : "You don't have any projects yet"
     }
 
     private var selectedGroup: ProjectGroup? {
-        viewModel.groups.first { $0.id == viewModel.selectedGroupID }
+        self.viewModel.groups.first { $0.id == self.viewModel.selectedGroupID }
     }
 
     private var groupFilterMenuLabel: String {
-        selectedGroup?.name ?? "All Projects"
+        self.selectedGroup?.name ?? "All Projects"
     }
 
     @ViewBuilder private var groupMenuItems: some View {
-        allProjectsButton
-        groupListSection
-        newGroupButton
-        selectedGroupActions
+        self.allProjectsButton
+        self.groupListSection
+        self.newGroupButton
+        self.selectedGroupActions
     }
 
     private var allProjectsButton: some View {
         Button {
-            viewModel.selectedGroupID = nil
+            self.viewModel.selectedGroupID = nil
         } label: {
-            Label("All Projects", systemImage: viewModel.selectedGroupID == nil ? "checkmark" : "")
+            Label("All Projects", systemImage: self.viewModel.selectedGroupID == nil ? "checkmark" : "")
         }
     }
 
     @ViewBuilder private var groupListSection: some View {
-        if !viewModel.groups.isEmpty {
+        if !self.viewModel.groups.isEmpty {
             Divider()
-            ForEach(viewModel.groups) { group in
+            ForEach(self.viewModel.groups) { group in
                 Button {
-                    viewModel.selectedGroupID = group.id
+                    self.viewModel.selectedGroupID = group.id
                 } label: {
-                    let icon = viewModel.selectedGroupID == group.id ? "checkmark" : ""
+                    let icon = self.viewModel.selectedGroupID == group.id ? "checkmark" : ""
                     Label(group.name, systemImage: icon)
                 }
             }
@@ -143,8 +143,8 @@ public struct ProjectListView: View {
 
     private var newGroupButton: some View {
         Button {
-            editingGroup = nil
-            showingGroupEditor = true
+            self.editingGroup = nil
+            self.showingGroupEditor = true
         } label: {
             Label("New Group", systemImage: "plus")
         }
@@ -154,13 +154,13 @@ public struct ProjectListView: View {
         if let selectedGroup {
             Divider()
             Button {
-                editingGroup = selectedGroup
-                showingGroupEditor = true
+                self.editingGroup = selectedGroup
+                self.showingGroupEditor = true
             } label: {
                 Label("Edit Group", systemImage: "pencil")
             }
             Button(role: .destructive) {
-                viewModel.deleteGroup(id: selectedGroup.id)
+                self.viewModel.deleteGroup(id: selectedGroup.id)
             } label: {
                 Label("Delete Group", systemImage: "trash")
             }
@@ -169,16 +169,16 @@ public struct ProjectListView: View {
 
     private var groupFilterMenu: some View {
         Menu {
-            groupMenuItems
+            self.groupMenuItems
         } label: {
-            Label(groupFilterMenuLabel, systemImage: "line.3.horizontal.decrease.circle")
+            Label(self.groupFilterMenuLabel, systemImage: "line.3.horizontal.decrease.circle")
         }
     }
 
     private var projectList: some View {
         List {
-            ForEach(viewModel.projects) { project in
-                projectRow(for: project)
+            ForEach(self.viewModel.projects) { project in
+                self.projectRow(for: project)
             }
         }
         .listStyle(.plain)
@@ -190,16 +190,16 @@ public struct ProjectListView: View {
                 .font(.system(size: 60))
                 .foregroundStyle(.blue)
 
-            Text(emptyStateTitle)
+            Text(self.emptyStateTitle)
                 .font(.title)
                 .fontWeight(.semibold)
 
-            Text(emptyStateMessage)
+            Text(self.emptyStateMessage)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
             Button("Create New Project") {
-                showingCreateWizard = true
+                self.showingCreateWizard = true
             }
             .buttonStyle(.borderedProminent)
             .padding(.top)
@@ -208,25 +208,25 @@ public struct ProjectListView: View {
 
     @ViewBuilder
     private func projectRow(for project: Project) -> some View {
-        let isOnline = dataStore?.isProjectOnline(projectCoordinate: project.coordinate) ?? false
+        let isOnline = self.dataStore?.isProjectOnline(projectCoordinate: project.coordinate) ?? false
         NavigationLink(value: AppRoute.project(id: project.id)) {
             ProjectRow(project: project, isOnline: isOnline)
         }
         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
         .listRowSeparator(.hidden)
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            archiveButton(for: project)
+            self.archiveButton(for: project)
         }
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             if !isOnline {
-                startButton(for: project)
+                self.startButton(for: project)
             }
         }
     }
 
     private func archiveButton(for project: Project) -> some View {
         Button(role: .destructive) {
-            Task { await viewModel.archiveProject(id: project.id) }
+            Task { await self.viewModel.archiveProject(id: project.id) }
         } label: {
             Label("Archive", systemImage: "archivebox")
         }
@@ -235,7 +235,7 @@ public struct ProjectListView: View {
 
     private func startButton(for project: Project) -> some View {
         Button {
-            Task { try? await dataStore?.startProject(project) }
+            Task { try? await self.dataStore?.startProject(project) }
         } label: {
             Label("Start", systemImage: "play.fill")
         }
@@ -253,12 +253,12 @@ struct ProjectRow: View {
     var isOnline = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            avatarView
-            projectInfo
+        HStack(spacing: 12) {
+            self.avatarView
+            self.projectInfo
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
         .contentShape(Rectangle())
     }
 
@@ -271,20 +271,20 @@ struct ProjectRow: View {
     private var avatarView: some View {
         ZStack(alignment: .bottomTrailing) {
             RoundedRectangle(cornerRadius: 12)
-                .fill(project.color)
-                .frame(width: avatarSize, height: avatarSize)
+                .fill(self.project.color)
+                .frame(width: self.avatarSize, height: self.avatarSize)
                 .overlay {
-                    Text(project.title.prefix(1).uppercased())
-                        .font(.system(size: avatarFontSize, weight: .semibold))
+                    Text(self.project.title.prefix(1).uppercased())
+                        .font(.system(size: self.avatarFontSize, weight: .semibold))
                         .foregroundStyle(.white)
                 }
-            statusIndicator
+            self.statusIndicator
         }
     }
 
     private var statusIndicator: some View {
         Circle()
-            .fill(isOnline ? Color.green : Color.gray.opacity(0.5))
+            .fill(self.isOnline ? Color.green : Color.gray.opacity(0.5))
             .frame(width: 14, height: 14)
             .overlay {
                 Circle()
@@ -294,19 +294,19 @@ struct ProjectRow: View {
                     .stroke(Color(nsColor: .windowBackgroundColor), lineWidth: 2)
                 #endif
             }
-            .shadow(color: isOnline ? .green.opacity(0.5) : .clear, radius: 4)
+            .shadow(color: self.isOnline ? .green.opacity(0.5) : .clear, radius: 4)
             .offset(x: 2, y: 2)
     }
 
     private var projectInfo: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(project.title)
-                .font(.system(size: 13, weight: .semibold))
+        VStack(alignment: .leading, spacing: 2) {
+            Text(self.project.title)
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(.primary)
 
             if let description = project.description {
                 Text(description)
-                    .font(.system(size: 11))
+                    .font(.system(size: 15))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
