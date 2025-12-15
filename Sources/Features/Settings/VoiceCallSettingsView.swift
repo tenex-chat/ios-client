@@ -26,7 +26,9 @@ public struct VoiceCallSettingsView: View {
             self.callBehaviorSection
         }
         .navigationTitle("Voice Call")
-        .navigationBarTitleDisplayMode(.inline)
+        #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+        #endif
     }
 
     // MARK: Private

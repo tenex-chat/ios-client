@@ -252,6 +252,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                     }
             }
         }
+        #if os(iOS)
         .fullScreenCover(isPresented: self.$isShowingCallView) {
             if let ndk, let callVM = self.createCallViewModel() {
                 ZStack {
@@ -277,28 +278,55 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                     }
             }
         }
-        .task {
-            // Only subscribe to metadata for existing threads
-            if !viewModel.isNewThread {
-                await viewModel.subscribeToThreadMetadata()
-            }
-        }
-        .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
-            Button("OK") {}
-        } message: {
-            if let errorMessage = viewModel.errorMessage {
-                Text(errorMessage)
-            }
-        }
-        .alert("Voice Call Error", isPresented: .constant(self.callViewErrorMessage != nil)) {
-            Button("OK") {
-                self.callViewErrorMessage = nil
-            }
-        } message: {
-            if let errorMessage = callViewErrorMessage {
-                Text(errorMessage)
-            }
-        }
+        #else
+        .sheet(isPresented: self.$isShowingCallView) {
+                    if let ndk, let callVM = self.createCallViewModel() {
+                        ZStack {
+                            Color.black.ignoresSafeArea()
+
+                            CallView(
+                                viewModel: callVM,
+                                ndk: ndk,
+                                projectReference: self.projectReference,
+                                dataStore: self.dataStore,
+                                onDismiss: {
+                                    self.isShowingCallView = false
+                                },
+                                projectColor: .blue,
+                                availableAgents: self.onlineAgents
+                            )
+                            .frame(maxWidth: 390, maxHeight: 844)
+                        }
+                    } else {
+                        Text("Unable to start call")
+                            .onAppear {
+                                self.isShowingCallView = false
+                            }
+                    }
+                } // swiftlint:disable:this closure_end_indentation
+        #endif
+                .task {
+                    // Only subscribe to metadata for existing threads
+                    if !viewModel.isNewThread {
+                        await viewModel.subscribeToThreadMetadata()
+                    }
+                }
+                .alert("Error", isPresented: .constant(viewModel.errorMessage != nil)) {
+                    Button("OK") {}
+                } message: {
+                    if let errorMessage = viewModel.errorMessage {
+                        Text(errorMessage)
+                    }
+                }
+                .alert("Voice Call Error", isPresented: .constant(self.callViewErrorMessage != nil)) {
+                    Button("OK") {
+                        self.callViewErrorMessage = nil
+                    }
+                } message: {
+                    if let errorMessage = callViewErrorMessage {
+                        Text(errorMessage)
+                    }
+                }
     }
 
     @ViewBuilder

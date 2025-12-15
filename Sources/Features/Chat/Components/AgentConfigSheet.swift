@@ -353,8 +353,12 @@ private struct ToolGroupRow: View {
             }
             .padding(.vertical, 6)
             .padding(.leading, 12)
-            .background(Color(.secondarySystemBackground))
-            .contentShape(Rectangle())
+            #if os(iOS)
+                .background(Color(.secondarySystemBackground))
+            #else
+                .background(Color(nsColor: .controlBackgroundColor))
+            #endif
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
