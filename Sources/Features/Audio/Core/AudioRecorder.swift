@@ -62,7 +62,7 @@ final class AudioRecorder {
             /// Configure audio session
             let session = AVAudioSession.sharedInstance()
             do {
-                try session.setCategory(.record, mode: .default)
+                try session.setCategory(.playAndRecord, mode: .default)
                 try session.setActive(true)
             } catch {
                 throw AudioError.recordingFailed(error)
@@ -73,15 +73,15 @@ final class AudioRecorder {
         let tempDir = FileManager.default.temporaryDirectory
         let fileName = "recording_\(UUID().uuidString).wav"
         let fileURL = tempDir.appendingPathComponent(fileName)
-        currentRecordingURL = fileURL
+        self.currentRecordingURL = fileURL
 
         // Create audio recorder
         do {
-            audioRecorder = try AVAudioRecorder(url: fileURL, settings: audioSettings)
-            audioRecorder?.isMeteringEnabled = true
-            audioRecorder?.prepareToRecord()
+            self.audioRecorder = try AVAudioRecorder(url: fileURL, settings: self.audioSettings)
+            self.audioRecorder?.isMeteringEnabled = true
+            self.audioRecorder?.prepareToRecord()
 
-            guard audioRecorder?.record() == true else {
+            guard self.audioRecorder?.record() == true else {
                 throw AudioError.recordingFailed(NSError(
                     domain: "AudioRecorder",
                     code: -1,
@@ -89,10 +89,10 @@ final class AudioRecorder {
                 ))
             }
 
-            isRecording = true
+            self.isRecording = true
 
             // Start metering timer
-            startMetering()
+            self.startMetering()
 
             return fileURL
         } catch {
@@ -103,7 +103,7 @@ final class AudioRecorder {
     /// Stop recording and return the audio file URL
     /// - Returns: URL of recorded audio file
     func stopRecording() async throws -> URL {
-        guard isRecording, let audioRecorder else {
+        guard self.isRecording, let audioRecorder else {
             throw AudioError.recordingFailed(NSError(
                 domain: "AudioRecorder",
                 code: -1,
@@ -112,16 +112,16 @@ final class AudioRecorder {
         }
 
         // Stop metering
-        stopMetering()
+        self.stopMetering()
 
         // Stop recording
         audioRecorder.stop()
         self.audioRecorder = nil
-        isRecording = false
+        self.isRecording = false
 
         // Reset level
-        audioLevel = 0.0
-        recordingDuration = 0.0
+        self.audioLevel = 0.0
+        self.recordingDuration = 0.0
 
         guard let url = currentRecordingURL else {
             throw AudioError.recordingFailed(NSError(
@@ -145,22 +145,22 @@ final class AudioRecorder {
 
     /// Cancel recording and delete the file
     func cancelRecording() async {
-        guard isRecording else {
+        guard self.isRecording else {
             return
         }
 
-        stopMetering()
-        audioRecorder?.stop()
-        audioRecorder = nil
-        isRecording = false
-        audioLevel = 0.0
-        recordingDuration = 0.0
+        self.stopMetering()
+        self.audioRecorder?.stop()
+        self.audioRecorder = nil
+        self.isRecording = false
+        self.audioLevel = 0.0
+        self.recordingDuration = 0.0
 
         // Delete recording file
         if let url = currentRecordingURL {
             try? FileManager.default.removeItem(at: url)
         }
-        currentRecordingURL = nil
+        self.currentRecordingURL = nil
     }
 
     // MARK: Private
@@ -182,7 +182,7 @@ final class AudioRecorder {
     // MARK: - Metering
 
     private func startMetering() {
-        meteringTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
+        self.meteringTimer = Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.updateMetering()
             }
@@ -190,13 +190,13 @@ final class AudioRecorder {
     }
 
     private func stopMetering() {
-        meteringTimer?.invalidate()
-        meteringTimer = nil
+        self.meteringTimer?.invalidate()
+        self.meteringTimer = nil
     }
 
     private func updateMetering() {
         guard let audioRecorder, audioRecorder.isRecording else {
-            audioLevel = 0.0
+            self.audioLevel = 0.0
             return
         }
 
@@ -210,7 +210,7 @@ final class AudioRecorder {
         let minDb: Float = -60.0 // Treat anything below -60dB as silence
         let normalizedPower = max(0.0, min(1.0, (averagePower - minDb) / (0 - minDb)))
 
-        audioLevel = Double(normalizedPower)
-        recordingDuration = audioRecorder.currentTime
+        self.audioLevel = Double(normalizedPower)
+        self.recordingDuration = audioRecorder.currentTime
     }
 }

@@ -13,9 +13,10 @@ import TENEXCore
 public struct MessageBubble: View {
     // MARK: Lifecycle
 
-    public init(message: CallMessage, accentColor: Color, onReplay: @escaping () -> Void) {
+    public init(message: Message, accentColor: Color, userPubkey: String, onReplay: @escaping () -> Void) {
         self.message = message
         self.accentColor = accentColor
+        self.userPubkey = userPubkey
         self.onReplay = onReplay
     }
 
@@ -23,13 +24,13 @@ public struct MessageBubble: View {
 
     public var body: some View {
         HStack(alignment: .top, spacing: 8) {
-            if !isUser {
+            if !self.isUser {
                 Spacer(minLength: 40)
             }
 
-            messageContent
+            self.messageContent
 
-            if isUser {
+            if self.isUser {
                 Spacer(minLength: 40)
             }
         }
@@ -37,28 +38,32 @@ public struct MessageBubble: View {
 
     // MARK: Internal
 
-    let message: CallMessage
+    let message: Message
     let accentColor: Color
+    let userPubkey: String
     let onReplay: () -> Void
 
     // MARK: Private
 
+    /// Check if message is from the current user
     private var isUser: Bool {
-        if case .user = message.sender {
-            return true
-        }
-        return false
+        self.message.pubkey == self.userPubkey
+    }
+
+    private var displayName: String {
+        // Use message profile or pubkey
+        self.message.profile?.displayName ?? self.message.pubkey.prefix(8).description
     }
 
     private var messageContent: some View {
-        VStack(alignment: isUser ? .trailing : .leading, spacing: 6) {
-            Text(message.sender.displayName)
+        VStack(alignment: self.isUser ? .trailing : .leading, spacing: 6) {
+            Text(self.displayName)
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.7))
 
-            messageWithReplay
+            self.messageWithReplay
 
-            Text(formatTimestamp(message.timestamp))
+            Text(self.formatTimestamp(self.message.createdAt))
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.5))
         }
@@ -66,21 +71,21 @@ public struct MessageBubble: View {
 
     private var messageWithReplay: some View {
         HStack(alignment: .bottom, spacing: 8) {
-            Text(message.content)
+            Text(self.message.content)
                 .font(.body)
                 .foregroundStyle(.white)
                 .padding(12)
-                .background(isUser ? accentColor.opacity(0.8) : Color.white.opacity(0.15))
+                .background(self.isUser ? self.accentColor.opacity(0.8) : Color.white.opacity(0.15))
                 .clipShape(RoundedRectangle(cornerRadius: 16))
 
-            if !isUser {
-                replayButton
+            if !self.isUser {
+                self.replayButton
             }
         }
     }
 
     private var replayButton: some View {
-        Button(action: onReplay) {
+        Button(action: self.onReplay) {
             Image(systemName: "speaker.wave.2.fill")
                 .font(.system(size: 14))
                 .foregroundStyle(.white.opacity(0.6))
