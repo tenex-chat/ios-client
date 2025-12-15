@@ -30,7 +30,7 @@ public struct ThreadListView: View {
     public var body: some View {
         Group {
             if let ndk {
-                contentView(ndk: ndk)
+                self.contentView(ndk: ndk)
             } else {
                 Text("NDK not available")
             }
@@ -64,23 +64,23 @@ public struct ThreadListView: View {
 
     @ViewBuilder
     private func contentView(ndk: NDK) -> some View {
-        let vm = viewModel ?? ThreadListViewModel(
+        let vm = self.viewModel ?? ThreadListViewModel(
             ndk: ndk,
-            projectID: projectID,
-            filtersStore: filtersStore,
-            currentUserPubkey: userPubkey
+            projectID: self.projectID,
+            filtersStore: self.filtersStore,
+            currentUserPubkey: self.userPubkey
         )
 
         Group {
             if vm.threads.isEmpty {
-                emptyView
+                self.emptyView
             } else {
-                threadList(viewModel: vm)
+                self.threadList(viewModel: vm)
             }
         }
         .task {
-            if viewModel == nil {
-                viewModel = vm
+            if self.viewModel == nil {
+                self.viewModel = vm
                 vm.subscribe()
             }
         }
@@ -115,12 +115,15 @@ public struct ThreadListView: View {
                     }
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    archiveButton(for: thread, viewModel: viewModel)
+                    self.archiveButton(for: thread, viewModel: viewModel)
                 }
             }
         }
         #if os(iOS)
         .listStyle(.plain)
+        .refreshable {
+            viewModel.restartSubscriptions()
+        }
         #else
         .listStyle(.inset)
         #endif
@@ -151,7 +154,7 @@ struct ThreadRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             // Thread title
-            Text(thread.title)
+            Text(self.thread.title)
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.primary)
 
@@ -166,7 +169,7 @@ struct ThreadRow: View {
             // Thread metadata
             HStack(spacing: 8) {
                 // Reply count
-                Label("\(thread.replyCount)", systemImage: "bubble.left.fill")
+                Label("\(self.thread.replyCount)", systemImage: "bubble.left.fill")
                     .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
 
@@ -184,7 +187,7 @@ struct ThreadRow: View {
                 Spacer()
 
                 // Creation date
-                Text(thread.createdAt, style: .relative)
+                Text(self.thread.createdAt, style: .relative)
                     .font(.system(size: 10))
                     .foregroundStyle(.tertiary)
             }
@@ -195,8 +198,8 @@ struct ThreadRow: View {
             .hoverEffect(.highlight)
         #endif
             .accessibilityElement(children: .combine)
-            .accessibilityLabel(thread.title)
-            .accessibilityHint("\(thread.replyCount) replies. \(thread.summary ?? "Open thread")")
+            .accessibilityLabel(self.thread.title)
+            .accessibilityHint("\(self.thread.replyCount) replies. \(self.thread.summary ?? "Open thread")")
     }
 
     // MARK: Private

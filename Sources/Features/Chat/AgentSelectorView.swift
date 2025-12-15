@@ -4,6 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftUI
 import SwiftUI
 import TENEXCore
 
@@ -25,11 +26,11 @@ public struct AgentSelectorView: View {
     public var body: some View {
         NavigationStack {
             List {
-                if viewModel.agents.isEmpty {
-                    emptyState
+                if self.viewModel.agents.isEmpty {
+                    self.emptyState
                 } else {
-                    ForEach(viewModel.agents) { agent in
-                        agentRow(agent)
+                    ForEach(self.viewModel.agents) { agent in
+                        self.agentRow(agent)
                     }
                 }
             }
@@ -40,7 +41,7 @@ public struct AgentSelectorView: View {
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") {
-                            viewModel.dismissSelector()
+                            self.viewModel.dismissSelector()
                         }
                     }
                 }
@@ -51,15 +52,8 @@ public struct AgentSelectorView: View {
 
     // MARK: Private
 
+    @Environment(\.ndk) private var ndk
     @State private var viewModel: AgentSelectorViewModel
-
-    private var avatarGradient: LinearGradient {
-        LinearGradient(
-            colors: [.blue, .purple],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
 
     private var emptyState: some View {
         ContentUnavailableView {
@@ -80,20 +74,20 @@ public struct AgentSelectorView: View {
 
     private func agentRow(_ agent: ProjectAgent) -> some View {
         Button {
-            viewModel.selectAgent(agent.pubkey)
-            viewModel.dismissSelector()
+            self.viewModel.selectAgent(agent.pubkey)
+            self.viewModel.dismissSelector()
         } label: {
-            agentRowContent(agent)
+            self.agentRowContent(agent)
         }
         .buttonStyle(.plain)
     }
 
     private func agentRowContent(_ agent: ProjectAgent) -> some View {
         HStack(spacing: 12) {
-            agentAvatar(for: agent)
-            agentInfo(agent)
+            self.agentAvatar(for: agent)
+            self.agentInfo(agent)
             Spacer()
-            selectionIndicator(for: agent)
+            self.selectionIndicator(for: agent)
         }
         .padding(.vertical, 6)
         .contentShape(Rectangle())
@@ -106,7 +100,7 @@ public struct AgentSelectorView: View {
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(.primary)
                 if agent.isGlobal {
-                    globalBadge
+                    self.globalBadge
                 }
             }
             if let model = agent.model {
@@ -119,19 +113,28 @@ public struct AgentSelectorView: View {
 
     @ViewBuilder
     private func selectionIndicator(for agent: ProjectAgent) -> some View {
-        if viewModel.selectedAgentPubkey == agent.pubkey {
+        if self.viewModel.selectedAgentPubkey == agent.pubkey {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 22))
                 .foregroundStyle(.blue)
         }
     }
 
+    @ViewBuilder
     private func agentAvatar(for agent: ProjectAgent) -> some View {
-        Text(agent.name.prefix(1).uppercased())
-            .font(.system(size: 16, weight: .bold))
-            .foregroundStyle(.white)
-            .frame(width: 40, height: 40)
-            .background(avatarGradient, in: Circle())
+        if let ndk {
+            NDKUIProfilePicture(ndk: ndk, pubkey: agent.pubkey, size: 40)
+        } else {
+            // Fallback when NDK is not available
+            Circle()
+                .fill(Color.gray.opacity(0.2))
+                .frame(width: 40, height: 40)
+                .overlay {
+                    Text(agent.name.prefix(1).uppercased())
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+        }
     }
 }
 
@@ -149,43 +152,37 @@ public struct AgentSelectorButton: View {
 
     public var body: some View {
         Button {
-            viewModel.presentSelector()
+            self.viewModel.presentSelector()
         } label: {
-            buttonContent
+            self.buttonContent
         }
         .buttonStyle(.plain)
-        .sheet(isPresented: $viewModel.isPresented) {
-            AgentSelectorView(viewModel: viewModel)
+        .sheet(isPresented: self.$viewModel.isPresented) {
+            AgentSelectorView(viewModel: self.viewModel)
         }
     }
 
     // MARK: Private
 
-    @Bindable private var viewModel: AgentSelectorViewModel
+    @Environment(\.ndk) private var ndk
 
-    private var avatarGradient: LinearGradient {
-        LinearGradient(
-            colors: [.blue, .purple],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
-    }
+    @Bindable private var viewModel: AgentSelectorViewModel
 
     private var buttonContent: some View {
         HStack(spacing: 6) {
-            buttonIcon
-            chevron
+            self.buttonIcon
+            self.chevron
         }
         .padding(.leading, 8)
         .padding(.trailing, 10)
         .padding(.vertical, 6)
-        .background(chipBackground)
-        .overlay(chipBorder)
+        .background(self.chipBackground)
+        .overlay(self.chipBorder)
     }
 
     @ViewBuilder private var buttonIcon: some View {
         if let agent = viewModel.selectedAgent {
-            agentAvatar(for: agent)
+            self.agentAvatar(for: agent)
             Text(agent.name)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundStyle(.primary)
@@ -215,11 +212,20 @@ public struct AgentSelectorButton: View {
             .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
     }
 
+    @ViewBuilder
     private func agentAvatar(for agent: ProjectAgent) -> some View {
-        Text(agent.name.prefix(1).uppercased())
-            .font(.system(size: 10, weight: .bold))
-            .foregroundStyle(.white)
-            .frame(width: 20, height: 20)
-            .background(avatarGradient, in: Circle())
+        if let ndk {
+            NDKUIProfilePicture(ndk: ndk, pubkey: agent.pubkey, size: 20)
+        } else {
+            // Fallback when NDK is not available
+            Circle()
+                .fill(Color.gray.opacity(0.2))
+                .frame(width: 20, height: 20)
+                .overlay {
+                    Text(agent.name.prefix(1).uppercased())
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(.secondary)
+                }
+        }
     }
 }

@@ -49,9 +49,9 @@ public final class ThreadListViewModel {
 
     /// The list of threads, enriched with metadata and reply counts
     public var threads: [NostrThread] {
-        let threadEvents = threadEventsSubscription?.data ?? []
-        let metadataEvents = metadataSubscription?.data ?? []
-        let messageEvents = messagesSubscription?.data ?? []
+        let threadEvents = self.threadEventsSubscription?.data ?? []
+        let metadataEvents = self.metadataSubscription?.data ?? []
+        let messageEvents = self.messagesSubscription?.data ?? []
 
         // Build threads from kind:11 events
         var threadsByID: [String: NostrThread] = [:]
@@ -111,12 +111,12 @@ public final class ThreadListViewModel {
         self.threadEvents = threadEventsByID
 
         // Filter out archived threads
-        var filteredThreads = filterArchivedThreads(from: enrichedThreads)
+        var filteredThreads = self.filterArchivedThreads(from: enrichedThreads)
 
         // Apply time-based filter if one is set
-        let activeFilter = filtersStore.getFilter(for: projectID)
+        let activeFilter = self.filtersStore.getFilter(for: self.projectID)
         if let filter = activeFilter {
-            filteredThreads = applyFilter(filter, to: filteredThreads, messages: messageEvents)
+            filteredThreads = self.applyFilter(filter, to: filteredThreads, messages: messageEvents)
         }
 
         // Sort by creation date (newest first)
@@ -125,39 +125,50 @@ public final class ThreadListViewModel {
 
     /// The current error message, if any
     public var errorMessage: String? {
-        threadEventsSubscription?.error?.localizedDescription ??
-            metadataSubscription?.error?.localizedDescription ??
-            messagesSubscription?.error?.localizedDescription
+        self.threadEventsSubscription?.error?.localizedDescription ??
+            self.metadataSubscription?.error?.localizedDescription ??
+            self.messagesSubscription?.error?.localizedDescription
     }
 
     /// Subscribe to all thread-related events
     public func subscribe() {
         // Subscribe to thread events (kind:11)
-        let threadFilter = NostrThread.filter(for: projectID)
-        threadEventsSubscription = ndk.subscribe(filter: threadFilter)
+        let threadFilter = NostrThread.filter(for: self.projectID)
+        self.threadEventsSubscription = self.ndk.subscribe(filter: threadFilter)
 
         // Subscribe to metadata events (kind:513)
         let metadataFilter = NDKFilter(kinds: [513])
-        metadataSubscription = ndk.subscribe(filter: metadataFilter)
+        self.metadataSubscription = self.ndk.subscribe(filter: metadataFilter)
 
         // Subscribe to message events (kind:1111)
         let messagesFilter = NDKFilter(
             kinds: [1111],
             tags: ["a": Set([projectID])]
         )
-        messagesSubscription = ndk.subscribe(filter: messagesFilter)
+        self.messagesSubscription = self.ndk.subscribe(filter: messagesFilter)
+    }
+
+    /// Restart all subscriptions (useful when they get stuck)
+    public func restartSubscriptions() {
+        // Cancel existing subscriptions
+        self.threadEventsSubscription = nil
+        self.metadataSubscription = nil
+        self.messagesSubscription = nil
+
+        // Resubscribe
+        self.subscribe()
     }
 
     /// Archive a thread (hide from list)
     /// - Parameter id: The thread ID to archive
     public func archiveThread(id: String) async {
-        archiveStorage.archive(threadID: id)
+        self.archiveStorage.archive(threadID: id)
     }
 
     /// Unarchive a thread (restore to list)
     /// - Parameter id: The thread ID to unarchive
     public func unarchiveThread(id: String) async {
-        archiveStorage.unarchive(threadID: id)
+        self.archiveStorage.unarchive(threadID: id)
     }
 
     // MARK: Internal
@@ -176,7 +187,7 @@ public final class ThreadListViewModel {
 
     /// Filter out archived threads
     private func filterArchivedThreads(from threads: [NostrThread]) -> [NostrThread] {
-        let archivedIDs = archiveStorage.archivedThreadIDs()
+        let archivedIDs = self.archiveStorage.archivedThreadIDs()
         return threads.filter { !archivedIDs.contains($0.id) }
     }
 
@@ -192,10 +203,10 @@ public final class ThreadListViewModel {
 
         if filter.isNeedsResponseFilter {
             // Needs-response filter: Show threads where others have replied but user hasn't responded yet
-            return applyNeedsResponseFilter(threads: threads, messages: messages, threshold: threshold, now: now)
+            return self.applyNeedsResponseFilter(threads: threads, messages: messages, threshold: threshold, now: now)
         } else {
             // Activity filter: Show threads with activity within the time window
-            return applyActivityFilter(threads: threads, messages: messages, threshold: threshold, now: now)
+            return self.applyActivityFilter(threads: threads, messages: messages, threshold: threshold, now: now)
         }
     }
 

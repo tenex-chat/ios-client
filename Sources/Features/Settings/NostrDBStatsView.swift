@@ -170,12 +170,21 @@ struct NostrDBStatsView: View {
     }
 
     private func eventsByKindSection(_ stats: NdbStat) -> some View {
-        let nonEmptyKinds = stats.commonKinds.filter { !$0.value.isEmpty }
+        // Common Nostr kinds to display
+        let commonKindNumbers = [0, 1, 3, 4, 5, 6, 7, 9735, 10_000, 10_001, 10_002, 30_000, 30_001, 30_023]
+
+        // Create a dictionary of kind number to counts
+        var kindCounts: [UInt64: NdbStatCounts] = [:]
+        for (kind, counts) in stats.commonKinds {
+            kindCounts[kind.rawValue] = counts
+        }
+
         let hasOtherKinds = !stats.otherKinds.isEmpty
 
         return Section("Events by Kind") {
-            ForEach(Array(nonEmptyKinds), id: \.key.name) { kind, counts in
-                KindStatRow(kind: kind, counts: counts)
+            ForEach(commonKindNumbers, id: \.self) { kindNumber in
+                let counts = kindCounts[kindNumber] ?? NdbStatCounts(count: 0, totalSize: 0, keySize: 0, valueSize: 0)
+                KindStatRow(kindNumber: kindNumber, counts: counts)
             }
 
             if hasOtherKinds {
@@ -246,12 +255,12 @@ struct NostrDBStatsView: View {
 // MARK: - KindStatRow
 
 private struct KindStatRow: View {
-    let kind: NdbCommonKind
+    let kindNumber: UInt64
     let counts: NdbStatCounts
 
     var body: some View {
         HStack {
-            Text(self.kind.name)
+            Text("Kind \(self.kindNumber)")
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
                 Text("\(self.counts.count)")
