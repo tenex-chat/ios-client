@@ -74,11 +74,18 @@ public final class TTSQueue {
                 continue
             }
 
-            // Queue for TTS
+            // Skip reasoning messages (don't speak thinking content)
+            guard !message.isReasoning else {
+                self.playedMessageIDs.insert(message.id)
+                continue
+            }
+
+            // Queue for TTS with cleaned content
             self.addToQueue(TTSMessage(
                 id: message.id,
-                content: message.content,
-                voiceID: self.voiceID
+                content: self.extractTTSContent(message.content),
+                voiceID: self.voiceID,
+                agentPubkey: message.pubkey
             ))
 
             // Mark as played to prevent duplicate queueing
@@ -132,6 +139,52 @@ public final class TTSQueue {
         self.queue.append(message)
     }
 
+    /// Clean content for TTS by removing thinking blocks, code, and markdown
+    private func extractTTSContent(_ content: String) -> String {
+        var result = content
+
+        // Remove <thinking> and <reasoning> blocks
+        result = result.replacingOccurrences(
+            of: #"<(thinking|reasoning)>[\s\S]*?</\1>"#,
+            with: "",
+            options: .regularExpression
+        )
+
+        // Replace code blocks with marker
+        result = result.replacingOccurrences(
+            of: #"```[\s\S]*?```"#,
+            with: " [code block] ",
+            options: .regularExpression
+        )
+
+        // Replace inline code - strip backticks, keep the content
+        result = result.replacingOccurrences(of: #"`([^`]+)`"#, with: "$1", options: .regularExpression)
+
+        // Strip markdown bold/italic
+        result = result.replacingOccurrences(of: #"\*\*([^*]+)\*\*"#, with: "$1", options: .regularExpression)
+        result = result.replacingOccurrences(of: #"\*([^*]+)\*"#, with: "$1", options: .regularExpression)
+        result = result.replacingOccurrences(of: #"__([^_]+)__"#, with: "$1", options: .regularExpression)
+        result = result.replacingOccurrences(of: #"_([^_]+)_"#, with: "$1", options: .regularExpression)
+
+        // Strip headers (e.g., "# Header" -> "Header")
+        result = result.replacingOccurrences(of: #"(?m)^#{1,6}\s+"#, with: "", options: .regularExpression)
+
+        // Replace markdown links with text
+        result = result.replacingOccurrences(of: #"\[([^\]]+)\]\([^)]+\)"#, with: "$1", options: .regularExpression)
+
+        // Replace nostr: links
+        result = result.replacingOccurrences(
+            of: #"nostr:[a-zA-Z0-9]+"#,
+            with: " [nostr link] ",
+            options: .regularExpression
+        )
+
+        // Normalize whitespace
+        result = result.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Process the next message in the queue
     private func processNextInQueue() async {
         guard !self.queue.isEmpty else {
@@ -148,7 +201,29 @@ public final class TTSQueue {
         self.onPlaybackStateChange?(true)
 
         do {
-            try await self.audioService.speak(text: message.content, voiceID: message.voiceID)
+            // Check cache first
+            if let cachedAudio = TTSCache.shared.audioFor(messageID: message.id) {
+                self.logger.info("Playing cached audio for message: \(message.id)")
+                try await self.audioService.play(audioData: cachedAudio)
+            } else {
+                // Synthesize, cache, then play
+                let audioData = try await self.audioService.synthesize(
+                    text: message.content,
+                    voiceID: message.voiceID
+                )
+
+                // Cache the audio
+                TTSCache.shared.save(
+                    audioData: audioData,
+                    messageID: message.id,
+                    text: message.content,
+                    voiceID: message.voiceID ?? "",
+                    agentPubkey: message.agentPubkey
+                )
+
+                // Play the audio
+                try await self.audioService.play(audioData: audioData)
+            }
         } catch {
             self.logger.error("Failed to play message \(message.id): \(error.localizedDescription)")
         }
@@ -165,4 +240,5 @@ struct TTSMessage {
     let id: String
     let content: String
     let voiceID: String?
+    let agentPubkey: String
 }

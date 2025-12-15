@@ -21,18 +21,28 @@ public final class AudioService {
     ///   - capabilityDetector: Detector for AI capabilities
     public init(storage: AIConfigStorage, capabilityDetector: AICapabilityDetector) {
         self.storage = storage
-        recorder = AudioRecorder()
-        player = AudioPlayer()
+        self.recorder = AudioRecorder()
+        self.player = AudioPlayer()
 
-        // Initialize TTS services
-        // Primary: ElevenLabs (if API key available)
-        // Fallback: System
-        if let apiKey = try? storage.loadAPIKey(for: "elevenlabs"), !apiKey.isEmpty {
-            ttsService = ElevenLabsTTSService(apiKey: apiKey)
-        } else {
-            ttsService = SystemTTSService()
+        // Initialize TTS services based on user's provider preference
+        let config = try? storage.load()
+        let preferredProvider = config?.ttsSettings.provider ?? .system
+
+        switch preferredProvider {
+        case .elevenlabs:
+            if let apiKey = try? storage.loadTTSAPIKey(for: .elevenlabs), !apiKey.isEmpty {
+                self.ttsService = ElevenLabsTTSService(apiKey: apiKey)
+            } else {
+                // Fall back to system if no API key
+                self.ttsService = SystemTTSService()
+            }
+        case .openai:
+            // OpenAI TTS not implemented yet, fall back to system
+            self.ttsService = SystemTTSService()
+        case .system:
+            self.ttsService = SystemTTSService()
         }
-        ttsFallback = SystemTTSService()
+        self.ttsFallback = SystemTTSService()
 
         // Initialize STT services
         // Primary: SpeechTranscriber (iOS 18+) or WhisperKit (fallback)
@@ -42,9 +52,9 @@ public final class AudioService {
            let speechTranscriber = SpeechTranscriberSTT() {
             sttService = speechTranscriber
         } else {
-            sttService = WhisperKitSTT()
+            self.sttService = WhisperKitSTT()
         }
-        sttFallback = WhisperKitSTT()
+        self.sttFallback = WhisperKitSTT()
     }
 
     // MARK: Internal
@@ -60,7 +70,7 @@ public final class AudioService {
 
     /// Get current TTS provider name
     var currentTTSProvider: String {
-        if ttsService is ElevenLabsTTSService {
+        if self.ttsService is ElevenLabsTTSService {
             "ElevenLabs"
         } else {
             "System"
@@ -69,7 +79,7 @@ public final class AudioService {
 
     /// Get current STT provider name
     var currentSTTProvider: String {
-        if #available(iOS 18.0, macOS 15.0, *), sttService is SpeechTranscriberSTT {
+        if #available(iOS 18.0, macOS 15.0, *), self.sttService is SpeechTranscriberSTT {
             "SpeechTranscriber"
         } else {
             "WhisperKit"
@@ -79,14 +89,14 @@ public final class AudioService {
     /// Check if TTS is available
     var isTTSAvailable: Bool {
         get async {
-            await ttsService.isAvailable
+            await self.ttsService.isAvailable
         }
     }
 
     /// Check if STT is available
     var isSTTAvailable: Bool {
         get async {
-            await sttService.isAvailable
+            await self.sttService.isAvailable
         }
     }
 
@@ -94,27 +104,27 @@ public final class AudioService {
 
     /// Start recording audio
     func startRecording() async throws {
-        error = nil
-        try await recorder.startRecording()
+        self.error = nil
+        try await self.recorder.startRecording()
     }
 
     /// Stop recording and transcribe the audio
     /// - Returns: Transcribed text
     func stopRecording() async throws -> String {
-        error = nil
+        self.error = nil
 
         // Stop recording and get audio file
         let audioURL = try await recorder.stopRecording()
 
         // Transcribe with primary service
         do {
-            return try await sttService.transcribe(audioURL: audioURL)
+            return try await self.sttService.transcribe(audioURL: audioURL)
         } catch {
             // Try fallback service
             // swiftlint:disable:next no_print_statements
             print("[AudioService] Primary STT failed, trying fallback: \(error)")
             do {
-                return try await sttFallback.transcribe(audioURL: audioURL)
+                return try await self.sttFallback.transcribe(audioURL: audioURL)
             } catch {
                 let transcriptionError = AudioError.transcriptionFailed(error)
                 self.error = transcriptionError
@@ -125,38 +135,43 @@ public final class AudioService {
 
     /// Cancel current recording
     func cancelRecording() async {
-        await recorder.cancelRecording()
+        await self.recorder.cancelRecording()
     }
 
     // MARK: - Speech Synthesis & Playback
 
-    /// Synthesize text to speech and play it
+    /// Synthesize text to audio data (for caching before playback)
     /// - Parameters:
-    ///   - text: Text to speak
+    ///   - text: Text to synthesize
     ///   - voiceID: Optional voice identifier
-    func speak(text: String, voiceID: String? = nil) async throws {
-        error = nil
+    /// - Returns: Audio data
+    func synthesize(text: String, voiceID: String? = nil) async throws -> Data {
+        self.error = nil
 
         // Synthesize with primary service
-        let audioData: Data
         do {
-            audioData = try await ttsService.synthesize(text: text, voiceID: voiceID)
+            return try await self.ttsService.synthesize(text: text, voiceID: voiceID)
         } catch {
             // Try fallback service
             // swiftlint:disable:next no_print_statements
             print("[AudioService] Primary TTS failed, trying fallback: \(error)")
             do {
-                audioData = try await ttsFallback.synthesize(text: text, voiceID: nil)
+                return try await self.ttsFallback.synthesize(text: text, voiceID: nil)
             } catch {
                 let synthesisError = AudioError.synthesisFailed(error)
                 self.error = synthesisError
                 throw synthesisError
             }
         }
+    }
 
-        // Play audio
+    /// Play pre-synthesized audio data
+    /// - Parameter audioData: Audio data to play
+    func play(audioData: Data) async throws {
+        self.error = nil
+
         do {
-            try await player.play(audioData: audioData)
+            try await self.player.play(audioData: audioData)
         } catch {
             let playbackError = AudioError.playbackFailed(error)
             self.error = playbackError
@@ -164,9 +179,18 @@ public final class AudioService {
         }
     }
 
+    /// Synthesize text to speech and play it
+    /// - Parameters:
+    ///   - text: Text to speak
+    ///   - voiceID: Optional voice identifier
+    func speak(text: String, voiceID: String? = nil) async throws {
+        let audioData = try await synthesize(text: text, voiceID: voiceID)
+        try await play(audioData: audioData)
+    }
+
     /// Stop current playback
     func stopSpeaking() {
-        player.stop()
+        self.player.stop()
     }
 
     // MARK: Private

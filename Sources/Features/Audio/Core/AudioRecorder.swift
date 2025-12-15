@@ -165,7 +165,11 @@ final class AudioRecorder {
 
             let session = AVAudioSession.sharedInstance()
             do {
-                try session.setCategory(.playAndRecord, mode: .default)
+                try session.setCategory(
+                    .playAndRecord,
+                    mode: .voiceChat,
+                    options: [.allowBluetooth, .defaultToSpeaker]
+                )
                 try session.setActive(true)
             } catch {
                 throw AudioError.recordingFailed(error)

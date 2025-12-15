@@ -156,6 +156,23 @@ public struct CallView: View {
         self.viewModel.vadMode == .auto || self.viewModel.vadMode == .autoWithHold
     }
 
+    private var shouldShowAgentOverlay: Bool {
+        self.viewModel.state == .playingResponse || self.viewModel.isPaused || self.viewModel.agentIsProcessing
+    }
+
+    private var agentOverlayState: AgentOverlayState {
+        if self.viewModel.isPaused {
+            return .paused
+        }
+        if self.viewModel.state == .playingResponse {
+            return .speaking
+        }
+        if self.viewModel.agentIsProcessing {
+            return .processing
+        }
+        return .hidden
+    }
+
     private var backgroundGradient: some View {
         LinearGradient(
             colors: [Color.black, self.projectColor.opacity(0.3), Color.black],
@@ -176,14 +193,30 @@ public struct CallView: View {
                 self.waitingForCallView
                 Spacer()
             } else {
-                self.conversationView
+                Spacer()
+                self.latestMessageView
                     .padding(.horizontal)
+                Spacer()
             }
 
             self.controlsSection
                 .padding(.horizontal)
                 .padding(.bottom, 40)
         }
+        .overlay {
+            if self.shouldShowAgentOverlay {
+                AgentSpeakingOverlay(
+                    agentName: self.viewModel.agent.name,
+                    agentColor: self.agentColor,
+                    agentInitials: self.agentInitials,
+                    state: self.agentOverlayState,
+                    onTap: self.handleAgentOverlayTap,
+                    onLongPress: self.handleAgentOverlayLongPress
+                )
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: self.shouldShowAgentOverlay)
     }
 
     // MARK: - Header
@@ -280,35 +313,31 @@ public struct CallView: View {
         }
     }
 
-    // MARK: - Conversation View
+    // MARK: - Latest Message View
 
-    private var conversationView: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 16) {
-                    ForEach(self.sessionMessages) { message in
-                        MessageBubble(
-                            message: message,
-                            accentColor: self.projectColor,
-                            userPubkey: self.viewModel.userPubkey
-                        ) {
-                            Task {
-                                await self.viewModel.replayMessage(message.id)
-                            }
-                        }
-                        .id(message.id)
-                    }
+    @ViewBuilder private var latestMessageView: some View {
+        if let message = sessionMessages.last {
+            VStack(spacing: 8) {
+                if message.isReasoning {
+                    Label("Reasoning", systemImage: "brain")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.white.opacity(0.6))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.purple.opacity(0.3))
+                        .clipShape(Capsule())
                 }
-                .padding(.vertical, 16)
-            }
-            .onChange(of: self.sessionMessages.count) { _, _ in
-                // Auto-scroll to bottom when new message arrives
-                if let lastMessage = sessionMessages.last {
-                    withAnimation {
-                        proxy.scrollTo(lastMessage.id, anchor: .bottom)
-                    }
+                MessageBubble(
+                    message: message,
+                    accentColor: self.projectColor,
+                    userPubkey: self.viewModel.userPubkey
+                ) {
+                    Task { await self.viewModel.replayMessage(message.id) }
                 }
             }
+            .id(message.id)
+            .transition(.opacity.combined(with: .scale(scale: 0.98)))
+            .animation(.easeInOut(duration: 0.3), value: message.id)
         }
     }
 
@@ -520,6 +549,16 @@ public struct CallView: View {
         .background(Color.red.opacity(0.3))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    private func handleAgentOverlayTap() {
+        self.hapticManager.settingsToggle()
+        self.viewModel.togglePause()
+    }
+
+    private func handleAgentOverlayLongPress() {
+        self.hapticManager.tapHoldReleased()
+        self.viewModel.interruptAgent()
     }
 
     private func handleStateChange(from oldState: CallState, to newState: CallState) {

@@ -34,7 +34,11 @@ final class AudioPlayer: NSObject {
             /// Configure audio session for playback
             let session = AVAudioSession.sharedInstance()
             do {
-                try session.setCategory(.playAndRecord, mode: .default)
+                try session.setCategory(
+                    .playAndRecord,
+                    mode: .voiceChat,
+                    options: [.allowBluetooth, .defaultToSpeaker]
+                )
                 try session.setActive(true)
             } catch {
                 throw AudioError.playbackFailed(error)
@@ -74,7 +78,11 @@ final class AudioPlayer: NSObject {
             /// Configure audio session for playback
             let session = AVAudioSession.sharedInstance()
             do {
-                try session.setCategory(.playAndRecord, mode: .default)
+                try session.setCategory(
+                    .playAndRecord,
+                    mode: .voiceChat,
+                    options: [.allowBluetooth, .defaultToSpeaker]
+                )
                 try session.setActive(true)
             } catch {
                 throw AudioError.playbackFailed(error)
@@ -112,6 +120,16 @@ final class AudioPlayer: NSObject {
         self.audioPlayer?.pause()
         self.isPlaying = false
         self.stopProgressTracking()
+    }
+
+    /// Resume playback from paused position
+    func resume() {
+        guard let player = audioPlayer, !player.isPlaying else {
+            return
+        }
+        player.play()
+        self.isPlaying = true
+        self.startProgressTracking()
     }
 
     /// Stop playback

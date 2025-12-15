@@ -11,82 +11,6 @@ import Observation
 import OSLog
 import TENEXCore
 
-// MARK: - VODRecordingActor
-
-/// Actor to serialize VOD file writes and prevent race conditions
-actor VODRecordingActor {
-    /// Initialize VOD recording with metadata
-    func initializeRecording(at url: URL, metadata: [String: Any]) throws {
-        let data = try JSONSerialization.data(withJSONObject: metadata, options: .prettyPrinted)
-        try data.write(to: url)
-    }
-
-    /// Append a message to VOD recording
-    func appendMessage(to url: URL, messageEntry: [String: Any]) throws {
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            return
-        }
-
-        // Read existing VOD data
-        let existingData = try Data(contentsOf: url)
-        var vodData = try JSONSerialization.jsonObject(with: existingData) as? [String: Any] ?? [:]
-
-        // Get existing messages array
-        var messages = vodData["messages"] as? [[String: Any]] ?? []
-
-        // Append message
-        messages.append(messageEntry)
-        vodData["messages"] = messages
-
-        // Write back to file atomically
-        let updatedData = try JSONSerialization.data(withJSONObject: vodData, options: .prettyPrinted)
-        try updatedData.write(to: url, options: .atomic)
-    }
-
-    /// Finalize VOD recording with end metadata
-    func finalizeRecording(at url: URL, endTime: String, duration: TimeInterval) throws {
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            return
-        }
-
-        // Read existing VOD data
-        let existingData = try Data(contentsOf: url)
-        var vodData = try JSONSerialization.jsonObject(with: existingData) as? [String: Any] ?? [:]
-
-        // Add end time and duration
-        vodData["endTime"] = endTime
-        vodData["duration"] = duration
-
-        // Write back to file atomically
-        let updatedData = try JSONSerialization.data(withJSONObject: vodData, options: .prettyPrinted)
-        try updatedData.write(to: url, options: .atomic)
-    }
-}
-
-// MARK: - CallState
-
-/// Enhanced call state machine with VOD support
-public enum CallState: Sendable, Equatable {
-    /// Idle - call not started
-    case idle
-    /// Connecting to agent
-    case connecting
-    /// Active call - listening for user speech
-    case listening
-    /// Recording user speech
-    case recording
-    /// Processing speech-to-text
-    case processingSTT
-    /// Waiting for agent response
-    case waitingForAgent
-    /// Playing agent TTS response
-    case playingResponse
-    /// Call ended
-    case ended
-}
-
-// CallMessage and CallParticipant removed - now using Message from ConversationState
-
 // MARK: - CallViewModel
 
 // swiftlint:disable type_body_length
@@ -187,6 +111,12 @@ public final class CallViewModel {
     /// Whether user is holding the mic (tap-to-hold)
     public private(set) var isHoldingMic = false
 
+    /// Whether TTS playback is paused
+    public private(set) var isPaused = false
+
+    /// Whether agent is processing (21111 streaming event received)
+    public private(set) var agentIsProcessing = false
+
     /// Current user's public key (for filtering messages)
     public let userPubkey: String
 
@@ -254,6 +184,8 @@ public final class CallViewModel {
                     return
                 }
                 if isPlaying {
+                    // TTS started - no longer in "processing" state
+                    self.agentIsProcessing = false
                     self.state = .playingResponse
                 } else if self.state == .playingResponse {
                     self.state = .listening
@@ -291,11 +223,14 @@ public final class CallViewModel {
         // Stop any playback
         self.audioService.stopSpeaking()
 
-        // Clear TTS queue and subscription
+        // Clear TTS queue and subscriptions
         self.ttsQueue?.clearQueue()
         self.subscriptionTask?.cancel()
         self.subscriptionTask = nil
         self.subscription = nil
+        self.streamingSubscriptionTask?.cancel()
+        self.streamingSubscriptionTask = nil
+        self.streamingSubscription = nil
         self.conversationState = nil
 
         // Stop VOD recording
@@ -305,6 +240,8 @@ public final class CallViewModel {
         self.state = .ended
         self.currentTranscript = ""
         self.isHoldingMic = false
+        self.isPaused = false
+        self.agentIsProcessing = false
 
         // Calculate final duration
         if let startTime = callStartTime {
@@ -434,6 +371,35 @@ public final class CallViewModel {
         self.autoTTS.toggle()
     }
 
+    /// Interrupt agent speech (called from UI long-press)
+    public func interruptAgent() {
+        guard self.state == .playingResponse || self.isPaused || self.agentIsProcessing else {
+            return
+        }
+        self.ttsQueue?.clearQueue()
+        self.audioService.stopSpeaking()
+        self.isPaused = false
+        self.agentIsProcessing = false
+        self.state = .listening
+    }
+
+    /// Toggle pause state (pauses entire TTS queue)
+    public func togglePause() {
+        guard self.state == .playingResponse || self.isPaused else {
+            return
+        }
+
+        if self.isPaused {
+            // Resume
+            self.isPaused = false
+            self.audioService.player.resume()
+        } else {
+            // Pause
+            self.isPaused = true
+            self.audioService.player.pause()
+        }
+    }
+
     /// Replay a specific message's audio
     public func replayMessage(_ messageID: String) async {
         guard let conversationState = self.conversationState else {
@@ -523,10 +489,12 @@ public final class CallViewModel {
     private var ttsTask: Task<Void, Never>?
     private let vadController: VADController?
 
-    // NEW: TTS Queue and subscription
+    // TTS Queue and subscriptions
     private var ttsQueue: TTSQueue?
     private var subscription: NDKSubscription<NDKEvent>?
     private var subscriptionTask: Task<Void, Never>?
+    private var streamingSubscription: NDKSubscription<NDKEvent>?
+    private var streamingSubscriptionTask: Task<Void, Never>?
 
     // MARK: - VOD Directory Management
 
@@ -696,16 +664,15 @@ public final class CallViewModel {
 
     /// Handle VAD speech start event
     private func handleVADSpeechStart() async {
-        // Don't start recording if muted or holding
-        guard !self.isMuted, !self.isHoldingMic else {
+        // Don't interrupt when agent is speaking - user must tap to interrupt
+        // This prevents echo (microphone picking up speaker output)
+        guard self.state != .playingResponse, !self.isPaused else {
             return
         }
 
-        // Stop TTS playback and clear queue when user starts speaking
-        if self.state == .playingResponse {
-            self.ttsQueue?.clearQueue()
-            self.audioService.stopSpeaking()
-            self.state = .listening
+        // Don't start recording if muted or holding
+        guard !self.isMuted, !self.isHoldingMic else {
+            return
         }
 
         await self.startRecording()
@@ -737,18 +704,44 @@ public final class CallViewModel {
 
         self.logger.info("[subscribeToConversation] Subscribing to thread: \(threadID)")
 
+        // Subscribe to kind 1111 final messages
         let filter = NDKFilter(
-            kinds: [1111], // Final messages only
+            kinds: [1111],
             tags: ["E": Set([threadID])]
         )
 
         self.subscription = self.ndk.subscribe(filter: filter)
 
+        // Subscribe to kind 21111 streaming events (agent processing indicator)
+        let streamingFilter = NDKFilter(
+            kinds: [21_111],
+            since: Timestamp(Date().addingTimeInterval(-60).timeIntervalSince1970),
+            tags: ["E": Set([threadID])]
+        )
+
+        self.streamingSubscription = self.ndk.subscribe(filter: streamingFilter)
+
+        // Process streaming events (21111) - show processing indicator
+        if let streamingSub = self.streamingSubscription {
+            self.streamingSubscriptionTask = Task {
+                for await event in streamingSub.events {
+                    guard !Task.isCancelled else {
+                        return
+                    }
+                    // Agent started generating response
+                    if event.pubkey != self.userPubkey {
+                        self.agentIsProcessing = true
+                        self.logger.info("[subscribeToConversation] Agent is processing (21111 received)")
+                    }
+                }
+            }
+        }
+
+        // Process final message events (1111)
         guard let subscription = self.subscription else {
             return
         }
 
-        // Process events as they arrive
         self.subscriptionTask = Task {
             for await event in subscription.events {
                 guard !Task.isCancelled else {
