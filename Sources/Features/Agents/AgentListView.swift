@@ -20,18 +20,21 @@ public struct AgentListView: View {
     // MARK: Public
 
     public var body: some View {
-        contentView
+        self.contentView
             .navigationTitle("Agents")
+        #if os(iOS)
+            .toolbar(.hidden, for: .tabBar)
+        #endif
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button(
-                        action: { showingEditor = true },
+                        action: { self.showingEditor = true },
                         label: { Label("Add Agent", systemImage: "plus") }
                     )
                 }
             }
-            .sheet(isPresented: $showingEditor) {
-                editorSheet
+            .sheet(isPresented: self.$showingEditor) {
+                self.editorSheet
             }
     }
 
@@ -43,20 +46,20 @@ public struct AgentListView: View {
 
     private var contentView: some View {
         Group {
-            if viewModel.agents.isEmpty {
+            if self.viewModel.agents.isEmpty {
                 ContentUnavailableView(
                     "No Agents",
                     systemImage: "person.slash",
                     description: Text("Create your first agent definition.")
                 )
             } else {
-                agentList
+                self.agentList
             }
         }
     }
 
     private var agentList: some View {
-        List(viewModel.agents) { agent in
+        List(self.viewModel.agents) { agent in
             NavigationLink(destination: AgentDetailView(agent: agent)) {
                 VStack(alignment: .leading) {
                     Text(agent.name)
@@ -90,8 +93,8 @@ struct AgentDetailView: View {
     var body: some View {
         Form {
             Section(header: Text("Details")) {
-                LabeledContent("Name", value: agent.name)
-                LabeledContent("Role", value: agent.role)
+                LabeledContent("Name", value: self.agent.name)
+                LabeledContent("Role", value: self.agent.role)
                 if let model = agent.model {
                     LabeledContent("Model", value: model)
                 }
@@ -109,6 +112,6 @@ struct AgentDetailView: View {
                 }
             }
         }
-        .navigationTitle(agent.name)
+        .navigationTitle(self.agent.name)
     }
 }

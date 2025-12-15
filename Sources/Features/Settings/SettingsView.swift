@@ -56,6 +56,7 @@ public struct SettingsView: View {
         .navigationTitle("Settings")
         #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .tabBar)
         #endif
             .confirmationDialog(
                 "Are you sure you want to sign out?",

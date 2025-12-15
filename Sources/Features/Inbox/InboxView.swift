@@ -67,9 +67,11 @@ public struct InboxView: View {
                             agentName: vm.agentName(for: message.pubkey)
                         )
                     }
+                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
                 }
             }
         }
+        .listStyle(.plain)
         .task {
             if self.viewModel == nil {
                 self.viewModel = vm

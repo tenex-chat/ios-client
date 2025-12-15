@@ -35,15 +35,12 @@ public final class CallViewModel {
     ///   - autoTTS: Whether to automatically speak agent responses
     ///   - vadController: Optional VAD controller for hands-free operation
     ///   - vadMode: Voice activity detection mode
-    ///   - onSendMessage: Callback to send message to agent (messageText, agentPubkey, tags in Nostr format)
-    ///                    Returns the thread event ID if a new thread was created (for subscription setup)
     public init(
         audioService: AudioService,
         ndk: NDK,
         projectID: String,
         agent: ProjectAgent,
         userPubkey: String,
-        onSendMessage: @escaping (String, String, [[String]]) async throws -> String?,
         voiceID: String? = nil,
         rootEvent: NDKEvent? = nil,
         branchTag: String? = nil,
@@ -57,6 +54,7 @@ public final class CallViewModel {
         self.projectID = projectID
         self.agent = agent
         self.voiceID = voiceID
+        self.threadEvent = rootEvent
         self.currentThreadID = rootEvent?.id
         self.branchTag = branchTag
         self.userPubkey = userPubkey
@@ -64,7 +62,6 @@ public final class CallViewModel {
         self.autoTTS = autoTTS
         self.vadController = vadController
         self.vadMode = vadMode
-        self.onSendMessage = onSendMessage
     }
 
     // MARK: Public
@@ -330,19 +327,41 @@ public final class CallViewModel {
         self.state = .waitingForAgent
 
         do {
-            // Build tags with voice mode and branch (if specified)
-            var tags: [[String]] = [["mode", "voice"]]
+            let publisher = MessagePublisher()
+
+            // Build custom tags for voice mode
+            var customTags: [[String]] = [["mode", "voice"]]
             if let branchTag = self.branchTag {
-                tags.append(["branch", branchTag])
+                customTags.append(["branch", branchTag])
             }
 
-            // Send message via callback - may return thread ID if new thread was created
-            let returnedThreadID = try await self.onSendMessage(messageText, self.agent.pubkey, tags)
+            if let threadEvent = self.threadEvent {
+                // Reply to existing thread
+                _ = try await publisher.publishReply(
+                    ndk: self.ndk,
+                    threadEvent: threadEvent,
+                    content: messageText,
+                    projectRef: self.projectID,
+                    agentPubkey: self.agent.pubkey,
+                    customTags: customTags
+                )
+            } else {
+                // Create new thread
+                let (event, newThreadID) = try await publisher.publishThread(
+                    ndk: self.ndk,
+                    content: messageText,
+                    projectRef: self.projectID,
+                    agentPubkey: self.agent.pubkey,
+                    branch: branchTag,
+                    customTags: customTags
+                )
 
-            // If we got a new thread ID and don't have one yet, set up subscription
-            if let newThreadID = returnedThreadID, self.currentThreadID == nil {
+                // Store thread event and ID
+                self.threadEvent = event
                 self.currentThreadID = newThreadID
                 self.conversationState = ConversationState(rootEventID: newThreadID)
+
+                self.initializeTTSQueueIfNeeded()
                 await self.subscribeToConversation()
             }
 
@@ -488,7 +507,7 @@ public final class CallViewModel {
     private let ndk: NDK
     private let projectID: String
     private let branchTag: String?
-    private let onSendMessage: (String, String, [[String]]) async throws -> String?
+    private var threadEvent: NDKEvent?
     private var callStartTime: Date?
     private let logger = Logger(subsystem: "com.tenex.ios", category: "CallViewModel")
     private let vodActor = VODRecordingActor()
@@ -508,6 +527,29 @@ public final class CallViewModel {
     private nonisolated static func vodRecordingsDirectory() -> URL {
         let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         return documentsURL.appendingPathComponent("VODRecordings", isDirectory: true)
+    }
+
+    private func initializeTTSQueueIfNeeded() {
+        guard self.autoTTS, self.ttsQueue == nil else {
+            return
+        }
+
+        self.ttsQueue = TTSQueue(
+            audioService: self.audioService,
+            userPubkey: self.userPubkey,
+            voiceID: self.voiceID
+        )
+        self.ttsQueue?.onPlaybackStateChange = { [weak self] isPlaying in
+            guard let self else {
+                return
+            }
+            if isPlaying {
+                self.agentIsProcessing = false
+                self.state = .playingResponse
+            } else if self.state == .playingResponse {
+                self.state = .listening
+            }
+        }
     }
 
     /// Ensure VOD recordings directory exists

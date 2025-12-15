@@ -23,7 +23,9 @@ struct VoiceCallSettingsWrapper: View {
     var body: some View {
         VoiceCallSettingsView(settings: self.$settings)
             .navigationTitle("Voice Settings")
+        #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+        #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") {

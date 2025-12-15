@@ -71,6 +71,9 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                 Text("NDK not available")
             }
         }
+        #if os(iOS)
+        .toolbar(.hidden, for: .tabBar)
+        #endif
     }
 
     // MARK: Private
@@ -775,14 +778,13 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
         let settings = (try? storage.load())?.voiceCallSettings ?? VoiceCallSettings()
         let vadController = self.createVADControllerIfNeeded(settings: settings)
 
-        // Create CallViewModel with proper callbacks and threading
+        // Create CallViewModel
         return CallViewModel(
             audioService: audioService,
             ndk: ndk,
             projectID: self.projectReference,
             agent: agent,
             userPubkey: self.currentUserPubkey,
-            onSendMessage: self.createMessageSendHandler(chatViewModel: chatViewModel),
             voiceID: voiceID,
             rootEvent: chatViewModel.threadEvent, // Pass existing thread
             branchTag: nil,
@@ -812,38 +814,6 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
             vadMethod: settings.vadMethod,
             sensitivity: settings.vadSensitivity
         )
-    }
-
-    /// Create message send handler for CallViewModel
-    /// Returns thread ID if a new thread was created (for CallViewModel to subscribe)
-    private func createMessageSendHandler(
-        chatViewModel: ChatViewModel
-    ) -> (String, String, [[String]]) async throws -> String? {
-        { [weak chatViewModel] text, agentPubkey, tags in
-            guard let chatViewModel else {
-                throw NSError(
-                    domain: "ChatView",
-                    code: -1,
-                    userInfo: [NSLocalizedDescriptionKey: "Chat view model is no longer available"]
-                )
-            }
-
-            // Extract p-tags for mentions
-            let mentions = tags.filter { $0.first == "p" }.compactMap { $0[safe: 1] }
-
-            // Send message via ChatViewModel
-            await chatViewModel.sendMessage(
-                text: text,
-                targetAgentPubkey: agentPubkey,
-                mentionedPubkeys: mentions,
-                replyTo: nil,
-                selectedNudges: [],
-                selectedBranch: nil
-            )
-
-            // Return thread ID so CallViewModel can subscribe
-            return chatViewModel.threadID
-        }
     }
 }
 

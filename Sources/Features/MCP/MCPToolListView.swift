@@ -20,18 +20,21 @@ public struct MCPToolListView: View {
     // MARK: Public
 
     public var body: some View {
-        contentView
+        self.contentView
             .navigationTitle("MCP Tools")
+        #if os(iOS)
+            .toolbar(.hidden, for: .tabBar)
+        #endif
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button(
-                        action: { showingEditor = true },
+                        action: { self.showingEditor = true },
                         label: { Label("Add Tool", systemImage: "plus") }
                     )
                 }
             }
-            .sheet(isPresented: $showingEditor) {
-                editorSheet
+            .sheet(isPresented: self.$showingEditor) {
+                self.editorSheet
             }
     }
 
@@ -43,20 +46,20 @@ public struct MCPToolListView: View {
 
     private var contentView: some View {
         Group {
-            if viewModel.tools.isEmpty {
+            if self.viewModel.tools.isEmpty {
                 ContentUnavailableView(
                     "No Tools",
                     systemImage: "hammer",
                     description: Text("Create your first MCP tool definition.")
                 )
             } else {
-                toolList
+                self.toolList
             }
         }
     }
 
     private var toolList: some View {
-        List(viewModel.tools) { tool in
+        List(self.viewModel.tools) { tool in
             NavigationLink(destination: MCPToolDetailView(tool: tool)) {
                 VStack(alignment: .leading) {
                     Text(tool.name)
@@ -90,12 +93,12 @@ struct MCPToolDetailView: View {
     var body: some View {
         Form {
             Section(header: Text("Details")) {
-                LabeledContent("Name", value: tool.name)
-                LabeledContent("Command", value: tool.command)
+                LabeledContent("Name", value: self.tool.name)
+                LabeledContent("Command", value: self.tool.command)
             }
 
             Section(header: Text("Description")) {
-                Text(tool.description)
+                Text(self.tool.description)
             }
 
             if let params = tool.parameters {
@@ -105,6 +108,6 @@ struct MCPToolDetailView: View {
                 }
             }
         }
-        .navigationTitle(tool.name)
+        .navigationTitle(self.tool.name)
     }
 }

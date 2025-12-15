@@ -88,6 +88,21 @@ public final class RecentConversationsViewModel {
         self.conversationsByThread[threadID]?.max { $0.createdAt < $1.createdAt }
     }
 
+    /// Get conversation metadata (kind 513) for a thread
+    /// - Parameter threadID: The thread ID
+    /// - Returns: The ConversationMetadata if found
+    public func getConversationMetadata(for threadID: String) -> ConversationMetadata? {
+        if let cached = conversationMetadataCache[threadID] {
+            return cached
+        }
+
+        Task {
+            await self.fetchConversationMetadata(for: threadID)
+        }
+
+        return nil
+    }
+
     // MARK: Private
 
     // MARK: - Dependencies
@@ -100,6 +115,7 @@ public final class RecentConversationsViewModel {
 
     private var threadCache: [String: TENEXCore.Thread] = [:]
     private var threadEventCache: [String: NDKEvent] = [:]
+    private var conversationMetadataCache: [String: ConversationMetadata] = [:]
 
     // MARK: - Private Methods
 
@@ -113,10 +129,8 @@ public final class RecentConversationsViewModel {
         for await event in subscription.events.prefix(1) {
             eventFound = true
 
-            // Cache the event first
             self.threadEventCache[id] = event
 
-            // Then parse and cache the Thread
             if let thread = Thread.from(event: event) {
                 self.threadCache[id] = thread
                 self.logger.debug("Successfully cached thread: \(thread.title ?? id)")
@@ -124,7 +138,6 @@ public final class RecentConversationsViewModel {
                 self.logger.error("Failed to parse thread from event: \(id)")
             }
 
-            // Apply cache size limits (keep last 100 threads)
             if self.threadEventCache.count > 100 {
                 let keysToRemove = self.threadEventCache.keys.prefix(self.threadEventCache.count - 100)
                 for key in keysToRemove {
@@ -137,6 +150,41 @@ public final class RecentConversationsViewModel {
 
         if !eventFound {
             self.logger.warning("Thread not found: \(id)")
+        }
+
+        await self.fetchConversationMetadata(for: id)
+    }
+
+    private func fetchConversationMetadata(for threadID: String) async {
+        self.logger.debug("Fetching conversation metadata for thread: \(threadID)")
+
+        let filter = ConversationMetadata.filter(for: threadID)
+        let subscription = self.ndk.subscribe(filter: filter)
+
+        var eventFound = false
+        for await event in subscription.events.prefix(1) {
+            eventFound = true
+
+            if let metadata = ConversationMetadata.from(event: event) {
+                self.conversationMetadataCache[threadID] = metadata
+                self.logger.debug("Successfully cached conversation metadata: \(metadata.title ?? "no title")")
+            } else {
+                self.logger.error("Failed to parse conversation metadata from event")
+            }
+
+            if self.conversationMetadataCache.count > 100 {
+                let keysToRemove = self.conversationMetadataCache.keys.prefix(
+                    self.conversationMetadataCache.count - 100
+                )
+                for key in keysToRemove {
+                    self.conversationMetadataCache.removeValue(forKey: key)
+                }
+                self.logger.debug("Evicted \(keysToRemove.count) conversation metadata from cache")
+            }
+        }
+
+        if !eventFound {
+            self.logger.debug("No conversation metadata found for thread: \(threadID)")
         }
     }
 }

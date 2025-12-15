@@ -66,13 +66,16 @@ public struct RecentConversationsView: View {
                                 threadID: threadID,
                                 thread: vm.getThread(id: threadID),
                                 project: vm.getProject(for: threadID),
-                                latestMessage: latestMessage
+                                latestMessage: latestMessage,
+                                conversationMetadata: vm.getConversationMetadata(for: threadID)
                             )
                         }
+                        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
                     }
                 }
             }
         }
+        .listStyle(.plain)
         .task {
             if self.viewModel == nil {
                 self.viewModel = vm

@@ -23,30 +23,31 @@ public struct ProjectDetailView: View {
     // MARK: Public
 
     public var body: some View {
-        TabView(selection: $selectedTab) {
-            threadsTab
+        TabView(selection: self.$selectedTab) {
+            self.threadsTab
                 .tag(0)
 
-            docsTab
+            self.docsTab
                 .tag(1)
 
-            agentsTab
+            self.agentsTab
                 .tag(2)
 
-            feedTab
+            self.feedTab
                 .tag(3)
         }
         #if os(iOS)
+        .toolbar(.hidden, for: .tabBar)
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar {
             // Show "New Thread" button only on threads tab
-            if selectedTab == 0, let userPubkey = authManager.activePubkey {
+            if self.selectedTab == 0, let userPubkey = authManager.activePubkey {
                 ToolbarItem(placement: .primaryAction) {
                     NavigationLink {
                         ChatView(
                             threadEvent: nil,
-                            projectReference: project.coordinate,
+                            projectReference: self.project.coordinate,
                             currentUserPubkey: userPubkey
                         )
                     } label: {
@@ -56,22 +57,22 @@ public struct ProjectDetailView: View {
             }
 
             // Show filter button only on threads tab
-            if selectedTab == 0 {
+            if self.selectedTab == 0 {
                 ToolbarItem(placement: .secondaryAction) {
-                    filterMenu
+                    self.filterMenu
                 }
             }
 
             ToolbarItem(placement: .secondaryAction) {
                 Button {
-                    showingSettings = true
+                    self.showingSettings = true
                 } label: {
                     Label("Settings", systemImage: "gear")
                 }
             }
         }
-        .sheet(isPresented: $showingSettings) {
-            ProjectSettingsView(project: project)
+        .sheet(isPresented: self.$showingSettings) {
+            ProjectSettingsView(project: self.project)
         }
     }
 
@@ -87,19 +88,19 @@ public struct ProjectDetailView: View {
 
     private var threadsTab: some View {
         ThreadListView(
-            projectID: project.coordinate,
-            userPubkey: authManager.activePubkey,
-            filtersStore: filtersStore
+            projectID: self.project.coordinate,
+            userPubkey: self.authManager.activePubkey,
+            filtersStore: self.filtersStore
         )
-        .navigationTitle(project.title)
+        .navigationTitle(self.project.title)
         .tabItem {
             Label("Threads", systemImage: "message.fill")
         }
     }
 
     private var docsTab: some View {
-        DocsTabView(projectID: project.coordinate)
-            .navigationTitle(project.title)
+        DocsTabView(projectID: self.project.coordinate)
+            .navigationTitle(self.project.title)
             .tabItem {
                 Label("Docs", systemImage: "doc.fill")
             }
@@ -111,13 +112,13 @@ public struct ProjectDetailView: View {
                 AgentsTabView(
                     viewModel: AgentsTabViewModel(
                         ndk: ndk,
-                        projectID: project.coordinate
+                        projectID: self.project.coordinate
                     )
                 )
-                .navigationTitle(project.title)
+                .navigationTitle(self.project.title)
             } else {
                 Text("NDK not available")
-                    .navigationTitle(project.title)
+                    .navigationTitle(self.project.title)
             }
         }
         .tabItem {
@@ -126,20 +127,20 @@ public struct ProjectDetailView: View {
     }
 
     private var feedTab: some View {
-        FeedTabView(projectID: project.coordinate)
-            .navigationTitle(project.title)
+        FeedTabView(projectID: self.project.coordinate)
+            .navigationTitle(self.project.title)
             .tabItem {
                 Label("Feed", systemImage: "list.bullet")
             }
     }
 
     @ViewBuilder private var filterMenu: some View {
-        let activeFilter = filtersStore.getFilter(for: project.coordinate)
+        let activeFilter = self.filtersStore.getFilter(for: self.project.coordinate)
 
         Menu {
             // Clear filter button
             Button {
-                filtersStore.setFilter(nil, for: project.coordinate)
+                self.filtersStore.setFilter(nil, for: self.project.coordinate)
             } label: {
                 Label("All conversations", systemImage: "circle")
             }
@@ -150,7 +151,7 @@ public struct ProjectDetailView: View {
             Section("Activity filters") {
                 ForEach([ThreadFilter.oneHour, .fourHours, .oneDay], id: \.self) { filter in
                     Button {
-                        filtersStore.setFilter(filter, for: project.coordinate)
+                        self.filtersStore.setFilter(filter, for: self.project.coordinate)
                     } label: {
                         Label(filter.displayName, systemImage: filter.systemImage)
                     }
@@ -166,7 +167,7 @@ public struct ProjectDetailView: View {
                     id: \.self
                 ) { filter in
                     Button {
-                        filtersStore.setFilter(filter, for: project.coordinate)
+                        self.filtersStore.setFilter(filter, for: self.project.coordinate)
                     } label: {
                         Label(filter.displayName, systemImage: filter.systemImage)
                     }

@@ -70,8 +70,9 @@ public struct CallView: View {
                 await self.viewModel.startCall()
             }
 
-            // Auto-start recording - user is here to talk
-            if self.viewModel.canRecord {
+            // Auto-start recording only in push-to-talk mode
+            // (VAD mode handles recording automatically when speech is detected)
+            if self.viewModel.vadMode == .pushToTalk, self.viewModel.canRecord {
                 await self.viewModel.startRecording()
             }
         }
@@ -179,7 +180,10 @@ public struct CallView: View {
 
     /// Whether to show agent avatar in center (instead of voice visualizer)
     private var shouldShowAgentInCenter: Bool {
-        self.viewModel.state == .playingResponse || self.viewModel.isPaused || self.viewModel.agentIsProcessing
+        self.viewModel.state == .playingResponse
+            || self.viewModel.state == .waitingForAgent
+            || self.viewModel.isPaused
+            || self.viewModel.agentIsProcessing
     }
 
     private var backgroundGradient: some View {
@@ -324,7 +328,7 @@ public struct CallView: View {
                 agentColor: self.agentColor,
                 agentInitials: self.agentInitials,
                 isSpeaking: self.viewModel.state == .playingResponse,
-                isProcessing: self.viewModel.agentIsProcessing,
+                isProcessing: self.viewModel.state == .waitingForAgent || self.viewModel.agentIsProcessing,
                 isPaused: self.viewModel.isPaused,
                 onTap: {
                     self.hapticManager.settingsToggle()

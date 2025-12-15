@@ -38,6 +38,7 @@ public struct AgentProfileView: View {
         .navigationTitle(self.viewModel.agentName ?? "Agent Profile")
         #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .tabBar)
         #endif
             .onAppear {
                 self.viewModel.startSubscriptions()

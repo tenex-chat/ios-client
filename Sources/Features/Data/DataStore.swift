@@ -10,6 +10,8 @@ import Observation
 import os
 import TENEXCore
 
+// MARK: - DataStore
+
 /// Centralized data manager for high-level app entities
 /// Owns all NDK subscriptions and provides reactive data access
 @MainActor
@@ -210,9 +212,11 @@ public final class DataStore {
 
     /// Cache of event metadata for inbox filtering (eventID -> (authorPubkey, createdAt))
     private var inboxEventCache: [String: (pubkey: String, createdAt: Date)] = [:]
+}
 
-    // MARK: - Private Subscription Methods
+// MARK: - Subscription Methods
 
+extension DataStore {
     private func subscribeToProjects(userPubkey: String) async {
         self.isLoadingProjects = true
         defer { isLoadingProjects = false }
@@ -419,27 +423,35 @@ public final class DataStore {
     }
 
     private func shouldIncludeInInbox(event: NDKEvent, userPubkey: String) async -> Bool {
-        // Get 'e' tag (what this event is replying to)
         guard let eTag = event.tagValue("e"), !eTag.isEmpty else {
             self.logger.debug("No e-tag found, including in inbox: \(event.id)")
-            return true // No reply context, include in inbox
+            return true
         }
 
-        // Check cache first
         if let cached = inboxEventCache[eTag] {
-            self.logger.debug("Using cached data for inbox filtering: \(eTag)")
-            // Use cached data
-            guard cached.pubkey == userPubkey else {
-                return true // Not a reply to user's message
-            }
-
-            let fiveMinutesAgo = Date().addingTimeInterval(-5 * 60)
-            let shouldInclude = cached.createdAt < fiveMinutesAgo
-            self.logger.debug("Filtering inbox message (cached): \(shouldInclude)")
-            return shouldInclude // Only include if older than 5 minutes
+            return self.checkCachedInboxEvent(cached: cached, userPubkey: userPubkey, eTag: eTag)
         }
 
-        // Fetch the e-tagged event if not in cache
+        return await self.fetchAndCheckReplyToEvent(eTag: eTag, userPubkey: userPubkey, event: event)
+    }
+
+    private func checkCachedInboxEvent(
+        cached: (pubkey: String, createdAt: Date),
+        userPubkey: String,
+        eTag: String
+    ) -> Bool {
+        self.logger.debug("Using cached data for inbox filtering: \(eTag)")
+        guard cached.pubkey == userPubkey else {
+            return true
+        }
+
+        let fiveMinutesAgo = Date().addingTimeInterval(-5 * 60)
+        let shouldInclude = cached.createdAt < fiveMinutesAgo
+        self.logger.debug("Filtering inbox message (cached): \(shouldInclude)")
+        return shouldInclude
+    }
+
+    private func fetchAndCheckReplyToEvent(eTag: String, userPubkey: String, event: NDKEvent) async -> Bool {
         self.logger.debug("Fetching reply-to event for inbox filtering: \(eTag)")
         let filter = NDKFilter(ids: [eTag])
         let subscription = self.ndk.subscribe(filter: filter)
@@ -451,14 +463,26 @@ public final class DataStore {
 
         guard let replyToEvent else {
             self.logger.warning("Reply-to event not found, including in inbox: \(eTag)")
-            return true // Can't find context, include in inbox
+            return true
         }
 
-        // Cache the event metadata
+        return self.cacheAndCheckEvent(replyToEvent: replyToEvent, eTag: eTag, userPubkey: userPubkey, event: event)
+    }
+
+    private func cacheAndCheckEvent(replyToEvent: NDKEvent, eTag: String, userPubkey: String, event: NDKEvent) -> Bool {
         let eventDate = Date(timeIntervalSince1970: TimeInterval(replyToEvent.createdAt))
         self.inboxEventCache[eTag] = (pubkey: replyToEvent.pubkey, createdAt: eventDate)
+        self.evictOldCacheEntriesIfNeeded()
 
-        // Apply cache size limit (keep last 1000 entries)
+        guard replyToEvent.pubkey == userPubkey else {
+            self.logger.debug("Not a reply to user's message, including in inbox")
+            return true
+        }
+
+        return self.checkMessageAge(eventDate: eventDate, event: event)
+    }
+
+    private func evictOldCacheEntriesIfNeeded() {
         if self.inboxEventCache.count > 1000 {
             let oldestKeys = self.inboxEventCache.keys.prefix(self.inboxEventCache.count - 1000)
             for key in oldestKeys {
@@ -466,17 +490,24 @@ public final class DataStore {
             }
             self.logger.debug("Evicted \(oldestKeys.count) entries from inbox event cache")
         }
+    }
 
-        // Check if user authored the reply-to event
-        guard replyToEvent.pubkey == userPubkey else {
-            self.logger.debug("Not a reply to user's message, including in inbox")
-            return true // Not a reply to user's message
-        }
-
-        // Check if user replied within past 5 minutes
-        let fiveMinutesAgo = Date().addingTimeInterval(-5 * 60)
+    private func checkMessageAge(eventDate: Date, event: NDKEvent) -> Bool {
+        let now = Date()
+        let fiveMinutesAgo = now.addingTimeInterval(-5 * 60)
+        let timeSinceUserMessage = now.timeIntervalSince(eventDate)
         let shouldInclude = eventDate < fiveMinutesAgo
-        self.logger.debug("Reply to user's recent message, should include: \(shouldInclude)")
-        return shouldInclude // Only include if older than 5 minutes
+
+        self.logger.info("""
+        Inbox filtering decision:
+        - User message time: \(eventDate)
+        - Current time: \(now)
+        - Time since user message: \(Int(timeSinceUserMessage))s
+        - 5 minute threshold: \(fiveMinutesAgo)
+        - Should include: \(shouldInclude)
+        - Agent message ID: \(event.id)
+        """)
+
+        return shouldInclude
     }
 }

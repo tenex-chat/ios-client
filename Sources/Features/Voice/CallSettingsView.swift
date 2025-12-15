@@ -26,7 +26,9 @@ public struct CallSettingsView: View {
                 self.advancedSettingsLink
             }
             .navigationTitle("Call Settings")
-            .navigationBarTitleDisplayMode(.inline)
+            #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+            #endif
         }
         .presentationDetents([.height(280)])
         .presentationDragIndicator(.visible)
