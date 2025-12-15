@@ -22,20 +22,26 @@ public struct CallView: View {
     /// - Parameters:
     ///   - viewModel: Call view model
     ///   - ndk: NDK instance for profile pictures
+    ///   - projectReference: The project reference coordinate
+    ///   - dataStore: Data store for project status
+    ///   - onDismiss: Callback when call is dismissed
     ///   - projectColor: Project accent color
     ///   - availableAgents: List of agents to choose from
-    ///   - onDismiss: Callback when call is dismissed
     public init(
         viewModel: CallViewModel,
         ndk: NDK,
+        projectReference: String,
+        dataStore: DataStore,
+        onDismiss: @escaping () -> Void,
         projectColor: Color = .blue,
-        availableAgents: [ProjectAgent] = [],
-        onDismiss: @escaping () -> Void
+        availableAgents: [ProjectAgent] = []
     ) {
         _viewModel = State(initialValue: viewModel)
         self.ndk = ndk
         self.projectColor = projectColor
         self.availableAgents = availableAgents
+        self.projectReference = projectReference
+        self.dataStore = dataStore
         self.onDismiss = onDismiss
     }
 
@@ -93,7 +99,21 @@ public struct CallView: View {
     private let ndk: NDK
     private let projectColor: Color
     private let availableAgents: [ProjectAgent]
+    private let projectReference: String
+    private let dataStore: DataStore
     private let onDismiss: () -> Void
+
+    /// Available models from project status
+    private var availableModels: [String] {
+        self.dataStore.getProjectStatus(projectCoordinate: self.projectReference)?
+            .models ?? []
+    }
+
+    /// Available tools from project status
+    private var availableTools: [String] {
+        self.dataStore.getProjectStatus(projectCoordinate: self.projectReference)?
+            .tools ?? []
+    }
 
     /// Messages sent/received during this call session only
     private var sessionMessages: [Message] {
@@ -122,8 +142,7 @@ public struct CallView: View {
 
     private var agentColor: Color {
         let hash = self.viewModel.agent.pubkey.hashValue
-        let hue = Double(abs(hash) % 360) / 360.0
-        return Color(hue: hue, saturation: 0.6, brightness: 0.7)
+        return Color(hue: Double(abs(hash) % 360) / 360.0, saturation: 0.6, brightness: 0.7)
     }
 
     private var micButtonState: MicButtonState {
@@ -156,11 +175,13 @@ public struct CallView: View {
         self.viewModel.vadMode == .auto || self.viewModel.vadMode == .autoWithHold
     }
 
-    private var shouldShowAgentOverlay: Bool {
+    /// Whether to show agent avatar in center (instead of voice visualizer)
+    private var shouldShowAgentInCenter: Bool {
         self.viewModel.state == .playingResponse || self.viewModel.isPaused || self.viewModel.agentIsProcessing
     }
 
-    private var agentOverlayState: AgentOverlayState {
+    /// State for the center avatar display
+    private var centerAvatarState: CenterAvatarState {
         if self.viewModel.isPaused {
             return .paused
         }
@@ -170,7 +191,7 @@ public struct CallView: View {
         if self.viewModel.agentIsProcessing {
             return .processing
         }
-        return .hidden
+        return .idle
     }
 
     private var backgroundGradient: some View {
@@ -190,7 +211,7 @@ public struct CallView: View {
 
             if self.sessionMessages.isEmpty {
                 Spacer()
-                self.waitingForCallView
+                self.centerVisualization
                 Spacer()
             } else {
                 Spacer()
@@ -203,20 +224,6 @@ public struct CallView: View {
                 .padding(.horizontal)
                 .padding(.bottom, 40)
         }
-        .overlay {
-            if self.shouldShowAgentOverlay {
-                AgentSpeakingOverlay(
-                    agentName: self.viewModel.agent.name,
-                    agentColor: self.agentColor,
-                    agentInitials: self.agentInitials,
-                    state: self.agentOverlayState,
-                    onTap: self.handleAgentOverlayTap,
-                    onLongPress: self.handleAgentOverlayLongPress
-                )
-                .transition(.opacity)
-            }
-        }
-        .animation(.easeInOut(duration: 0.2), value: self.shouldShowAgentOverlay)
     }
 
     // MARK: - Header
@@ -247,7 +254,21 @@ public struct CallView: View {
         }
         .buttonStyle(.plain)
         .sheet(isPresented: self.$isShowingAgentSelector) {
-            self.agentSelectorSheet
+            CallAgentSelectorSheet(
+                agents: self.availableAgents,
+                currentAgentPubkey: self.viewModel.agent.pubkey,
+                availableModels: self.availableModels,
+                availableTools: self.availableTools,
+                projectReference: self.projectReference,
+                ndk: self.ndk,
+                onSelect: { agent in
+                    self.viewModel.changeAgent(agent)
+                    self.isShowingAgentSelector = false
+                },
+                onCancel: {
+                    self.isShowingAgentSelector = false
+                }
+            )
         }
     }
 
@@ -294,22 +315,42 @@ public struct CallView: View {
         }
     }
 
-    // MARK: - Waiting View
+    // MARK: - Center Visualization
 
-    private var waitingForCallView: some View {
-        VStack(spacing: 24) {
-            // Animated visualizer
-            VoiceVisualizerView(
-                audioLevel: self.viewModel.audioLevel,
-                isActive: self.viewModel.state == .connecting || self.viewModel.state == .playingResponse,
-                color: self.projectColor,
-                size: 120
+    @ViewBuilder private var centerVisualization: some View {
+        if self.shouldShowAgentInCenter {
+            // Show agent avatar when agent is active (processing, speaking, or paused)
+            CenterAgentAvatar(
+                agentName: self.viewModel.agent.name,
+                agentColor: self.agentColor,
+                agentInitials: self.agentInitials,
+                state: self.centerAvatarState,
+                onTap: {
+                    self.hapticManager.settingsToggle()
+                    self.viewModel.togglePause()
+                },
+                onLongPress: {
+                    self.hapticManager.tapHoldReleased()
+                    self.viewModel.interruptAgent()
+                }
             )
+            .transition(.opacity.combined(with: .scale(scale: 0.9)))
+        } else {
+            // Show voice visualizer when waiting for user/agent
+            VStack(spacing: 24) {
+                VoiceVisualizerView(
+                    audioLevel: self.viewModel.audioLevel,
+                    isActive: self.viewModel.state == .connecting,
+                    color: self.projectColor,
+                    size: 120
+                )
 
-            Text(self.viewModel
-                .state == .connecting ? "Connecting to \(self.viewModel.agent.name)..." : "Ready to start")
-                .font(.title3)
-                .foregroundStyle(.white)
+                Text(self.viewModel
+                    .state == .connecting ? "Connecting to \(self.viewModel.agent.name)..." : "Ready to start")
+                    .font(.title3)
+                    .foregroundStyle(.white)
+            }
+            .transition(.opacity.combined(with: .scale(scale: 0.9)))
         }
     }
 
@@ -396,7 +437,16 @@ public struct CallView: View {
             }
         }
         .sheet(isPresented: self.$isShowingSettings) {
-            self.voiceSettingsSheet
+            NavigationView {
+                if let storage = aiConfigStorage {
+                    VoiceCallSettingsWrapper(storage: storage) {
+                        self.isShowingSettings = false
+                    }
+                } else {
+                    Text("Settings unavailable")
+                }
+            }
+            .presentationDetents([.medium, .large])
         }
     }
 
@@ -510,33 +560,6 @@ public struct CallView: View {
         .clipShape(Capsule())
     }
 
-    private var voiceSettingsSheet: some View {
-        NavigationView {
-            if let storage = aiConfigStorage {
-                VoiceCallSettingsWrapper(storage: storage) {
-                    self.isShowingSettings = false
-                }
-            } else {
-                Text("Settings unavailable")
-            }
-        }
-        .presentationDetents([.medium, .large])
-    }
-
-    private var agentSelectorSheet: some View {
-        CallAgentSelectorSheet(
-            agents: self.availableAgents,
-            currentAgentPubkey: self.viewModel.agent.pubkey,
-            onSelect: { agent in
-                self.viewModel.changeAgent(agent)
-                self.isShowingAgentSelector = false
-            },
-            onCancel: {
-                self.isShowingAgentSelector = false
-            }
-        )
-    }
-
     private func errorDisplay(_ error: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
@@ -549,16 +572,6 @@ public struct CallView: View {
         .background(Color.red.opacity(0.3))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .transition(.move(edge: .bottom).combined(with: .opacity))
-    }
-
-    private func handleAgentOverlayTap() {
-        self.hapticManager.settingsToggle()
-        self.viewModel.togglePause()
-    }
-
-    private func handleAgentOverlayLongPress() {
-        self.hapticManager.tapHoldReleased()
-        self.viewModel.interruptAgent()
     }
 
     private func handleStateChange(from oldState: CallState, to newState: CallState) {

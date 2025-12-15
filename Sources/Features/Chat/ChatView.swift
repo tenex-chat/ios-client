@@ -257,11 +257,14 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                     CallView(
                         viewModel: callVM,
                         ndk: ndk,
+                        projectReference: self.projectReference,
+                        dataStore: self.dataStore,
+                        onDismiss: {
+                            self.isShowingCallView = false
+                        },
                         projectColor: .blue,
                         availableAgents: self.onlineAgents
-                    ) {
-                        self.isShowingCallView = false
-                    }
+                    )
                     .frame(maxWidth: 390, maxHeight: 844) // iPhone dimensions
                 }
             } else {
@@ -547,6 +550,8 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                     onReplyTap: message.replyCount > 0 ? { self.focusOnMessage(message) } : nil,
                     onAgentTap: message.pubkey != self.currentUserPubkey ? {} : nil,
                     onQuote: { self.quoteMessage(message, viewModel: viewModel) },
+                    onPlayTTS: TTSCache.shared
+                        .hasCached(messageID: message.id) ? { self.playTTSForMessage(message.id) } : nil,
                     showDebugInfo: false
                 )
             }
@@ -728,6 +733,19 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
             .map { "> \($0)" }
             .joined(separator: "\n")
         self.inputViewModel?.inputText = quotedText + "\n\n"
+    }
+
+    /// Play cached TTS audio for a message
+    private func playTTSForMessage(_ messageID: String) {
+        guard let audioService,
+              let audioData = TTSCache.shared.audioFor(messageID: messageID)
+        else {
+            return
+        }
+
+        Task {
+            try? await audioService.play(audioData: audioData)
+        }
     }
 
     /// Create a CallViewModel for the voice call
