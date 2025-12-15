@@ -14,7 +14,7 @@ import TENEXCore
 /// View model for the chat screen
 @MainActor
 @Observable
-public final class ChatViewModel { // swiftlint:disable:this type_body_length
+public final class ChatViewModel {
     // MARK: Lifecycle
 
     /// Initialize the chat view model
@@ -25,13 +25,15 @@ public final class ChatViewModel { // swiftlint:disable:this type_body_length
     ///   - userPubkey: The pubkey of the authenticated user
     ///   - aiConfigStorage: AI configuration storage for auto-TTS settings
     ///   - audioService: Audio service for TTS playback
+    ///   - settingsStorage: Storage for conversation settings
     public init(
         ndk: NDK,
         threadEvent: NDKEvent?,
         projectReference: String,
         userPubkey: String,
         aiConfigStorage: AIConfigStorage? = nil,
-        audioService: AudioService? = nil
+        audioService: AudioService? = nil,
+        settingsStorage: ConversationSettingsStorage = UserDefaultsConversationSettingsStorage()
     ) {
         self.ndk = ndk
         self.threadEvent = threadEvent
@@ -39,41 +41,42 @@ public final class ChatViewModel { // swiftlint:disable:this type_body_length
         self.userPubkey = userPubkey
         self.aiConfigStorage = aiConfigStorage
         self.audioService = audioService
+        self.settingsStorage = settingsStorage
+
+        // Load saved conversation settings
+        self.conversationSettings = settingsStorage.load()
 
         // Initialize conversation state first (required before self can be captured)
         if let threadEvent {
-            conversationState = ConversationState(rootEventID: threadEvent.id)
+            self.conversationState = ConversationState(rootEventID: threadEvent.id)
 
             // Set agent message callback after initialization to avoid capture issues
-            conversationState.onAgentMessage = { [weak self] message in
+            self.conversationState.onAgentMessage = { [weak self] message in
                 self?.handleAgentMessage(message)
             }
 
             // Add the thread event (kind:11) as the first message
             // This is needed because the subscription only fetches kind:1111 replies
             if let threadMessage = Message.from(event: threadEvent) {
-                conversationState.addMessage(threadMessage)
+                self.conversationState.addMessage(threadMessage)
             }
 
             // Start continuous subscription in background
             Task {
-                await subscribeToAllEvents()
+                await self.subscribeToAllEvents()
             }
         } else {
             // New thread mode - create empty conversation state (will be updated after thread creation)
-            conversationState = ConversationState(rootEventID: "")
+            self.conversationState = ConversationState(rootEventID: "")
 
             // Set agent message callback after initialization to avoid capture issues
-            conversationState.onAgentMessage = { [weak self] message in
+            self.conversationState.onAgentMessage = { [weak self] message in
                 self?.handleAgentMessage(message)
             }
         }
     }
 
     // MARK: Public
-
-    /// Conversation settings for debugging display options
-    public var conversationSettings = ConversationSettings()
 
     /// The conversation state managing messages, streaming, and typing
     public private(set) var conversationState: ConversationState
@@ -87,30 +90,37 @@ public final class ChatViewModel { // swiftlint:disable:this type_body_length
     /// The thread event (kind:11) - nil for new thread mode, set after thread is created
     public private(set) var threadEvent: NDKEvent?
 
+    /// Conversation settings for debugging display options
+    public var conversationSettings = ConversationSettings() {
+        didSet {
+            self.settingsStorage.save(self.conversationSettings)
+        }
+    }
+
     /// Whether this is a new thread (no threadEvent yet)
     public var isNewThread: Bool {
-        threadEvent == nil
+        self.threadEvent == nil
     }
 
     /// The display messages (final + streaming synthetic), sorted by time
     /// Only includes root and direct replies to root (nested replies are hidden)
     public var displayMessages: [Message] {
-        conversationState.displayMessages
+        self.conversationState.displayMessages
     }
 
     /// All messages in the thread (for finding nested replies)
     public var allMessages: [String: Message] {
-        conversationState.messages
+        self.conversationState.messages
     }
 
     /// Set of pubkeys of users who are currently typing
     public var typingUsers: Set<String> {
-        Set(conversationState.typingIndicators.keys)
+        Set(self.conversationState.typingIndicators.keys)
     }
 
     /// The thread ID derived from the thread event (nil if new thread)
     public var threadID: String? {
-        threadEvent?.id
+        self.threadEvent?.id
     }
 
     /// Subscribe to thread metadata (kind:513) to get the most recent title
@@ -122,7 +132,7 @@ public final class ChatViewModel { // swiftlint:disable:this type_body_length
         // Create filter for metadata for this thread
         let filter = ConversationMetadata.filter(for: threadID)
 
-        let subscription = ndk.subscribe(filter: filter)
+        let subscription = self.ndk.subscribe(filter: filter)
 
         var latestMetadata: ConversationMetadata?
 
@@ -136,7 +146,7 @@ public final class ChatViewModel { // swiftlint:disable:this type_body_length
                     }
                 }
                 latestMetadata = metadata
-                threadTitle = metadata.title
+                self.threadTitle = metadata.title
             }
         }
     }
@@ -155,7 +165,8 @@ public final class ChatViewModel { // swiftlint:disable:this type_body_length
         mentionedPubkeys: [String] = [],
         replyTo: Message? = nil,
         selectedNudges: [String] = [],
-        selectedBranch: String? = nil
+        selectedBranch: String? = nil,
+        customTags: [[String]] = []
     ) async {
         // Validate message text
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -164,12 +175,12 @@ public final class ChatViewModel { // swiftlint:disable:this type_body_length
         }
 
         // For new threads, agent is required
-        if isNewThread {
+        if self.isNewThread {
             guard let targetAgentPubkey else {
-                errorMessage = "Please select an agent to start a thread"
+                self.errorMessage = "Please select an agent to start a thread"
                 return
             }
-            await createThread(
+            await self.createThread(
                 content: trimmedText,
                 agentPubkey: targetAgentPubkey,
                 mentionedPubkeys: mentionedPubkeys,
@@ -180,13 +191,14 @@ public final class ChatViewModel { // swiftlint:disable:this type_body_length
         }
 
         // Existing thread - send reply
-        await sendReply(
+        await self.sendReply(
             text: trimmedText,
             targetAgentPubkey: targetAgentPubkey,
             mentionedPubkeys: mentionedPubkeys,
             replyTo: replyTo,
             selectedNudges: selectedNudges,
-            selectedBranch: selectedBranch
+            selectedBranch: selectedBranch,
+            customTags: customTags
         )
     }
 
@@ -197,11 +209,12 @@ public final class ChatViewModel { // swiftlint:disable:this type_body_length
     private let userPubkey: String
     private let aiConfigStorage: AIConfigStorage?
     private let audioService: AudioService?
+    private let settingsStorage: ConversationSettingsStorage
 
     /// Handle agent message for auto-TTS
     private func handleAgentMessage(_ message: Message) {
         // Check if message is from an agent (not the user)
-        guard message.pubkey != userPubkey else {
+        guard message.pubkey != self.userPubkey else {
             return
         }
 
@@ -238,49 +251,40 @@ public final class ChatViewModel { // swiftlint:disable:this type_body_length
         selectedNudges: [String],
         selectedBranch: String?
     ) async {
-        // Capture values for sendable closure
-        let projectRef = projectReference
-        let mentions = mentionedPubkeys
-        let ndkInstance = ndk
-        let nudges = selectedNudges
-        let branch = selectedBranch
-
         do {
-            // Build and publish thread event (kind:11)
-            let (event, _) = try await ndk.publish { _ in
-                buildThreadTags(
-                    ndk: ndkInstance,
-                    content: content,
-                    projectRef: projectRef,
-                    agentPubkey: agentPubkey,
-                    mentions: mentions,
-                    nudges: nudges,
-                    branch: branch
-                )
-            }
+            let publisher = MessagePublisher()
+            let (event, _) = try await publisher.publishThread(
+                ndk: self.ndk,
+                content: content,
+                projectRef: self.projectReference,
+                agentPubkey: agentPubkey,
+                mentions: mentionedPubkeys,
+                nudges: selectedNudges,
+                branch: selectedBranch
+            )
 
             // Update threadEvent with the created thread
-            threadEvent = event
+            self.threadEvent = event
 
             // Update conversation state with new root ID
-            conversationState = ConversationState(rootEventID: event.id)
+            self.conversationState = ConversationState(rootEventID: event.id)
 
             // Set agent message callback after initialization to avoid capture issues
-            conversationState.onAgentMessage = { [weak self] message in
+            self.conversationState.onAgentMessage = { [weak self] message in
                 self?.handleAgentMessage(message)
             }
 
             // Add the thread as the first message (subscription only fetches kind:1111 replies)
             if let threadMessage = Message.from(event: event) {
-                conversationState.addMessage(threadMessage)
+                self.conversationState.addMessage(threadMessage)
             }
 
             // Start subscription for replies
             Task {
-                await subscribeToAllEvents()
+                await self.subscribeToAllEvents()
             }
         } catch {
-            errorMessage = "Failed to create thread: \(error.localizedDescription)"
+            self.errorMessage = "Failed to create thread: \(error.localizedDescription)"
         }
     }
 
@@ -291,40 +295,29 @@ public final class ChatViewModel { // swiftlint:disable:this type_body_length
         mentionedPubkeys: [String],
         replyTo: Message?,
         selectedNudges: [String],
-        selectedBranch: String?
+        selectedBranch: String?,
+        customTags: [[String]] = []
     ) async {
         guard let threadEvent else {
             return
         }
 
-        // Capture values for sendable closure
-        let projectRef = projectReference
-        let replyToMessage = replyTo
-        let agentPubkey = targetAgentPubkey
-        let mentions = mentionedPubkeys
-        let nudges = selectedNudges
-        let branch = selectedBranch
-
-        // Publish reply - NDK handles signing, publishing, and retries
-        // The subscription will pick up the event automatically
-        let context = ReplyContext(
-            projectRef: projectRef,
-            replyTo: replyToMessage,
-            agentPubkey: agentPubkey,
-            mentions: mentions,
-            selectedNudges: nudges,
-            selectedBranch: branch
-        )
         do {
-            _ = try await ndk.publish { _ in
-                buildReplyTags(
-                    builder: NDKEventBuilder.reply(to: threadEvent, ndk: ndk),
-                    content: text,
-                    context: context
-                )
-            }
+            let publisher = MessagePublisher()
+            _ = try await publisher.publishReply(
+                ndk: self.ndk,
+                threadEvent: threadEvent,
+                content: text,
+                projectRef: self.projectReference,
+                agentPubkey: targetAgentPubkey,
+                mentions: mentionedPubkeys,
+                replyTo: replyTo?.id,
+                nudges: selectedNudges,
+                branch: selectedBranch,
+                customTags: customTags
+            )
         } catch {
-            errorMessage = "Failed to send message: \(error.localizedDescription)"
+            self.errorMessage = "Failed to send message: \(error.localizedDescription)"
         }
     }
 
@@ -355,8 +348,8 @@ public final class ChatViewModel { // swiftlint:disable:this type_body_length
         // Use uppercase 'E' tag to get ALL events in the thread
         // (lowercase 'e' = direct parent, uppercase 'E' = root thread reference)
         // Subscribe to both filters and process events from both
-        let messagesSubscription = ndk.subscribe(filter: finalMessagesFilter)
-        let ephemeralSubscription = ndk.subscribe(filter: ephemeralFilter)
+        let messagesSubscription = self.ndk.subscribe(filter: finalMessagesFilter)
+        let ephemeralSubscription = self.ndk.subscribe(filter: ephemeralFilter)
 
         // Continuous subscriptions - run both in parallel
         await withTaskGroup(of: Void.self) { group in
@@ -373,116 +366,5 @@ public final class ChatViewModel { // swiftlint:disable:this type_body_length
         }
     }
 
-    /// Build tags for a new thread (kind:11)
-    private nonisolated func buildThreadTags( // swiftlint:disable:this function_parameter_count
-        ndk: NDK,
-        content: String,
-        projectRef: String,
-        agentPubkey: String,
-        mentions: [String],
-        nudges: [String],
-        branch: String?
-    ) -> NDKEventBuilder {
-        var builder = NDKEventBuilder(ndk: ndk)
-            .kind(11)
-            .content(content, extractImeta: false)
-
-        // Add project reference (a tag)
-        builder = builder.tag(["a", projectRef])
-
-        // Add title tag (first 50 chars of content)
-        let title = String(content.prefix(50))
-        builder = builder.tag(["title", title])
-
-        // Extract hashtags from content and add as t tags
-        let pattern = "#(\\w+)"
-        if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
-            let range = NSRange(content.startIndex..., in: content)
-            let matches = regex.matches(in: content, options: [], range: range)
-            for match in matches {
-                if let tagRange = Range(match.range(at: 1), in: content) {
-                    let hashtag = String(content[tagRange]).lowercased()
-                    builder = builder.tag(["t", hashtag])
-                }
-            }
-        }
-
-        // Add agent p-tag (required for new threads)
-        builder = builder.tag(["p", agentPubkey])
-
-        // Add mentioned p-tags (excluding agent if already added)
-        for pubkey in mentions where pubkey != agentPubkey {
-            builder = builder.tag(["p", pubkey])
-        }
-
-        // Add nudge tags
-        for nudgeID in nudges {
-            builder = builder.tag(["nudge", nudgeID])
-        }
-
-        // Add branch tag
-        if let branch {
-            builder = builder.tag(["branch", branch])
-        }
-
-        return builder
-    }
-
-    /// Build tags for a reply message
-    private nonisolated func buildReplyTags(
-        builder: NDKEventBuilder,
-        content: String,
-        context: ReplyContext
-    ) -> NDKEventBuilder {
-        // Filter out auto p-tags only (keep e-tags from builder)
-        let filteredTags = builder.tags.filter { $0.first != "p" }
-        var newBuilder = builder.setTags(filteredTags)
-
-        // Set content and project reference
-        newBuilder = newBuilder.content(content, extractImeta: false)
-        newBuilder = newBuilder.tag(["a", context.projectRef])
-
-        // Add reply e-tag ONLY if replying to a specific message
-        if let replyTo = context.replyTo {
-            newBuilder = newBuilder.tag(["e", replyTo.id])
-            let hasReplyAuthorPTag = newBuilder.tags.contains { $0.first == "p" && $0[safe: 1] == replyTo.pubkey }
-            if !hasReplyAuthorPTag {
-                newBuilder = newBuilder.tag(["p", replyTo.pubkey])
-            }
-        }
-
-        // Add target agent p-tag for routing
-        if let agentPubkey = context.agentPubkey {
-            newBuilder = newBuilder.tag(["p", agentPubkey])
-        }
-
-        // Add mentioned user p-tags (excluding agent if already added)
-        for pubkey in context.mentions where pubkey != context.agentPubkey {
-            newBuilder = newBuilder.tag(["p", pubkey])
-        }
-
-        // Add nudge tags
-        for nudgeID in context.selectedNudges {
-            newBuilder = newBuilder.tag(["nudge", nudgeID])
-        }
-
-        // Add branch tag
-        if let branch = context.selectedBranch {
-            newBuilder = newBuilder.tag(["branch", branch])
-        }
-
-        return newBuilder
-    }
-}
-
-// MARK: - ReplyContext
-
-/// Context for building a reply message
-private struct ReplyContext: Sendable {
-    let projectRef: String
-    let replyTo: Message?
-    let agentPubkey: String?
-    let mentions: [String]
-    let selectedNudges: [String]
-    let selectedBranch: String?
+    // Build tags for a new thread (kind:11)
 }
