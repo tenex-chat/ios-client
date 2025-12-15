@@ -4,6 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import AVFoundation
 import NDKSwiftCore
 import SwiftUI
 import TENEXCore
@@ -44,6 +45,14 @@ public struct CallView: View {
         }
         .preferredColorScheme(.dark)
         .task {
+            // Request microphone permission first
+            #if os(iOS)
+                let permission = AVAudioApplication.shared.recordPermission
+                if permission == .undetermined {
+                    _ = await AVAudioApplication.requestRecordPermission()
+                }
+            #endif
+
             // Track when call session started
             self.sessionStartTime = Date()
 

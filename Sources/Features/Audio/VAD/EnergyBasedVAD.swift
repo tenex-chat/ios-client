@@ -33,21 +33,6 @@ final class EnergyBasedVAD: VADService {
         }
 
         #if !os(macOS)
-            /// Request microphone permission before accessing audio engine input
-            let permission = AVAudioSession.sharedInstance().recordPermission
-            if permission == .undetermined {
-                let granted = await withCheckedContinuation { continuation in
-                    AVAudioSession.sharedInstance().requestRecordPermission { granted in
-                        continuation.resume(returning: granted)
-                    }
-                }
-                if !granted {
-                    throw VADError.serviceUnavailable
-                }
-            } else if permission != .granted {
-                throw VADError.serviceUnavailable
-            }
-
             /// Configure audio session for VAD
             let session = AVAudioSession.sharedInstance()
             do {
