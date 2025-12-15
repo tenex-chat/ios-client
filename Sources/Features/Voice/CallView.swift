@@ -238,7 +238,8 @@ public struct CallView: View {
                     ForEach(self.sessionMessages) { message in
                         MessageBubble(
                             message: message,
-                            accentColor: self.projectColor
+                            accentColor: self.projectColor,
+                            userPubkey: self.viewModel.userPubkey
                         ) {
                             Task {
                                 await self.viewModel.replayMessage(message.id)

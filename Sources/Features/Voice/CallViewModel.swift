@@ -179,6 +179,9 @@ public final class CallViewModel {
     /// Whether user is holding the mic (tap-to-hold)
     public private(set) var isHoldingMic = false
 
+    /// Current user's public key (for filtering messages)
+    public let userPubkey: String
+
     /// Audio level for visualization (0.0 to 1.0)
     public var audioLevel: Double {
         self.audioService.recorder.audioLevel
@@ -274,6 +277,8 @@ public final class CallViewModel {
 
         // Clear TTS queue and subscription
         self.ttsQueue?.clearQueue()
+        self.subscriptionTask?.cancel()
+        self.subscriptionTask = nil
         self.subscription = nil
         self.conversationState = nil
 
@@ -468,7 +473,6 @@ public final class CallViewModel {
     private let projectID: String
     private let rootEvent: NDKEvent?
     private let branchTag: String?
-    private let userPubkey: String
     private let onSendMessage: (String, String, [[String]]) async throws -> Void
     private var callStartTime: Date?
     private let logger = Logger(subsystem: "com.tenex.ios", category: "CallViewModel")
@@ -479,6 +483,7 @@ public final class CallViewModel {
     // NEW: TTS Queue and subscription
     private var ttsQueue: TTSQueue?
     private var subscription: NDKSubscription<NDKEvent>?
+    private var subscriptionTask: Task<Void, Never>?
 
     // MARK: - VOD Directory Management
 
@@ -691,17 +696,23 @@ public final class CallViewModel {
         }
 
         // Process events as they arrive
-        for await event in subscription.events {
-            guard let message = Message.from(event: event) else {
-                continue
-            }
+        self.subscriptionTask = Task {
+            for await event in subscription.events {
+                guard !Task.isCancelled else {
+                    return
+                }
 
-            // Process event in ConversationState
-            self.conversationState?.processEvent(event)
+                guard let message = Message.from(event: event) else {
+                    continue
+                }
 
-            // Queue for TTS if from agent and autoTTS is enabled
-            if message.pubkey != self.userPubkey, self.autoTTS {
-                self.ttsQueue?.processMessages([message])
+                // Process event in ConversationState
+                self.conversationState?.processEvent(event)
+
+                // Queue for TTS if from agent and autoTTS is enabled
+                if message.pubkey != self.userPubkey, self.autoTTS {
+                    self.ttsQueue?.processMessages([message])
+                }
             }
         }
     }

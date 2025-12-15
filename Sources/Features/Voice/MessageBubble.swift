@@ -13,9 +13,10 @@ import TENEXCore
 public struct MessageBubble: View {
     // MARK: Lifecycle
 
-    public init(message: Message, accentColor: Color, onReplay: @escaping () -> Void) {
+    public init(message: Message, accentColor: Color, userPubkey: String, onReplay: @escaping () -> Void) {
         self.message = message
         self.accentColor = accentColor
+        self.userPubkey = userPubkey
         self.onReplay = onReplay
     }
 
@@ -39,16 +40,14 @@ public struct MessageBubble: View {
 
     let message: Message
     let accentColor: Color
+    let userPubkey: String
     let onReplay: () -> Void
 
     // MARK: Private
 
-    /// For now, consider messages from "you" as user messages
-    /// This can be enhanced by passing a userPubkey parameter
+    /// Check if message is from the current user
     private var isUser: Bool {
-        // Check if message is from the current user
-        // We can enhance this by comparing with a userPubkey if needed
-        self.message.kind == .text // Simplified - assumes user messages are text
+        self.message.pubkey == self.userPubkey
     }
 
     private var displayName: String {

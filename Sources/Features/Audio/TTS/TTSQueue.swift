@@ -86,6 +86,7 @@ public final class TTSQueue {
 
         // Start processing if not already processing
         if !self.isProcessing, !self.queue.isEmpty {
+            self.isProcessing = true
             Task {
                 await self.processNextInQueue()
             }
