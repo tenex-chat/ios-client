@@ -57,6 +57,13 @@ let project = Project(
             scripts: [
                 .pre(
                     script: """
+                    "$SRCROOT/scripts/patch-elevenlabs.sh"
+                    """,
+                    name: "Patch ElevenlabsSwift for macOS",
+                    basedOnDependencyAnalysis: false
+                ),
+                .pre(
+                    script: """
                     export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
                     if command -v swiftlint >/dev/null 2>&1; then
                         cd "$SRCROOT" && swiftlint --strict Sources/App

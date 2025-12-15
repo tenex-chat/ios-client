@@ -13,11 +13,13 @@ struct ConversationSettingsView: View {
     var body: some View {
         Form {
             Section(header: Text("Conversation Display")) {
-                Toggle("Show reasoning blocks", isOn: $settings.showReasoning)
-                Toggle("Show tool calls", isOn: $settings.showToolCalls)
+                Toggle("Show reasoning blocks", isOn: self.$settings.showReasoning)
+                Toggle("Show tool calls", isOn: self.$settings.showToolCalls)
             }
         }
         .navigationTitle("Conversation Settings")
-        .navigationBarTitleDisplayMode(.inline)
+        #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+        #endif
     }
 }

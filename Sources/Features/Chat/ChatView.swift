@@ -137,11 +137,12 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     private func emptyView(isNewThread: Bool) -> some View {
         VStack(spacing: 20) {
             Image(systemName: isNewThread ? "plus.bubble.fill" : "bubble.left.fill")
-                .font(.system(size: 60))
+                .font(.largeTitle)
+                .imageScale(.large)
                 .foregroundStyle(.blue)
 
             Text(isNewThread ? "Start a New Thread" : "No Messages Yet")
-                .font(.title)
+                .font(.title2)
                 .fontWeight(.semibold)
 
             Text(isNewThread ? "Select an agent and send your first message" : "Start a conversation in this thread")
@@ -191,7 +192,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
         .navigationTitle(self.navigationTitle(viewModel: viewModel))
         .navigationBarBackButtonHidden(self.isShowingFocusedView)
         .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
+            ToolbarItem(placement: .automatic) {
                 Button {
                     self.isShowingSettings = true
                 } label: {
@@ -203,7 +204,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
             NavigationView {
                 ConversationSettingsView(settings: $bindableViewModel.conversationSettings)
                     .toolbar {
-                        ToolbarItem(placement: .navigationBarTrailing) {
+                        ToolbarItem(placement: .automatic) {
                             Button("Done") {
                                 self.isShowingSettings = false
                             }
@@ -417,12 +418,12 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     private func typingIndicator(viewModel: ChatViewModel) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "ellipsis.bubble.fill")
-                .font(.system(size: 20))
+                .font(.title3)
                 .foregroundStyle(.blue)
                 .symbolEffect(.pulse)
 
             Text(self.typingText(viewModel: viewModel))
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
     }
