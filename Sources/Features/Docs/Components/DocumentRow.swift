@@ -34,14 +34,9 @@ struct DocumentRow: View {
             Divider()
                 .padding(.leading, 64)
         }
-        .task {
-            await self.loadAuthorMetadata()
-        }
     }
 
     // MARK: Private
-
-    @State private var metadata: NDKUserMetadata?
 
     private let document: NDKEvent
     private let ndk: NDK
@@ -55,13 +50,10 @@ struct DocumentRow: View {
     }
 
     private var authorName: String {
-        if let displayName = metadata?.displayName, !displayName.isEmpty {
-            return displayName
+        guard let author = ndk.getUser(document.pubkey) else {
+            return String(self.document.pubkey.prefix(8)) + "..."
         }
-        if let name = metadata?.name, !name.isEmpty {
-            return name
-        }
-        return String(self.document.pubkey.prefix(8)) + "..."
+        return author.profile?.displayName ?? String(self.document.pubkey.prefix(8)) + "..."
     }
 
     private var hashtags: [String] {
@@ -165,11 +157,5 @@ struct DocumentRow: View {
             .font(.subheadline)
             .foregroundStyle(.secondary)
             .lineLimit(2)
-    }
-
-    private func loadAuthorMetadata() async {
-        for await meta in await self.ndk.profileManager.subscribe(for: self.document.pubkey) {
-            self.metadata = meta
-        }
     }
 }

@@ -144,14 +144,9 @@ struct AuthorFilterItem: View {
             .padding(.vertical, 10)
         }
         .buttonStyle(.plain)
-        .task {
-            await self.loadMetadata()
-        }
     }
 
     // MARK: Private
-
-    @State private var metadata: NDKUserMetadata?
 
     private let pubkey: String
     private let isSelected: Bool
@@ -164,18 +159,9 @@ struct AuthorFilterItem: View {
             return "You"
         }
 
-        if let displayName = metadata?.displayName, !displayName.isEmpty {
-            return displayName
+        guard let author = ndk.getUser(pubkey) else {
+            return String(self.pubkey.prefix(8)) + "..."
         }
-        if let name = metadata?.name, !name.isEmpty {
-            return name
-        }
-        return String(self.pubkey.prefix(8)) + "..."
-    }
-
-    private func loadMetadata() async {
-        for await meta in await self.ndk.profileManager.subscribe(for: self.pubkey) {
-            self.metadata = meta
-        }
+        return author.profile?.displayName ?? String(self.pubkey.prefix(8)) + "..."
     }
 }

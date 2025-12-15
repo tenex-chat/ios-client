@@ -34,26 +34,18 @@ struct FeedEventRow: View {
             Divider()
                 .padding(.leading, 64)
         }
-        .task {
-            await self.loadAuthorMetadata()
-        }
     }
 
     // MARK: Private
-
-    @State private var metadata: NDKUserMetadata?
 
     private let event: NDKEvent
     private let ndk: NDK
 
     private var authorName: String {
-        if let displayName = metadata?.displayName, !displayName.isEmpty {
-            return displayName
+        guard let author = ndk.getUser(event.pubkey) else {
+            return String(self.event.pubkey.prefix(8)) + "..."
         }
-        if let name = metadata?.name, !name.isEmpty {
-            return name
-        }
-        return String(self.event.pubkey.prefix(8)) + "..."
+        return author.profile?.displayName ?? String(self.event.pubkey.prefix(8)) + "..."
     }
 
     private var eventDetails: (icon: String, label: String, title: String) {
@@ -180,12 +172,6 @@ struct FeedEventRow: View {
                 }
             }
             .padding(.top, 2)
-        }
-    }
-
-    private func loadAuthorMetadata() async {
-        for await meta in await self.ndk.profileManager.subscribe(for: self.event.pubkey) {
-            self.metadata = meta
         }
     }
 }

@@ -22,20 +22,19 @@ final class AgentProfileViewModel {
 
     // MARK: Internal
 
-    private(set) var profileSubscription: NDKSubscription<NDKUserMetadata>?
     private(set) var eventsSubscription: NDKSubscription<NDKEvent>?
 
-    /// Computed properties from profile subscription
+    /// Computed properties from profile
     var agentName: String? {
-        self.profileSubscription?.data.first?.name
+        self.ndk.getUser(self.pubkey)?.profile?.metadata?.name
     }
 
     var agentAbout: String? {
-        self.profileSubscription?.data.first?.about
+        self.ndk.getUser(self.pubkey)?.profile?.metadata?.about
     }
 
     var agentPicture: String? {
-        self.profileSubscription?.data.first?.picture
+        self.ndk.getUser(self.pubkey)?.profile?.metadata?.picture
     }
 
     /// Events are already deduplicated and managed by NDKSubscription
@@ -44,13 +43,6 @@ final class AgentProfileViewModel {
     }
 
     func startSubscriptions() {
-        // Subscribe to agent's profile (kind:0) and transform to NDKUserMetadata
-        self.profileSubscription = self.ndk.subscribe(
-            filter: NDKFilter(authors: [self.pubkey], kinds: [0], limit: 1)
-        ) { event in
-            NDKUserMetadata(event: event, ndk: self.ndk)
-        }
-
         // Subscribe to all events from this agent
         self.eventsSubscription = self.ndk.subscribe(
             filter: NDKFilter(authors: [self.pubkey], limit: 50)
