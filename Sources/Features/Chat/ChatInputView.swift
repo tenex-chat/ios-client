@@ -105,7 +105,8 @@ public struct ChatInputView: View {
         .sheet(isPresented: self.$showBranchSelector) {
             BranchSelectorSheet(
                 selectedBranch: self.$viewModel.selectedBranch,
-                availableBranches: self.availableBranches
+                availableBranches: self.availableBranches,
+                defaultBranch: self.defaultBranch
             )
         }
         .sheet(isPresented: self.$showAgentConfig) {
@@ -148,26 +149,29 @@ public struct ChatInputView: View {
 
     /// Available models from project status
     private var availableModels: [String] {
-        guard let status = dataStore.getProjectStatus(projectCoordinate: projectReference) else {
-            return []
-        }
-        return Array(Set(status.agents.compactMap(\.model))).sorted()
+        self.dataStore.getProjectStatus(projectCoordinate: self.projectReference)
+            .map { Array(Set($0.agents.compactMap(\.model))).sorted() } ?? []
     }
 
     /// Available tools from project status
     private var availableTools: [String] {
-        guard let status = dataStore.getProjectStatus(projectCoordinate: projectReference) else {
-            return []
-        }
-        return Array(Set(status.agents.flatMap(\.tools))).sorted()
+        self.dataStore.getProjectStatus(projectCoordinate: self.projectReference)
+            .map { Array(Set($0.agents.flatMap(\.tools))).sorted() } ?? []
     }
 
     /// Available branches from project status
     private var availableBranches: [String] {
-        guard let status = dataStore.getProjectStatus(projectCoordinate: projectReference) else {
-            return []
-        }
-        return status.branches.sorted()
+        self.dataStore.getProjectStatus(projectCoordinate: self.projectReference)?.branches.sorted() ?? []
+    }
+
+    /// Default branch from project status (first branch in array)
+    private var defaultBranch: String? {
+        self.dataStore.getProjectStatus(projectCoordinate: self.projectReference)?.defaultBranch
+    }
+
+    /// The branch to display (selected branch or default branch)
+    private var displayBranch: String? {
+        self.viewModel.selectedBranch ?? self.defaultBranch
     }
 
     // MARK: - View Components
@@ -258,13 +262,13 @@ public struct ChatInputView: View {
             HStack(spacing: 4) {
                 Image(systemName: "arrow.branch")
                     .font(.system(size: 14))
-                if let branch = viewModel.selectedBranch {
+                if let branch = displayBranch {
                     Text(branch)
                         .font(.caption)
                         .foregroundStyle(.green)
                 }
             }
-            .foregroundStyle(self.viewModel.selectedBranch != nil ? .green : .primary)
+            .foregroundStyle(self.displayBranch != nil ? .green : .primary)
         }
         .buttonStyle(.plain)
     }

@@ -14,10 +14,12 @@ public struct BranchSelectorSheet: View {
 
     public init(
         selectedBranch: Binding<String?>,
-        availableBranches: [String]
+        availableBranches: [String],
+        defaultBranch: String?
     ) {
         _selectedBranch = selectedBranch
         self.availableBranches = availableBranches
+        self.defaultBranch = defaultBranch
     }
 
     // MARK: Public
@@ -25,10 +27,10 @@ public struct BranchSelectorSheet: View {
     public var body: some View {
         NavigationStack {
             Group {
-                if availableBranches.isEmpty {
-                    emptyStateView
+                if self.availableBranches.isEmpty {
+                    self.emptyStateView
                 } else {
-                    branchList
+                    self.branchList
                 }
             }
             .navigationTitle("Select Branch")
@@ -38,7 +40,7 @@ public struct BranchSelectorSheet: View {
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Done") {
-                            dismiss()
+                            self.dismiss()
                         }
                     }
                 }
@@ -51,6 +53,12 @@ public struct BranchSelectorSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     private let availableBranches: [String]
+    private let defaultBranch: String?
+
+    /// The branch that should appear selected (explicit selection or default)
+    private var displayBranch: String? {
+        self.selectedBranch ?? self.defaultBranch
+    }
 
     private var emptyStateView: some View {
         VStack(spacing: 16) {
@@ -72,13 +80,33 @@ public struct BranchSelectorSheet: View {
 
     private var branchList: some View {
         List {
-            ForEach(availableBranches, id: \.self) { branch in
+            // Default branch section
+            if let defaultBranch {
+                BranchRow(
+                    branch: defaultBranch,
+                    isDefault: true,
+                    isSelected: self.displayBranch == defaultBranch
+                ) {
+                    // Selecting the default branch clears the explicit selection
+                    self.selectedBranch = nil
+                    self.dismiss()
+                }
+            }
+
+            // Separator if there are other branches
+            if self.availableBranches.count > 1 {
+                Divider()
+            }
+
+            // Other branches
+            ForEach(self.availableBranches.filter { $0 != defaultBranch }, id: \.self) { branch in
                 BranchRow(
                     branch: branch,
-                    isSelected: selectedBranch == branch
+                    isDefault: false,
+                    isSelected: self.displayBranch == branch
                 ) {
-                    selectedBranch = branch
-                    dismiss()
+                    self.selectedBranch = branch
+                    self.dismiss()
                 }
             }
         }
@@ -90,23 +118,32 @@ public struct BranchSelectorSheet: View {
 /// Row showing a single branch
 private struct BranchRow: View {
     let branch: String
+    let isDefault: Bool
     let isSelected: Bool
     let onSelect: () -> Void
 
     var body: some View {
-        Button(action: onSelect) {
+        Button(action: self.onSelect) {
             HStack(spacing: 12) {
                 Image(systemName: "arrow.branch")
                     .font(.system(size: 16))
                     .foregroundStyle(.green)
 
-                Text(branch)
-                    .font(.system(size: 16))
-                    .foregroundStyle(.primary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(self.branch)
+                        .font(.system(size: 16))
+                        .foregroundStyle(.primary)
+
+                    if self.isDefault {
+                        Text("Default branch")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                }
 
                 Spacer()
 
-                if isSelected {
+                if self.isSelected {
                     Image(systemName: "checkmark")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(.blue)

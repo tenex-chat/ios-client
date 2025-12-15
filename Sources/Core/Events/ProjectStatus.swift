@@ -25,33 +25,39 @@ public struct ProjectStatus: Sendable {
     public let agents: [ProjectAgent]
 
     /// Available branches parsed from branch tags
+    /// The first branch is considered the default branch
     public let branches: [String]
 
     /// When the status was created
     public let createdAt: Date
 
+    /// The default branch (first in the branches array)
+    public var defaultBranch: String? {
+        self.branches.first
+    }
+
     /// Whether this status is considered online (not stale)
     public var isOnline: Bool {
-        Date().timeIntervalSince(createdAt) < Self.stalenessThreshold
+        Date().timeIntervalSince(self.createdAt) < Self.stalenessThreshold
     }
 
     /// Extract the project d-tag from the coordinate
     public var projectDTag: String {
-        let parts = projectCoordinate.split(separator: ":")
+        let parts = self.projectCoordinate.split(separator: ":")
         guard parts.count >= 3 else {
-            return projectCoordinate
+            return self.projectCoordinate
         }
         return String(parts[2])
     }
 
     /// All unique models used by agents
     public var models: [String] {
-        Array(Set(agents.compactMap(\.model))).sorted()
+        Array(Set(self.agents.compactMap(\.model))).sorted()
     }
 
     /// All unique tools used by agents
     public var tools: [String] {
-        Array(Set(agents.flatMap(\.tools))).sorted()
+        Array(Set(self.agents.flatMap(\.tools))).sorted()
     }
 
     /// Create a ProjectStatus from a Nostr event
@@ -73,10 +79,10 @@ public struct ProjectStatus: Sendable {
         let projectCoordinate = aTag[1]
 
         // Parse agents from tags
-        let agents = parseAgents(from: event)
+        let agents = self.parseAgents(from: event)
 
         // Parse branches from tags
-        let branches = parseBranches(from: event)
+        let branches = self.parseBranches(from: event)
 
         // Convert timestamp to Date
         let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
@@ -104,9 +110,9 @@ public struct ProjectStatus: Sendable {
 
     /// Parse agents from event tags
     private static func parseAgents(from event: NDKEvent) -> [ProjectAgent] {
-        var agentsByName = parseAgentTags(from: event)
-        applyModelTags(from: event, to: &agentsByName)
-        applyToolTags(from: event, to: &agentsByName)
+        var agentsByName = self.parseAgentTags(from: event)
+        self.applyModelTags(from: event, to: &agentsByName)
+        self.applyToolTags(from: event, to: &agentsByName)
         return Array(agentsByName.values)
     }
 
