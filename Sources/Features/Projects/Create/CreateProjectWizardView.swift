@@ -20,7 +20,7 @@ public struct CreateProjectWizardView: View {
 
     public var body: some View {
         NavigationStack {
-            wizardContent
+            self.wizardContent
                 .navigationTitle("New Project")
             #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
@@ -28,7 +28,7 @@ public struct CreateProjectWizardView: View {
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") {
-                            dismiss()
+                            self.dismiss()
                         }
                     }
                 }
@@ -43,38 +43,38 @@ public struct CreateProjectWizardView: View {
 
     private var wizardContent: some View {
         VStack {
-            stepIndicator
-            stepTabView
-            footerButtons
+            self.stepIndicator
+            self.stepTabView
+            self.footerButtons
         }
     }
 
     private var stepIndicator: some View {
         HStack(spacing: 4) {
-            StepIndicator(step: 0, currentStep: viewModel.currentStep, icon: "doc.text")
-            StepConnector(isActive: viewModel.currentStep > 0)
-            StepIndicator(step: 1, currentStep: viewModel.currentStep, icon: "person.2")
-            StepConnector(isActive: viewModel.currentStep > 1)
+            StepIndicator(step: 0, currentStep: self.viewModel.currentStep, icon: "doc.text")
+            StepConnector(isActive: self.viewModel.currentStep > 0)
+            StepIndicator(step: 1, currentStep: self.viewModel.currentStep, icon: "person.2")
+            StepConnector(isActive: self.viewModel.currentStep > 1)
             StepIndicator(
                 step: 2,
-                currentStep: viewModel.currentStep,
+                currentStep: self.viewModel.currentStep,
                 icon: "hammer"
             )
-            StepConnector(isActive: viewModel.currentStep > 2)
-            StepIndicator(step: 3, currentStep: viewModel.currentStep, icon: "checkmark.circle")
+            StepConnector(isActive: self.viewModel.currentStep > 2)
+            StepIndicator(step: 3, currentStep: self.viewModel.currentStep, icon: "checkmark.circle")
         }
         .padding()
     }
 
     private var stepTabView: some View {
-        TabView(selection: $viewModel.currentStep) {
-            ProjectDetailsStep(viewModel: viewModel)
+        TabView(selection: self.$viewModel.currentStep) {
+            ProjectDetailsStep(viewModel: self.viewModel)
                 .tag(0)
-            AgentSelectionStep(viewModel: viewModel)
+            AgentSelectionStep(viewModel: self.viewModel)
                 .tag(1)
-            MCPToolSelectionStep(viewModel: viewModel)
+            MCPToolSelectionStep(viewModel: self.viewModel)
                 .tag(2)
-            ProjectReviewStep(viewModel: viewModel)
+            ProjectReviewStep(viewModel: self.viewModel)
                 .tag(3)
         }
         #if os(iOS)
@@ -84,10 +84,10 @@ public struct CreateProjectWizardView: View {
 
     private var footerButtons: some View {
         HStack {
-            if viewModel.currentStep > 0 {
+            if self.viewModel.currentStep > 0 {
                 Button("Back") {
                     withAnimation {
-                        viewModel.previousStep()
+                        self.viewModel.previousStep()
                     }
                 }
                 .buttonStyle(.bordered)
@@ -95,24 +95,24 @@ public struct CreateProjectWizardView: View {
 
             Spacer()
 
-            if viewModel.currentStep == 3 {
+            if self.viewModel.currentStep == 3 {
                 Button("Create Project") {
                     Task {
-                        if await viewModel.createProject() {
-                            dismiss()
+                        if await self.viewModel.createProject() {
+                            self.dismiss()
                         }
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(viewModel.isPublishing)
+                .disabled(self.viewModel.isPublishing)
             } else {
                 Button("Next") {
                     withAnimation {
-                        viewModel.nextStep()
+                        self.viewModel.nextStep()
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!viewModel.canProceed)
+                .disabled(!self.viewModel.canProceed)
             }
         }
         .padding()
@@ -126,18 +126,18 @@ struct StepIndicator: View {
     let currentStep: Int
     let icon: String
 
-    var isActive: Bool { currentStep >= step }
-    var isCurrent: Bool { currentStep == step }
+    var isActive: Bool { self.currentStep >= self.step }
+    var isCurrent: Bool { self.currentStep == self.step }
 
     var body: some View {
         ZStack {
             Circle()
-                .fill(isActive ? Color.accentColor : Color.gray.opacity(0.3))
+                .fill(self.isActive ? Color.accentColor : Color.gray.opacity(0.3))
                 .frame(width: 32, height: 32)
 
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundColor(isActive ? .white : .gray)
+            Image(systemName: self.icon)
+                .font(.headline.weight(.bold))
+                .foregroundColor(self.isActive ? .white : .gray)
         }
     }
 }
@@ -149,7 +149,7 @@ struct StepConnector: View {
 
     var body: some View {
         Rectangle()
-            .fill(isActive ? Color.accentColor : Color.gray.opacity(0.3))
+            .fill(self.isActive ? Color.accentColor : Color.gray.opacity(0.3))
             .frame(height: 2)
             .frame(maxWidth: .infinity)
     }

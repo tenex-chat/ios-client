@@ -239,7 +239,7 @@ public struct ChatInputView: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "square.slash")
-                    .font(.system(size: 14))
+                    .font(.subheadline)
                 if !self.viewModel.selectedNudges.isEmpty {
                     Text("\(self.viewModel.selectedNudges.count)")
                         .font(.caption.bold())
@@ -261,7 +261,7 @@ public struct ChatInputView: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "arrow.branch")
-                    .font(.system(size: 14))
+                    .font(.subheadline)
                 if let branch = displayBranch {
                     Text(branch)
                         .font(.caption)
@@ -278,7 +278,7 @@ public struct ChatInputView: View {
             self.viewModel.setExpanded(!self.viewModel.isExpanded)
         } label: {
             Image(systemName: self.viewModel.isExpanded ? "chevron.down" : "chevron.up")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.primary)
         }
         .buttonStyle(.plain)
@@ -291,12 +291,12 @@ public struct ChatInputView: View {
             ZStack(alignment: .leading) {
                 if self.viewModel.inputText.isEmpty {
                     Text("Message...")
-                        .font(.system(size: 16))
+                        .font(.callout)
                         .foregroundStyle(.tertiary)
                         .padding(.leading, 4)
                 }
                 TextEditor(text: self.$viewModel.inputText)
-                    .font(.system(size: 16))
+                    .font(.callout)
                     .scrollContentBackground(.hidden)
                     .background(.clear)
                     .focused(self.$isInputFocused)
@@ -349,7 +349,7 @@ public struct ChatInputView: View {
             self.sendMessage()
         } label: {
             Image(systemName: "arrow.up")
-                .font(.system(size: 14, weight: .bold))
+                .font(.headline.weight(.bold))
                 .foregroundStyle(.white)
                 .frame(width: 32, height: 32)
                 .background(

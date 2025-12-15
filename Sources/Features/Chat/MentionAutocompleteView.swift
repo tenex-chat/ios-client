@@ -33,13 +33,13 @@ public struct MentionAutocompleteView: View {
     // MARK: Public
 
     public var body: some View {
-        if viewModel.isVisible, !viewModel.filteredAgents.isEmpty {
+        if self.viewModel.isVisible, !self.viewModel.filteredAgents.isEmpty {
             VStack(alignment: .leading, spacing: 0) {
-                ForEach(Array(viewModel.filteredAgents.enumerated()), id: \.element.pubkey) { index, agent in
-                    agentRow(agent, isSelected: index == viewModel.selectedIndex)
+                ForEach(Array(self.viewModel.filteredAgents.enumerated()), id: \.element.pubkey) { index, agent in
+                    self.agentRow(agent, isSelected: index == self.viewModel.selectedIndex)
                         .onTapGesture {
                             if let result = viewModel.selectAgent(at: index) {
-                                onSelect(result.replacement, result.pubkey)
+                                self.onSelect(result.replacement, result.pubkey)
                             }
                         }
                 }
@@ -59,17 +59,17 @@ public struct MentionAutocompleteView: View {
 
     private func agentRow(_ agent: ProjectAgent, isSelected: Bool) -> some View {
         HStack(spacing: 10) {
-            NDKUIProfilePicture(ndk: ndk, pubkey: agent.pubkey, size: 28)
+            NDKUIProfilePicture(ndk: self.ndk, pubkey: agent.pubkey, size: 28)
 
             // Agent info
             VStack(alignment: .leading, spacing: 2) {
                 Text(agent.name)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(.primary)
 
                 if let model = agent.model {
                     Text(model)
-                        .font(.system(size: 11))
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
@@ -78,7 +78,7 @@ public struct MentionAutocompleteView: View {
 
             if agent.isGlobal {
                 Text("Global")
-                    .font(.system(size: 9, weight: .medium))
+                    .font(.caption2.weight(.medium))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 5)
                     .padding(.vertical, 2)

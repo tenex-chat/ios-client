@@ -23,7 +23,7 @@ public struct ReplyContextBanner: View {
     public var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "arrowshape.turn.up.left")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.blue)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -31,7 +31,7 @@ public struct ReplyContextBanner: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Text(message.content)
+                Text(self.message.content)
                     .font(.caption)
                     .lineLimit(1)
                     .foregroundStyle(.primary)
@@ -39,9 +39,9 @@ public struct ReplyContextBanner: View {
 
             Spacer()
 
-            Button(action: onCancel) {
+            Button(action: self.onCancel) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)

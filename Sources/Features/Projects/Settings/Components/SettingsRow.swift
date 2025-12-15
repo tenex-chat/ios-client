@@ -20,20 +20,20 @@ struct SettingsRow: View {
             // Icon with colored background
             ZStack {
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(color.gradient)
+                    .fill(self.color.gradient)
                     .frame(width: 32, height: 32)
 
-                Image(systemName: icon)
+                Image(systemName: self.icon)
                     .foregroundStyle(.white)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.callout.weight(.semibold))
             }
 
             // Title and subtitle
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(self.title)
                     .font(.body)
 
-                Text(subtitle)
+                Text(self.subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)

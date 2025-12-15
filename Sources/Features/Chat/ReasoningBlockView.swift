@@ -14,20 +14,20 @@ public struct ReasoningBlockView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Header with icon, title, and expand/collapse button
-            headerView
+            self.headerView
 
             // Content (only shown when expanded)
-            if isExpanded {
-                contentView
+            if self.isExpanded {
+                self.contentView
                     .padding(.top, 8)
             }
         }
         .padding(12)
-        .background(message.isStreaming ? Color.blue.opacity(0.05) : Color.purple.opacity(0.05))
+        .background(self.message.isStreaming ? Color.blue.opacity(0.05) : Color.purple.opacity(0.05))
         .cornerRadius(8)
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(message.isStreaming ? Color.blue.opacity(0.2) : Color.purple.opacity(0.2), lineWidth: 1)
+                .stroke(self.message.isStreaming ? Color.blue.opacity(0.2) : Color.purple.opacity(0.2), lineWidth: 1)
         )
     }
 
@@ -42,40 +42,40 @@ public struct ReasoningBlockView: View {
 
     private var markdownText: AttributedString {
         do {
-            return try AttributedString(markdown: message.content)
+            return try AttributedString(markdown: self.message.content)
         } catch {
-            return AttributedString(message.content)
+            return AttributedString(self.message.content)
         }
     }
 
     private var headerView: some View {
         HStack(spacing: 8) {
-            headerIcon
-            headerTitle
-            if message.isStreaming {
-                streamingIndicator
+            self.headerIcon
+            self.headerTitle
+            if self.message.isStreaming {
+                self.streamingIndicator
             }
             Spacer()
-            expandCollapseButton
+            self.expandCollapseButton
         }
     }
 
     private var headerIcon: some View {
         Image(systemName: "lightbulb.fill")
             .foregroundStyle(Color.purple)
-            .font(.system(size: 14))
+            .font(.subheadline)
     }
 
     private var headerTitle: some View {
         Text("AI Reasoning")
-            .font(.system(size: 14, weight: .medium))
+            .font(.subheadline.weight(.medium))
             .foregroundStyle(.secondary)
     }
 
     private var streamingIndicator: some View {
         HStack(spacing: 4) {
             Text("thinking")
-                .font(.system(size: 12))
+                .font(.caption)
                 .foregroundStyle(.tertiary)
 
             HStack(spacing: 2) {
@@ -83,54 +83,54 @@ public struct ReasoningBlockView: View {
                     Circle()
                         .fill(Color.secondary)
                         .frame(width: 3, height: 3)
-                        .opacity(cursorVisible ? 1 : 0.3)
+                        .opacity(self.cursorVisible ? 1 : 0.3)
                         .animation(
                             .easeInOut(duration: 0.6)
                                 .repeatForever(autoreverses: true)
                                 .delay(Double(index) * 0.2),
-                            value: cursorVisible
+                            value: self.cursorVisible
                         )
                 }
             }
         }
         .onAppear {
-            cursorVisible = true
+            self.cursorVisible = true
         }
     }
 
     private var expandCollapseButton: some View {
         Button {
             withAnimation(.easeInOut(duration: 0.2)) {
-                isExpanded.toggle()
+                self.isExpanded.toggle()
             }
         } label: {
             Image(systemName: "chevron.right")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
-                .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                .rotationEffect(.degrees(self.isExpanded ? 90 : 0))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(isExpanded ? "Collapse reasoning" : "Expand reasoning")
+        .accessibilityLabel(self.isExpanded ? "Collapse reasoning" : "Expand reasoning")
     }
 
     private var contentView: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if message.content.contains("```") {
+            if self.message.content.contains("```") {
                 // Contains code blocks
-                ForEach(splitByCodeBlocks(), id: \.offset) { item in
+                ForEach(self.splitByCodeBlocks(), id: \.offset) { item in
                     if item.isCode {
-                        codeBlock(item.text)
+                        self.codeBlock(item.text)
                     } else if !item.text.isEmpty {
                         Text(item.text)
-                            .font(.system(size: 14))
+                            .font(.subheadline)
                             .lineSpacing(1.4)
                             .foregroundStyle(.primary)
                     }
                 }
             } else {
                 // Regular markdown content
-                Text(markdownText)
-                    .font(.system(size: 14))
+                Text(self.markdownText)
+                    .font(.subheadline)
                     .lineSpacing(1.4)
                     .foregroundStyle(.primary)
             }
@@ -140,7 +140,7 @@ public struct ReasoningBlockView: View {
 
     private func codeBlock(_ code: String) -> some View {
         Text(code)
-            .font(.system(size: 12, design: .monospaced))
+            .font(.caption.monospaced())
             .foregroundStyle(.primary)
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -151,10 +151,10 @@ public struct ReasoningBlockView: View {
     private func splitByCodeBlocks() -> [(text: String, isCode: Bool, offset: Int)] {
         let pattern = "```[^`]*```"
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]) else {
-            return [(message.content, false, 0)]
+            return [(self.message.content, false, 0)]
         }
 
-        let content = message.content
+        let content = self.message.content
         let matches = regex.matches(in: content, range: NSRange(location: 0, length: content.utf16.count))
 
         var result: [(String, Bool, Int)] = []

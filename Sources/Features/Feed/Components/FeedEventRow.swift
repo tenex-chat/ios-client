@@ -23,8 +23,8 @@ struct FeedEventRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            NDKUIProfilePicture(ndk: ndk, pubkey: event.pubkey, size: 36)
-            eventContent
+            NDKUIProfilePicture(ndk: self.ndk, pubkey: self.event.pubkey, size: 36)
+            self.eventContent
             Spacer()
         }
         .padding(.horizontal, 16)
@@ -35,7 +35,7 @@ struct FeedEventRow: View {
                 .padding(.leading, 64)
         }
         .task {
-            await loadAuthorMetadata()
+            await self.loadAuthorMetadata()
         }
     }
 
@@ -53,13 +53,13 @@ struct FeedEventRow: View {
         if let name = metadata?.name, !name.isEmpty {
             return name
         }
-        return String(event.pubkey.prefix(8)) + "..."
+        return String(self.event.pubkey.prefix(8)) + "..."
     }
 
     private var eventDetails: (icon: String, label: String, title: String) {
-        switch event.kind {
+        switch self.event.kind {
         case 1: // Text note
-            let content = event.content.isEmpty ? "Note" : event.content
+            let content = self.event.content.isEmpty ? "Note" : self.event.content
             return (
                 icon: "bubble.left",
                 label: "Note",
@@ -67,7 +67,7 @@ struct FeedEventRow: View {
             )
 
         case 11: // Thread
-            let title = event.tagValue("title") ?? "Thread"
+            let title = self.event.tagValue("title") ?? "Thread"
             return (
                 icon: "bubble.left.and.bubble.right",
                 label: "Thread",
@@ -75,7 +75,7 @@ struct FeedEventRow: View {
             )
 
         case 30_023: // Long-form content
-            let title = event.tagValue("title") ?? event.tagValue("name") ?? "Untitled"
+            let title = self.event.tagValue("title") ?? self.event.tagValue("name") ?? "Untitled"
             return (
                 icon: "doc.text",
                 label: "Article",
@@ -83,7 +83,7 @@ struct FeedEventRow: View {
             )
 
         case 1111: // Generic reply
-            let content = event.content.isEmpty ? "Reply" : event.content
+            let content = self.event.content.isEmpty ? "Reply" : self.event.content
             return (
                 icon: "bubble.left",
                 label: "Reply",
@@ -91,7 +91,7 @@ struct FeedEventRow: View {
             )
 
         case 29_000: // Call event
-            let subject = event.tagValue("subject") ?? "Voice Call"
+            let subject = self.event.tagValue("subject") ?? "Voice Call"
             return (
                 icon: "phone",
                 label: "Call",
@@ -100,7 +100,7 @@ struct FeedEventRow: View {
 
         case 1905,
              31_905: // Agent events
-            let name = event.tagValue("name") ?? "Agent Activity"
+            let name = self.event.tagValue("name") ?? "Agent Activity"
             return (
                 icon: "sparkles",
                 label: "Agent",
@@ -108,17 +108,17 @@ struct FeedEventRow: View {
             )
 
         default:
-            let content = event.content.isEmpty ? "Event" : event.content
+            let content = self.event.content.isEmpty ? "Event" : self.event.content
             return (
                 icon: "number",
-                label: "Kind \(event.kind)",
+                label: "Kind \(self.event.kind)",
                 title: content.count > 100 ? String(content.prefix(100)) : content
             )
         }
     }
 
     private var hashtags: [String] {
-        event.tags(withName: "t")
+        self.event.tags(withName: "t")
             .compactMap { $0[safe: 1] }
             .prefix(3)
             .map { String($0) }
@@ -126,55 +126,55 @@ struct FeedEventRow: View {
 
     private var eventContent: some View {
         VStack(alignment: .leading, spacing: 4) {
-            eventHeader
-            eventTitle
-            hashtagsList
+            self.eventHeader
+            self.eventTitle
+            self.hashtagsList
         }
     }
 
     private var eventHeader: some View {
         HStack(spacing: 6) {
-            Text(authorName)
-                .font(.system(size: 14, weight: .medium))
+            Text(self.authorName)
+                .font(.subheadline.weight(.medium))
                 .foregroundStyle(.primary)
 
-            eventMetadata
+            self.eventMetadata
         }
     }
 
     private var eventMetadata: some View {
         HStack(spacing: 4) {
-            Image(systemName: eventDetails.icon)
-                .font(.system(size: 11))
+            Image(systemName: self.eventDetails.icon)
+                .font(.caption)
 
-            Text(eventDetails.label)
-                .font(.system(size: 11))
+            Text(self.eventDetails.label)
+                .font(.caption)
 
             Text("·")
-                .font(.system(size: 11))
+                .font(.caption)
 
-            Text(Date(timeIntervalSince1970: TimeInterval(event.createdAt)), style: .relative)
-                .font(.system(size: 11))
+            Text(Date(timeIntervalSince1970: TimeInterval(self.event.createdAt)), style: .relative)
+                .font(.caption)
         }
         .foregroundStyle(.secondary)
     }
 
     private var eventTitle: some View {
-        Text(eventDetails.title)
-            .font(.system(size: 14))
+        Text(self.eventDetails.title)
+            .font(.subheadline)
             .foregroundStyle(.primary)
             .lineLimit(2)
     }
 
     @ViewBuilder private var hashtagsList: some View {
-        if !hashtags.isEmpty {
+        if !self.hashtags.isEmpty {
             HStack(spacing: 8) {
-                ForEach(hashtags, id: \.self) { tag in
+                ForEach(self.hashtags, id: \.self) { tag in
                     HStack(spacing: 2) {
                         Image(systemName: "number")
-                            .font(.system(size: 9))
+                            .font(.caption2)
                         Text(tag)
-                            .font(.system(size: 10))
+                            .font(.caption)
                     }
                     .foregroundStyle(.secondary)
                 }
@@ -184,8 +184,8 @@ struct FeedEventRow: View {
     }
 
     private func loadAuthorMetadata() async {
-        for await meta in await ndk.profileManager.subscribe(for: event.pubkey) {
-            metadata = meta
+        for await meta in await self.ndk.profileManager.subscribe(for: self.event.pubkey) {
+            self.metadata = meta
         }
     }
 }

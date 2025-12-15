@@ -41,13 +41,13 @@ public struct VoiceControlsView: View {
     public var body: some View {
         HStack(spacing: 40) {
             // End call button
-            endCallButton
+            self.endCallButton
 
             // Mic toggle button
-            micButton
+            self.micButton
 
             // Send button
-            sendButton
+            self.sendButton
         }
         .padding(.horizontal, 40)
         .padding(.vertical, 20)
@@ -63,7 +63,7 @@ public struct VoiceControlsView: View {
     private let onSend: () -> Void
 
     private var micIcon: String {
-        switch state {
+        switch self.state {
         case .recording:
             "mic.fill"
         case .processing:
@@ -76,7 +76,7 @@ public struct VoiceControlsView: View {
     }
 
     private var micBackgroundColor: Color {
-        switch state {
+        switch self.state {
         case .recording:
             Color.red
         case .processing:
@@ -89,7 +89,7 @@ public struct VoiceControlsView: View {
     }
 
     private var micForegroundColor: Color {
-        switch state {
+        switch self.state {
         case .recording,
              .processing,
              .playing:
@@ -100,9 +100,9 @@ public struct VoiceControlsView: View {
     }
 
     private var endCallButton: some View {
-        Button(action: onEndCall) {
+        Button(action: self.onEndCall) {
             Image(systemName: "phone.down.fill")
-                .font(.system(size: 24))
+                .font(.title)
                 .foregroundStyle(.white)
                 .frame(width: 64, height: 64)
                 .background(Color.red)
@@ -111,38 +111,38 @@ public struct VoiceControlsView: View {
     }
 
     private var micButton: some View {
-        Button(action: onToggleMic) {
+        Button(action: self.onToggleMic) {
             ZStack {
                 // Audio level ring
-                if state == .recording {
+                if self.state == .recording {
                     Circle()
                         .stroke(Color.red.opacity(0.3), lineWidth: 3)
-                        .frame(width: 80 + audioLevel * 20, height: 80 + audioLevel * 20)
-                        .animation(.easeOut(duration: 0.1), value: audioLevel)
+                        .frame(width: 80 + self.audioLevel * 20, height: 80 + self.audioLevel * 20)
+                        .animation(.easeOut(duration: 0.1), value: self.audioLevel)
                 }
 
                 // Mic button
-                Image(systemName: micIcon)
-                    .font(.system(size: 28))
-                    .foregroundStyle(micForegroundColor)
+                Image(systemName: self.micIcon)
+                    .font(.title)
+                    .foregroundStyle(self.micForegroundColor)
                     .frame(width: 80, height: 80)
-                    .background(micBackgroundColor)
+                    .background(self.micBackgroundColor)
                     .clipShape(Circle())
             }
         }
-        .disabled(state == .processing || state == .playing)
+        .disabled(self.state == .processing || self.state == .playing)
     }
 
     private var sendButton: some View {
-        Button(action: onSend) {
+        Button(action: self.onSend) {
             Image(systemName: "arrow.up.circle.fill")
-                .font(.system(size: 24))
-                .foregroundStyle(canSend ? .white : .gray)
+                .font(.title)
+                .foregroundStyle(self.canSend ? .white : .gray)
                 .frame(width: 64, height: 64)
-                .background(canSend ? Color.green : Color.gray.opacity(0.3))
+                .background(self.canSend ? Color.green : Color.gray.opacity(0.3))
                 .clipShape(Circle())
         }
-        .disabled(!canSend)
+        .disabled(!self.canSend)
     }
 }
 

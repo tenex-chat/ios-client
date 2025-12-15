@@ -32,8 +32,8 @@ struct FeedSearchBar: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            searchTextField
-            filterButton
+            self.searchTextField
+            self.filterButton
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
@@ -56,14 +56,14 @@ struct FeedSearchBar: View {
     private var searchTextField: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            TextField("Search events, titles, subjects, hashtags...", text: $searchQuery)
+            TextField("Search events, titles, subjects, hashtags...", text: self.$searchQuery)
                 .textFieldStyle(.plain)
-                .font(.system(size: 15))
+                .font(.subheadline)
 
-            clearSearchButton
+            self.clearSearchButton
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
@@ -72,12 +72,12 @@ struct FeedSearchBar: View {
     }
 
     @ViewBuilder private var clearSearchButton: some View {
-        if !searchQuery.isEmpty {
+        if !self.searchQuery.isEmpty {
             Button {
-                searchQuery = ""
+                self.searchQuery = ""
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 14))
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
@@ -86,19 +86,19 @@ struct FeedSearchBar: View {
 
     private var filterButton: some View {
         Button {
-            showFilterMenu = true
+            self.showFilterMenu = true
         } label: {
-            filterButtonContent
+            self.filterButtonContent
         }
         .frame(width: 36, height: 36)
-        .background(selectedAuthor != nil ? Color.clear : Color.gray.opacity(0.12))
+        .background(self.selectedAuthor != nil ? Color.clear : Color.gray.opacity(0.12))
         .cornerRadius(8)
-        .popover(isPresented: $showFilterMenu) {
+        .popover(isPresented: self.$showFilterMenu) {
             AuthorFilterMenu(
-                selectedAuthor: $selectedAuthor,
-                groupThreads: $groupThreads,
-                uniqueAuthors: uniqueAuthors,
-                ndk: ndk
+                selectedAuthor: self.$selectedAuthor,
+                groupThreads: self.$groupThreads,
+                uniqueAuthors: self.uniqueAuthors,
+                ndk: self.ndk
             )
             .presentationCompactAdaptation(.popover)
         }
@@ -106,10 +106,10 @@ struct FeedSearchBar: View {
 
     @ViewBuilder private var filterButtonContent: some View {
         if let author = selectedAuthor {
-            NDKUIProfilePicture(ndk: ndk, pubkey: author, size: 28)
+            NDKUIProfilePicture(ndk: self.ndk, pubkey: author, size: 28)
         } else {
             Image(systemName: "line.3.horizontal.decrease.circle")
-                .font(.system(size: 20))
+                .font(.title3)
                 .foregroundStyle(.blue)
         }
     }

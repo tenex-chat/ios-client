@@ -32,13 +32,13 @@ public struct ReplyIndicatorView: View {
     // MARK: Public
 
     public var body: some View {
-        Button(action: onTap) {
+        Button(action: self.onTap) {
             HStack(spacing: 8) {
                 // Avatar stack (overlapping circles)
-                avatarStack
+                self.avatarStack
 
                 // Reply count text
-                Text(replyText)
+                Text(self.replyText)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -54,18 +54,18 @@ public struct ReplyIndicatorView: View {
     private let onTap: () -> Void
 
     private var replyText: String {
-        replyCount == 1 ? "1 reply" : "\(replyCount) replies"
+        self.replyCount == 1 ? "1 reply" : "\(self.replyCount) replies"
     }
 
     private var avatarStack: some View {
         HStack(spacing: -8) {
-            ForEach(Array(authorPubkeys.prefix(3).enumerated()), id: \.offset) { index, pubkey in
+            ForEach(Array(self.authorPubkeys.prefix(3).enumerated()), id: \.offset) { index, pubkey in
                 Circle()
                     .fill(Color.deterministicColor(for: pubkey))
                     .frame(width: 20, height: 20)
                     .overlay {
                         Text(pubkey.prefix(1).uppercased())
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.caption.weight(.semibold))
                             .foregroundStyle(.white)
                     }
                     .overlay {

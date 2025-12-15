@@ -301,12 +301,12 @@ struct ProjectRow: View {
     private var projectInfo: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(self.project.title)
-                .font(.system(size: 17, weight: .semibold))
+                .font(.headline)
                 .foregroundStyle(.primary)
 
             if let description = project.description {
                 Text(description)
-                    .font(.system(size: 15))
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }

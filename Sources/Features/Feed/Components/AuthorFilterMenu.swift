@@ -30,10 +30,10 @@ struct AuthorFilterMenu: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            groupThreadsToggle
+            self.groupThreadsToggle
             Divider()
-            allAuthorsButton
-            authorsScrollView
+            self.allAuthorsButton
+            self.authorsScrollView
         }
         .frame(width: 200)
         .background(.background)
@@ -48,24 +48,24 @@ struct AuthorFilterMenu: View {
     private let ndk: NDK
 
     private var groupThreadsToggle: some View {
-        Toggle("Group threads", isOn: $groupThreads)
+        Toggle("Group threads", isOn: self.$groupThreads)
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
     }
 
     private var allAuthorsButton: some View {
         Button {
-            selectedAuthor = nil
+            self.selectedAuthor = nil
         } label: {
             HStack {
                 Text("All Authors")
-                    .font(.system(size: 14))
+                    .font(.subheadline)
 
                 Spacer()
 
-                if selectedAuthor == nil {
+                if self.selectedAuthor == nil {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.blue)
                 }
             }
@@ -77,19 +77,19 @@ struct AuthorFilterMenu: View {
     }
 
     @ViewBuilder private var authorsScrollView: some View {
-        if !uniqueAuthors.isEmpty {
+        if !self.uniqueAuthors.isEmpty {
             Divider()
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    ForEach(uniqueAuthors, id: \.self) { pubkey in
+                    ForEach(self.uniqueAuthors, id: \.self) { pubkey in
                         AuthorFilterItem(
                             pubkey: pubkey,
-                            isSelected: selectedAuthor == pubkey,
+                            isSelected: self.selectedAuthor == pubkey,
                             isCurrentUser: false,
-                            ndk: ndk
+                            ndk: self.ndk
                         ) {
-                            selectedAuthor = pubkey
+                            self.selectedAuthor = pubkey
                         }
                     }
                 }
@@ -123,20 +123,20 @@ struct AuthorFilterItem: View {
 
     var body: some View {
         Button {
-            onSelect()
+            self.onSelect()
         } label: {
             HStack(spacing: 10) {
-                NDKUIProfilePicture(ndk: ndk, pubkey: pubkey, size: 20)
+                NDKUIProfilePicture(ndk: self.ndk, pubkey: self.pubkey, size: 20)
 
-                Text(displayName)
-                    .font(.system(size: 14))
+                Text(self.displayName)
+                    .font(.subheadline)
                     .foregroundStyle(.primary)
 
                 Spacer()
 
-                if isSelected {
+                if self.isSelected {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.blue)
                 }
             }
@@ -145,7 +145,7 @@ struct AuthorFilterItem: View {
         }
         .buttonStyle(.plain)
         .task {
-            await loadMetadata()
+            await self.loadMetadata()
         }
     }
 
@@ -160,7 +160,7 @@ struct AuthorFilterItem: View {
     private let onSelect: () -> Void
 
     private var displayName: String {
-        if isCurrentUser {
+        if self.isCurrentUser {
             return "You"
         }
 
@@ -170,12 +170,12 @@ struct AuthorFilterItem: View {
         if let name = metadata?.name, !name.isEmpty {
             return name
         }
-        return String(pubkey.prefix(8)) + "..."
+        return String(self.pubkey.prefix(8)) + "..."
     }
 
     private func loadMetadata() async {
-        for await meta in await ndk.profileManager.subscribe(for: pubkey) {
-            metadata = meta
+        for await meta in await self.ndk.profileManager.subscribe(for: self.pubkey) {
+            self.metadata = meta
         }
     }
 }

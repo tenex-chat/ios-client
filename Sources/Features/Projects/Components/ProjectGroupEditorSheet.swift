@@ -35,24 +35,24 @@ struct ProjectGroupEditorSheet: View {
 
     var body: some View {
         NavigationStack {
-            contentView
-                .navigationTitle(existingGroup == nil ? "Create Group" : "Edit Group")
+            self.contentView
+                .navigationTitle(self.existingGroup == nil ? "Create Group" : "Edit Group")
             #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
             #endif
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") {
-                            isPresented = false
+                            self.isPresented = false
                         }
                     }
 
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Save") {
-                            onSave(groupName, Array(selectedProjectIDs))
-                            isPresented = false
+                            self.onSave(self.groupName, Array(self.selectedProjectIDs))
+                            self.isPresented = false
                         }
-                        .disabled(!canSave)
+                        .disabled(!self.canSave)
                     }
                 }
         }
@@ -71,28 +71,28 @@ struct ProjectGroupEditorSheet: View {
     private let onDelete: (() -> Void)?
 
     private var canSave: Bool {
-        !groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
-            !selectedProjectIDs.isEmpty
+        !self.groupName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            !self.selectedProjectIDs.isEmpty
     }
 
     private var contentView: some View {
         VStack(spacing: 0) {
-            groupNameInput
+            self.groupNameInput
 
             Divider()
 
-            projectSelectionHeader
+            self.projectSelectionHeader
 
-            if allProjects.isEmpty {
-                emptyProjectsView
+            if self.allProjects.isEmpty {
+                self.emptyProjectsView
             } else {
-                projectSelectionList
+                self.projectSelectionList
             }
 
             Divider()
 
-            if onDelete != nil {
-                deleteButton
+            if self.onDelete != nil {
+                self.deleteButton
             }
         }
     }
@@ -103,7 +103,7 @@ struct ProjectGroupEditorSheet: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            TextField("e.g., Work Projects, Personal, etc.", text: $groupName)
+            TextField("e.g., Work Projects, Personal, etc.", text: self.$groupName)
                 .textFieldStyle(.roundedBorder)
         }
         .padding()
@@ -118,7 +118,7 @@ struct ProjectGroupEditorSheet: View {
 
                 Spacer()
 
-                Text("\(selectedProjectIDs.count) selected")
+                Text("\(self.selectedProjectIDs.count) selected")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -129,7 +129,7 @@ struct ProjectGroupEditorSheet: View {
 
     private var deleteButton: some View {
         Button(role: .destructive) {
-            showingDeleteConfirmation = true
+            self.showingDeleteConfirmation = true
         } label: {
             Label("Delete Group", systemImage: "trash")
                 .frame(maxWidth: .infinity)
@@ -138,11 +138,11 @@ struct ProjectGroupEditorSheet: View {
         .padding()
         .confirmationDialog(
             "Delete this group?",
-            isPresented: $showingDeleteConfirmation
+            isPresented: self.$showingDeleteConfirmation
         ) {
             Button("Delete", role: .destructive) {
-                onDelete?()
-                isPresented = false
+                self.onDelete?()
+                self.isPresented = false
             }
 
             Button("Cancel", role: .cancel) {}
@@ -166,12 +166,12 @@ struct ProjectGroupEditorSheet: View {
 
     private var projectSelectionList: some View {
         List {
-            ForEach(allProjects) { project in
+            ForEach(self.allProjects) { project in
                 ProjectSelectionRow(
                     project: project,
-                    isSelected: selectedProjectIDs.contains(project.id)
+                    isSelected: self.selectedProjectIDs.contains(project.id)
                 ) {
-                    toggleProjectSelection(project.id)
+                    self.toggleProjectSelection(project.id)
                 }
             }
         }
@@ -179,10 +179,10 @@ struct ProjectGroupEditorSheet: View {
     }
 
     private func toggleProjectSelection(_ projectID: String) {
-        if selectedProjectIDs.contains(projectID) {
-            selectedProjectIDs.remove(projectID)
+        if self.selectedProjectIDs.contains(projectID) {
+            self.selectedProjectIDs.remove(projectID)
         } else {
-            selectedProjectIDs.insert(projectID)
+            self.selectedProjectIDs.insert(projectID)
         }
     }
 }
@@ -203,28 +203,28 @@ private struct ProjectSelectionRow: View {
 
     var body: some View {
         Button {
-            onToggle()
+            self.onToggle()
         } label: {
             HStack(spacing: 12) {
                 // Project avatar
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(project.color)
+                    .fill(self.project.color)
                     .frame(width: 40, height: 40)
                     .overlay {
-                        Text(project.title.prefix(1).uppercased())
-                            .font(.system(size: 18, weight: .semibold))
+                        Text(self.project.title.prefix(1).uppercased())
+                            .font(.title3.weight(.semibold))
                             .foregroundStyle(.white)
                     }
 
                 // Project info
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(project.title)
-                        .font(.system(size: 15, weight: .medium))
+                    Text(self.project.title)
+                        .font(.subheadline.weight(.medium))
                         .foregroundStyle(.primary)
 
                     if let description = project.description {
                         Text(description)
-                            .font(.system(size: 13))
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                     }
@@ -233,9 +233,9 @@ private struct ProjectSelectionRow: View {
                 Spacer()
 
                 // Checkbox
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 22))
-                    .foregroundStyle(isSelected ? .blue : .secondary)
+                Image(systemName: self.isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title2)
+                    .foregroundStyle(self.isSelected ? .blue : .secondary)
             }
             .contentShape(Rectangle())
         }

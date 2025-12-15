@@ -26,10 +26,10 @@ public struct NudgeSelectorSheet: View {
     public var body: some View {
         NavigationStack {
             Group {
-                if availableNudges.isEmpty {
-                    emptyStateView
+                if self.availableNudges.isEmpty {
+                    self.emptyStateView
                 } else {
-                    nudgeList
+                    self.nudgeList
                 }
             }
             .navigationTitle("Select Nudges")
@@ -39,7 +39,7 @@ public struct NudgeSelectorSheet: View {
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Done") {
-                            dismiss()
+                            self.dismiss()
                         }
                     }
                 }
@@ -73,22 +73,22 @@ public struct NudgeSelectorSheet: View {
 
     private var nudgeList: some View {
         List {
-            ForEach(availableNudges) { nudge in
+            ForEach(self.availableNudges) { nudge in
                 NudgeRow(
                     nudge: nudge,
-                    isSelected: selectedNudges.contains(nudge.id)
+                    isSelected: self.selectedNudges.contains(nudge.id)
                 ) {
-                    toggleNudge(nudge.id)
+                    self.toggleNudge(nudge.id)
                 }
             }
         }
     }
 
     private func toggleNudge(_ nudgeID: String) {
-        if selectedNudges.contains(nudgeID) {
-            selectedNudges.removeAll { $0 == nudgeID }
+        if self.selectedNudges.contains(nudgeID) {
+            self.selectedNudges.removeAll { $0 == nudgeID }
         } else {
-            selectedNudges.append(nudgeID)
+            self.selectedNudges.append(nudgeID)
         }
     }
 }
@@ -102,27 +102,27 @@ private struct NudgeRow: View {
     let onToggle: () -> Void
 
     var body: some View {
-        Button(action: onToggle) {
+        Button(action: self.onToggle) {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20))
-                    .foregroundStyle(isSelected ? .blue : .secondary)
+                Image(systemName: self.isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(self.isSelected ? .blue : .secondary)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(nudge.title)
-                        .font(.system(size: 16, weight: .medium))
+                    Text(self.nudge.title)
+                        .font(.callout.weight(.medium))
                         .foregroundStyle(.primary)
 
                     if let description = nudge.description {
                         Text(description)
-                            .font(.system(size: 14))
+                            .font(.subheadline)
                             .foregroundStyle(.secondary)
                             .lineLimit(2)
                     }
 
-                    if !nudge.hashtags.isEmpty {
+                    if !self.nudge.hashtags.isEmpty {
                         HStack(spacing: 6) {
-                            ForEach(nudge.hashtags, id: \.self) { tag in
+                            ForEach(self.nudge.hashtags, id: \.self) { tag in
                                 Text("#\(tag)")
                                     .font(.caption2)
                                     .foregroundStyle(.blue)

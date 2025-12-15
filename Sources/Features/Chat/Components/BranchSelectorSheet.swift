@@ -126,17 +126,17 @@ private struct BranchRow: View {
         Button(action: self.onSelect) {
             HStack(spacing: 12) {
                 Image(systemName: "arrow.branch")
-                    .font(.system(size: 16))
+                    .font(.callout)
                     .foregroundStyle(.green)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(self.branch)
-                        .font(.system(size: 16))
+                        .font(.callout)
                         .foregroundStyle(.primary)
 
                     if self.isDefault {
                         Text("Default branch")
-                            .font(.system(size: 12))
+                            .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -145,7 +145,7 @@ private struct BranchRow: View {
 
                 if self.isSelected {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.callout.weight(.semibold))
                         .foregroundStyle(.blue)
                 }
             }

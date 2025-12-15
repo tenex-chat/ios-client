@@ -24,28 +24,28 @@ struct LLMConfigRow: View {
             // Provider icon with color
             ZStack {
                 Circle()
-                    .fill(providerColor.opacity(0.2))
+                    .fill(self.providerColor.opacity(0.2))
                     .frame(width: 40, height: 40)
 
-                Image(systemName: providerIcon)
-                    .foregroundStyle(providerColor)
-                    .font(.system(size: 18))
+                Image(systemName: self.providerIcon)
+                    .foregroundStyle(self.providerColor)
+                    .font(.title3)
             }
 
             // Config info
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Text(config.name)
+                    Text(self.config.name)
                         .font(.headline)
 
-                    if isActive {
+                    if self.isActive {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(.green)
                             .font(.caption)
                     }
                 }
 
-                Text("\(config.provider.displayName) • \(config.model)")
+                Text("\(self.config.provider.displayName) • \(self.config.model)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -54,17 +54,17 @@ struct LLMConfigRow: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            onSetActive()
+            self.onSetActive()
         }
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             Button(role: .destructive) {
-                onDelete()
+                self.onDelete()
             } label: {
                 Label("Delete", systemImage: "trash")
             }
 
             Button {
-                onEdit()
+                self.onEdit()
             } label: {
                 Label("Edit", systemImage: "pencil")
             }
@@ -75,7 +75,7 @@ struct LLMConfigRow: View {
     // MARK: Private
 
     private var providerIcon: String {
-        switch config.provider {
+        switch self.config.provider {
         case .openai:
             "brain"
         case .anthropic:
@@ -92,7 +92,7 @@ struct LLMConfigRow: View {
     }
 
     private var providerColor: Color {
-        switch config.provider {
+        switch self.config.provider {
         case .openai:
             .green
         case .anthropic:

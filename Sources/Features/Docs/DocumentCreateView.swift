@@ -141,7 +141,7 @@ public struct DocumentCreateView: View {
             HStack(spacing: 8) {
                 Image(systemName: "number")
                     .foregroundStyle(.secondary)
-                    .font(.system(size: 12))
+                    .font(.caption)
                 self.hashtagTextField
             }
             .padding(.horizontal, 12)
@@ -153,7 +153,7 @@ public struct DocumentCreateView: View {
 
     private var hashtagTextField: some View {
         TextField("Add up to \(self.maxHashtags) tags...", text: self.$hashtagInput)
-            .font(.system(size: 14))
+            .font(.subheadline)
             .textFieldStyle(.plain)
             .autocorrectionDisabled()
         #if !os(macOS)
@@ -171,7 +171,7 @@ public struct DocumentCreateView: View {
     private var contentField: some View {
         VStack(alignment: .leading, spacing: 8) {
             TextEditor(text: self.$content)
-                .font(.system(size: 16))
+                .font(.callout)
                 .frame(minHeight: 300)
                 .scrollContentBackground(.hidden)
 
@@ -188,7 +188,7 @@ public struct DocumentCreateView: View {
                 [links](url)
                 `code`
                 """)
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.tertiary)
                 .allowsHitTesting(false)
                 .padding(.top, -280)
@@ -208,9 +208,9 @@ public struct DocumentCreateView: View {
                 self.hashtags = []
                 self.restoredFromDraft = false
             }
-            .font(.system(size: 13, weight: .medium))
+            .font(.subheadline.weight(.medium))
         }
-        .font(.system(size: 13))
+        .font(.subheadline)
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .background(Color.blue.opacity(0.1))
@@ -218,10 +218,10 @@ public struct DocumentCreateView: View {
 
     private func editableHashtagPill(tag: String, index: Int) -> some View {
         HStack(spacing: 4) {
-            Image(systemName: "number").font(.system(size: 10))
-            Text(tag).font(.system(size: 12))
+            Image(systemName: "number").font(.caption)
+            Text(tag).font(.caption)
             Button { self.hashtags.remove(at: index) } label: {
-                Image(systemName: "xmark").font(.system(size: 8, weight: .bold))
+                Image(systemName: "xmark").font(.caption2.weight(.bold))
             }
             .buttonStyle(.plain)
         }

@@ -20,12 +20,12 @@ struct SplitViewProjectDetail: View {
 
     var body: some View {
         TabView {
-            threadsTab
-            docsTab
-            agentsTab
-            feedTab
+            self.threadsTab
+            self.docsTab
+            self.agentsTab
+            self.feedTab
         }
-        .navigationTitle(project.title)
+        .navigationTitle(self.project.title)
         #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
         #endif
@@ -33,9 +33,9 @@ struct SplitViewProjectDetail: View {
 
     private var threadsTab: some View {
         SplitViewThreadList(
-            projectID: project.coordinate,
-            userPubkey: authManager.activePubkey,
-            selectedThreadID: $selectedThreadID
+            projectID: self.project.coordinate,
+            userPubkey: self.authManager.activePubkey,
+            selectedThreadID: self.$selectedThreadID
         )
         .tabItem {
             Label("Threads", systemImage: "message.fill")
@@ -43,7 +43,7 @@ struct SplitViewProjectDetail: View {
     }
 
     private var docsTab: some View {
-        DocsTabView(projectID: project.coordinate)
+        DocsTabView(projectID: self.project.coordinate)
             .tabItem {
                 Label("Docs", systemImage: "doc.fill")
             }
@@ -55,7 +55,7 @@ struct SplitViewProjectDetail: View {
                 AgentsTabView(
                     viewModel: AgentsTabViewModel(
                         ndk: ndk,
-                        projectID: project.coordinate
+                        projectID: self.project.coordinate
                     )
                 )
             } else {
@@ -68,7 +68,7 @@ struct SplitViewProjectDetail: View {
     }
 
     private var feedTab: some View {
-        FeedTabView(projectID: project.coordinate)
+        FeedTabView(projectID: self.project.coordinate)
             .tabItem {
                 Label("Feed", systemImage: "list.bullet")
             }
@@ -91,7 +91,7 @@ struct SplitViewThreadList: View {
         Group {
             if let ndk {
                 if let viewModel {
-                    threadListContent(viewModel: viewModel)
+                    self.threadListContent(viewModel: viewModel)
                 } else {
                     // Show nothing while ViewModel initializes (no loading spinners per PLAN.md)
                     Color.clear
@@ -119,9 +119,9 @@ struct SplitViewThreadList: View {
     @ViewBuilder
     private func threadListContent(viewModel: ThreadListViewModel) -> some View {
         if viewModel.threads.isEmpty {
-            emptyView
+            self.emptyView
         } else {
-            threadList(viewModel: viewModel)
+            self.threadList(viewModel: viewModel)
         }
     }
 
@@ -142,7 +142,7 @@ struct SplitViewThreadList: View {
     }
 
     private func threadList(viewModel: ThreadListViewModel) -> some View {
-        List(viewModel.threads, selection: $selectedThreadID) { thread in
+        List(viewModel.threads, selection: self.$selectedThreadID) { thread in
             SplitViewThreadRow(thread: thread)
                 .tag(thread.id)
         }
@@ -162,25 +162,25 @@ struct SplitViewThreadRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(thread.title)
-                .font(.system(size: 17, weight: .semibold))
+            Text(self.thread.title)
+                .font(.headline)
                 .foregroundStyle(.primary)
 
             if let summary = thread.summary {
                 Text(summary)
-                    .font(.system(size: 15))
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
             }
 
             HStack(spacing: 12) {
-                Label("\(thread.replyCount)", systemImage: "bubble.left.fill")
-                    .font(.system(size: 13))
+                Label("\(self.thread.replyCount)", systemImage: "bubble.left.fill")
+                    .font(.subheadline)
                     .foregroundStyle(.tertiary)
 
                 if let phase = thread.phase {
                     Text(phase)
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.caption.weight(.medium))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
                         .background(Color.blue.opacity(0.15))
@@ -190,8 +190,8 @@ struct SplitViewThreadRow: View {
 
                 Spacer()
 
-                Text(thread.createdAt, style: .relative)
-                    .font(.system(size: 13))
+                Text(self.thread.createdAt, style: .relative)
+                    .font(.subheadline)
                     .foregroundStyle(.tertiary)
             }
         }
@@ -220,7 +220,7 @@ struct SplitViewChatDetail: View {
             } else if let threadEvent = subscription?.data.first, let userPubkey {
                 ChatView(
                     threadEvent: threadEvent,
-                    projectReference: projectID,
+                    projectReference: self.projectID,
                     currentUserPubkey: userPubkey
                 )
             } else {
@@ -231,8 +231,8 @@ struct SplitViewChatDetail: View {
                 )
             }
         }
-        .task(id: threadID) {
-            startSubscription()
+        .task(id: self.threadID) {
+            self.startSubscription()
         }
     }
 
@@ -243,12 +243,12 @@ struct SplitViewChatDetail: View {
 
     private func startSubscription() {
         // Cancel previous subscription when threadID changes
-        subscription = nil
+        self.subscription = nil
 
         guard let ndk else {
             return
         }
         let filter = NDKFilter(ids: [threadID])
-        subscription = ndk.subscribe(filter: filter)
+        self.subscription = ndk.subscribe(filter: filter)
     }
 }

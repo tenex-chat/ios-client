@@ -152,7 +152,7 @@ public struct MessageRow: View {
             NDKUIProfilePicture(ndk: ndk, pubkey: self.message.pubkey, size: 36)
         } else {
             Image(systemName: "person.circle.fill")
-                .font(.system(size: 36))
+                .font(.largeTitle)
                 .foregroundStyle(self.isAgent ? .blue : .gray)
         }
     }

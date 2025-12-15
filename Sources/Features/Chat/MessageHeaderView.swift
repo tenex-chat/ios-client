@@ -16,28 +16,28 @@ public struct MessageHeaderView: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            if showDebugInfo {
-                debugInfoView
+            if self.showDebugInfo {
+                self.debugInfoView
             }
 
             HStack(spacing: 8) {
-                authorNameView
-                timestampView
+                self.authorNameView
+                self.timestampView
 
                 if let branch = message.branch {
-                    branchBadge(branch)
+                    self.branchBadge(branch)
                 }
 
-                if !message.pTaggedPubkeys.isEmpty {
-                    pTaggedUsersView
+                if !self.message.pTaggedPubkeys.isEmpty {
+                    self.pTaggedUsersView
                 }
 
                 if let phase = message.phase {
-                    phaseBadge(phase)
+                    self.phaseBadge(phase)
                 }
 
-                if message.isStreaming {
-                    streamingIndicator
+                if self.message.isStreaming {
+                    self.streamingIndicator
                 }
             }
         }
@@ -58,16 +58,16 @@ public struct MessageHeaderView: View {
     @State private var cursorVisible = false
 
     private var isAgent: Bool {
-        currentUserPubkey != nil && message.pubkey != currentUserPubkey
+        self.currentUserPubkey != nil && self.message.pubkey != self.currentUserPubkey
     }
 
     private var debugInfoView: some View {
         HStack(spacing: 8) {
-            Text("kind:\(message.kind)")
-                .font(.system(size: 10, design: .monospaced))
+            Text("kind:\(self.message.kind)")
+                .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
-            Text("id:\(String(message.id.prefix(8)))")
-                .font(.system(size: 10, design: .monospaced))
+            Text("id:\(String(self.message.id.prefix(8)))")
+                .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
         }
     }
@@ -75,21 +75,21 @@ public struct MessageHeaderView: View {
     private var authorNameView: some View {
         Group {
             if let ndk {
-                if isAgent, let onAgentTap {
+                if self.isAgent, let onAgentTap {
                     Button(action: onAgentTap) {
-                        NDKUIUsername(ndk: ndk, pubkey: message.pubkey)
-                            .font(.system(size: 15, weight: .semibold))
+                        NDKUIUsername(ndk: ndk, pubkey: self.message.pubkey)
+                            .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.blue)
                     }
                     .buttonStyle(.plain)
                 } else {
-                    NDKUIUsername(ndk: ndk, pubkey: message.pubkey)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(isAgent ? .blue : .primary)
+                    NDKUIUsername(ndk: ndk, pubkey: self.message.pubkey)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(self.isAgent ? .blue : .primary)
                 }
             } else {
-                Text(String(message.pubkey.prefix(8)))
-                    .font(.system(size: 15, weight: .semibold))
+                Text(String(self.message.pubkey.prefix(8)))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
             }
         }
@@ -99,14 +99,14 @@ public struct MessageHeaderView: View {
         Group {
             if let onTimestampTap {
                 Button(action: onTimestampTap) {
-                    Text(message.createdAt, style: .relative)
-                        .font(.system(size: 12))
+                    Text(self.message.createdAt, style: .relative)
+                        .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
                 .buttonStyle(.plain)
             } else {
-                Text(message.createdAt, style: .relative)
-                    .font(.system(size: 12))
+                Text(self.message.createdAt, style: .relative)
+                    .font(.caption)
                     .foregroundStyle(.tertiary)
             }
         }
@@ -114,13 +114,13 @@ public struct MessageHeaderView: View {
 
     private var pTaggedUsersView: some View {
         HStack(spacing: -8) {
-            ForEach(message.pTaggedPubkeys.prefix(3), id: \.self) { _ in
+            ForEach(self.message.pTaggedPubkeys.prefix(3), id: \.self) { _ in
                 Circle()
                     .fill(Color.gray.opacity(0.3))
                     .frame(width: 20, height: 20)
                     .overlay(
                         Image(systemName: "person.fill")
-                            .font(.system(size: 10))
+                            .font(.caption)
                             .foregroundStyle(.gray)
                     )
             }
@@ -130,15 +130,15 @@ public struct MessageHeaderView: View {
     private var streamingIndicator: some View {
         HStack(spacing: 4) {
             Text("typing")
-                .font(.system(size: 11))
+                .font(.caption)
                 .foregroundStyle(.secondary)
             Circle()
                 .fill(Color.green)
                 .frame(width: 6, height: 6)
-                .opacity(cursorVisible ? 1 : 0.3)
+                .opacity(self.cursorVisible ? 1 : 0.3)
                 .onAppear {
                     withAnimation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
-                        cursorVisible = true
+                        self.cursorVisible = true
                     }
                 }
         }
@@ -146,7 +146,7 @@ public struct MessageHeaderView: View {
 
     private func branchBadge(_ branch: String) -> some View {
         Text(branch)
-            .font(.system(size: 11, weight: .medium))
+            .font(.caption.weight(.medium))
             .foregroundStyle(.white)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -156,7 +156,7 @@ public struct MessageHeaderView: View {
 
     private func phaseBadge(_ phase: String) -> some View {
         Text(phase)
-            .font(.system(size: 11))
+            .font(.caption)
             .foregroundStyle(.secondary)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)

@@ -39,9 +39,9 @@ public struct AgentConfigSheet: View {
     public var body: some View {
         NavigationStack {
             Form {
-                agentSection
-                modelSection
-                toolsSection
+                self.agentSection
+                self.modelSection
+                self.toolsSection
             }
             .navigationTitle("Configure Agent")
             #if !os(macOS)
@@ -50,17 +50,17 @@ public struct AgentConfigSheet: View {
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Cancel") {
-                            isPresented = false
+                            self.isPresented = false
                         }
                     }
 
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Save") {
                             Task {
-                                await saveConfiguration()
+                                await self.saveConfiguration()
                             }
                         }
-                        .disabled(isSaving)
+                        .disabled(self.isSaving)
                     }
                 }
         }
@@ -83,13 +83,13 @@ public struct AgentConfigSheet: View {
         Section("Agent") {
             HStack {
                 Image(systemName: "person.circle.fill")
-                    .font(.system(size: 32))
+                    .font(.largeTitle)
                     .foregroundStyle(.blue)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(agent.name)
+                    Text(self.agent.name)
                         .font(.headline)
-                    Text(agent.pubkey.prefix(16) + "...")
+                    Text(self.agent.pubkey.prefix(16) + "...")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -99,13 +99,13 @@ public struct AgentConfigSheet: View {
 
     private var modelSection: some View {
         Section("Model") {
-            if availableModels.isEmpty {
+            if self.availableModels.isEmpty {
                 Text("No models available")
                     .foregroundStyle(.secondary)
             } else {
-                Picker("Select Model", selection: $selectedModel) {
+                Picker("Select Model", selection: self.$selectedModel) {
                     Text("Select model...").tag("")
-                    ForEach(availableModels, id: \.self) { model in
+                    ForEach(self.availableModels, id: \.self) { model in
                         Text(model).tag(model)
                     }
                 }
@@ -116,16 +116,16 @@ public struct AgentConfigSheet: View {
 
     private var toolsSection: some View {
         Section("Tools") {
-            if availableTools.isEmpty {
+            if self.availableTools.isEmpty {
                 Text("No tools available")
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(availableTools, id: \.self) { tool in
+                ForEach(self.availableTools, id: \.self) { tool in
                     ToolToggleRow(
                         tool: tool,
-                        isSelected: selectedTools.contains(tool)
+                        isSelected: self.selectedTools.contains(tool)
                     ) {
-                        toggleTool(tool)
+                        self.toggleTool(tool)
                     }
                 }
             }
@@ -133,31 +133,31 @@ public struct AgentConfigSheet: View {
     }
 
     private func toggleTool(_ tool: String) {
-        if selectedTools.contains(tool) {
-            selectedTools.remove(tool)
+        if self.selectedTools.contains(tool) {
+            self.selectedTools.remove(tool)
         } else {
-            selectedTools.insert(tool)
+            self.selectedTools.insert(tool)
         }
     }
 
     private func saveConfiguration() async {
-        isSaving = true
+        self.isSaving = true
         defer { isSaving = false }
 
         do {
             // Build tags for kind:24020 event
             var tags: [[String]] = [
                 ["p", agent.pubkey],
-                ["a", projectReference],
+                ["a", self.projectReference],
             ]
 
             // Add model tag if selected
-            if !selectedModel.isEmpty {
-                tags.append(["model", selectedModel])
+            if !self.selectedModel.isEmpty {
+                tags.append(["model", self.selectedModel])
             }
 
             // Add tool tags
-            for tool in selectedTools.sorted() {
+            for tool in self.selectedTools.sorted() {
                 tags.append(["tool", tool])
             }
 
@@ -168,10 +168,10 @@ public struct AgentConfigSheet: View {
                 .content("")
                 .build()
 
-            try await ndk.publish(event)
+            try await self.ndk.publish(event)
 
             // Close sheet on success
-            isPresented = false
+            self.isPresented = false
         } catch {
             // Failed to save agent configuration
         }
@@ -187,14 +187,14 @@ private struct ToolToggleRow: View {
     let onToggle: () -> Void
 
     var body: some View {
-        Button(action: onToggle) {
+        Button(action: self.onToggle) {
             HStack {
-                Image(systemName: isSelected ? "checkmark.square.fill" : "square")
-                    .font(.system(size: 20))
-                    .foregroundStyle(isSelected ? .blue : .secondary)
+                Image(systemName: self.isSelected ? "checkmark.square.fill" : "square")
+                    .font(.title3)
+                    .foregroundStyle(self.isSelected ? .blue : .secondary)
 
-                Text(tool)
-                    .font(.system(size: 14, design: .monospaced))
+                Text(self.tool)
+                    .font(.subheadline.monospaced())
                     .foregroundStyle(.primary)
 
                 Spacer()

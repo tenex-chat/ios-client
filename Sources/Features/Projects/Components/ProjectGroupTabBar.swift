@@ -35,50 +35,50 @@ struct ProjectGroupTabBar: View {
                 // "All Projects" tab
                 TabItem(
                     title: "All Projects",
-                    isSelected: selectedGroupID == nil,
+                    isSelected: self.selectedGroupID == nil,
                     color: nil
                 ) {
-                    selectedGroupID = nil
+                    self.selectedGroupID = nil
                 }
 
                 // Group tabs
-                ForEach(groups) { group in
+                ForEach(self.groups) { group in
                     TabItem(
                         title: group.name,
-                        isSelected: selectedGroupID == group.id,
+                        isSelected: self.selectedGroupID == group.id,
                         color: group.color,
-                        onTap: { selectedGroupID = group.id },
-                        onLongPress: { showContextMenu(for: group) }
+                        onTap: { self.selectedGroupID = group.id },
+                        onLongPress: { self.showContextMenu(for: group) }
                     )
                 }
 
                 // Create group tab
-                CreateTabItem(onTap: onCreateGroup)
+                CreateTabItem(onTap: self.onCreateGroup)
             }
             .padding(.horizontal, 16)
         }
         .frame(height: 48)
         .confirmationDialog(
             "Manage Group",
-            isPresented: $showingContextMenu,
-            presenting: contextMenuGroup
+            isPresented: self.$showingContextMenu,
+            presenting: self.contextMenuGroup
         ) { group in
             Button("Edit Group") {
-                onEditGroup(group)
+                self.onEditGroup(group)
             }
 
             Button("Delete Group", role: .destructive) {
-                groupToDelete = group
-                showingDeleteAlert = true
+                self.groupToDelete = group
+                self.showingDeleteAlert = true
             }
 
             Button("Cancel", role: .cancel) {}
         }
-        .alert("Delete Group?", isPresented: $showingDeleteAlert, presenting: groupToDelete) { group in
+        .alert("Delete Group?", isPresented: self.$showingDeleteAlert, presenting: self.groupToDelete) { group in
             Button("Cancel", role: .cancel) {}
 
             Button("Delete", role: .destructive) {
-                onDeleteGroup(group)
+                self.onDeleteGroup(group)
             }
         } message: { group in
             Text("Are you sure you want to delete '\(group.name)'? This cannot be undone.")
@@ -99,8 +99,8 @@ struct ProjectGroupTabBar: View {
     private let onDeleteGroup: (ProjectGroup) -> Void
 
     private func showContextMenu(for group: ProjectGroup) {
-        contextMenuGroup = group
-        showingContextMenu = true
+        self.contextMenuGroup = group
+        self.showingContextMenu = true
     }
 }
 
@@ -128,29 +128,29 @@ private struct TabItem: View {
 
     var body: some View {
         Button {
-            onTap()
+            self.onTap()
         } label: {
             VStack(spacing: 0) {
                 Spacer()
 
-                Text(title)
-                    .font(.system(size: 14, weight: isSelected ? .semibold : .medium))
-                    .foregroundStyle(isSelected ? .primary : .secondary)
+                Text(self.title)
+                    .font(.system(size: 14, weight: self.isSelected ? .semibold : .medium))
+                    .foregroundStyle(self.isSelected ? .primary : .secondary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
 
                 // Material Design underline indicator
                 Rectangle()
-                    .fill(underlineColor)
+                    .fill(self.underlineColor)
                     .frame(height: 2)
-                    .opacity(isSelected ? 1 : 0)
+                    .opacity(self.isSelected ? 1 : 0)
             }
         }
         .buttonStyle(.plain)
         .simultaneousGesture(
             LongPressGesture(minimumDuration: 0.5)
                 .onEnded { _ in
-                    onLongPress?()
+                    self.onLongPress?()
                 }
         )
     }
@@ -164,7 +164,7 @@ private struct TabItem: View {
     private let onLongPress: (() -> Void)?
 
     private var underlineColor: Color {
-        color ?? .accentColor
+        self.color ?? .accentColor
     }
 }
 
@@ -182,13 +182,13 @@ private struct CreateTabItem: View {
 
     var body: some View {
         Button {
-            onTap()
+            self.onTap()
         } label: {
             VStack(spacing: 0) {
                 Spacer()
 
                 Image(systemName: "plus")
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)

@@ -87,7 +87,7 @@ public struct MessageBubble: View {
     private var replayButton: some View {
         Button(action: self.onReplay) {
             Image(systemName: "speaker.wave.2.fill")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.white.opacity(0.6))
                 .padding(8)
                 .background(Color.white.opacity(0.1))

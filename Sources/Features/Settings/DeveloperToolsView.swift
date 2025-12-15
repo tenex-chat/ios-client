@@ -20,7 +20,7 @@ struct DeveloperToolsView: View {
     var body: some View {
         Group {
             if let ndk {
-                contentView(ndk: ndk)
+                self.contentView(ndk: ndk)
             } else {
                 Text("NDK not available")
             }
@@ -39,14 +39,14 @@ struct DeveloperToolsView: View {
 
     private var quickStatsSection: some View {
         Section("Quick Stats") {
-            if isLoading {
+            if self.isLoading {
                 HStack {
                     ProgressView()
                     Text("Loading stats...")
                         .foregroundStyle(.secondary)
                 }
             } else {
-                QuickStatRow(label: "Connected Relays", value: "\(connectedRelayCount)/\(totalRelayCount)")
+                QuickStatRow(label: "Connected Relays", value: "\(self.connectedRelayCount)/\(self.totalRelayCount)")
                 if let pubkey = signerPubkey {
                     QuickStatRow(label: "Pubkey", value: String(pubkey.prefix(16)) + "...")
                 }
@@ -56,10 +56,10 @@ struct DeveloperToolsView: View {
 
     private var inspectionToolsSection: some View {
         Section("Inspection Tools") {
-            relayMonitorLink
-            nostrDBStatsLink
-            subscriptionMetricsLink
-            projectStatusLink
+            self.relayMonitorLink
+            self.nostrDBStatsLink
+            self.subscriptionMetricsLink
+            self.projectStatusLink
         }
     }
 
@@ -110,47 +110,47 @@ struct DeveloperToolsView: View {
     private var infoSection: some View {
         Section("Info") {
             LabeledContent("NDK Log Level") {
-                Text(logLevel.description)
+                Text(self.logLevel.description)
                     .foregroundStyle(.secondary)
             }
             LabeledContent("Network Logging") {
-                Text(isNetworkLoggingEnabled ? "Enabled" : "Disabled")
-                    .foregroundStyle(isNetworkLoggingEnabled ? .green : .secondary)
+                Text(self.isNetworkLoggingEnabled ? "Enabled" : "Disabled")
+                    .foregroundStyle(self.isNetworkLoggingEnabled ? .green : .secondary)
             }
         }
     }
 
     private func contentView(ndk: NDK) -> some View {
         List {
-            quickStatsSection
-            inspectionToolsSection
-            quickActionsSection(ndk: ndk)
-            infoSection
+            self.quickStatsSection
+            self.inspectionToolsSection
+            self.quickActionsSection(ndk: ndk)
+            self.infoSection
         }
         .navigationTitle("Developer Tools")
         #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
         #endif
-            .task { await initialLoad(ndk: ndk) }
-            .refreshable { await refreshStats(ndk: ndk) }
+            .task { await self.initialLoad(ndk: ndk) }
+            .refreshable { await self.refreshStats(ndk: ndk) }
     }
 
     private func quickActionsSection(ndk: NDK) -> some View {
         Section("Quick Actions") {
-            Button { Task { await refreshStats(ndk: ndk) } } label: {
+            Button { Task { await self.refreshStats(ndk: ndk) } } label: {
                 Label("Refresh Stats", systemImage: "arrow.clockwise")
             }
-            Button { Task { await toggleLogLevel() } } label: {
-                Label("Toggle Log Level (\(logLevel.description))", systemImage: "slider.horizontal.3")
+            Button { Task { await self.toggleLogLevel() } } label: {
+                Label("Toggle Log Level (\(self.logLevel.description))", systemImage: "slider.horizontal.3")
             }
-            Button { toggleNetworkLogging() } label: {
+            Button { self.toggleNetworkLogging() } label: {
                 Label(
-                    isNetworkLoggingEnabled ? "Disable Network Logging" : "Enable Network Logging",
-                    systemImage: isNetworkLoggingEnabled ? "wifi.slash" : "wifi"
+                    self.isNetworkLoggingEnabled ? "Disable Network Logging" : "Enable Network Logging",
+                    systemImage: self.isNetworkLoggingEnabled ? "wifi.slash" : "wifi"
                 )
             }
             if let pubkey = signerPubkey {
-                Button { copyPubkey(pubkey) } label: {
+                Button { self.copyPubkey(pubkey) } label: {
                     Label("Copy Pubkey", systemImage: "doc.on.doc")
                 }
             }
@@ -158,16 +158,16 @@ struct DeveloperToolsView: View {
     }
 
     private func initialLoad(ndk: NDK) async {
-        logLevel = NDKLogger.logLevel
-        isNetworkLoggingEnabled = NDKLogger.logNetworkTraffic
-        await refreshStats(ndk: ndk)
+        self.logLevel = NDKLogger.logLevel
+        self.isNetworkLoggingEnabled = NDKLogger.logNetworkTraffic
+        await self.refreshStats(ndk: ndk)
     }
 
     private func refreshStats(ndk: NDK) async {
-        isLoading = true
+        self.isLoading = true
 
         let relays = await ndk.relays
-        totalRelayCount = relays.count
+        self.totalRelayCount = relays.count
 
         var connected = 0
         for relay in relays {
@@ -176,17 +176,17 @@ struct DeveloperToolsView: View {
                 connected += 1
             }
         }
-        connectedRelayCount = connected
+        self.connectedRelayCount = connected
 
         if let signer = ndk.signer {
-            signerPubkey = try? await signer.pubkey
+            self.signerPubkey = try? await signer.pubkey
         }
 
-        isLoading = false
+        self.isLoading = false
     }
 
     private func toggleLogLevel() {
-        let newLevel: NDKLogLevel = switch logLevel {
+        let newLevel: NDKLogLevel = switch self.logLevel {
         case .info:
             .debug
         case .debug:
@@ -197,12 +197,12 @@ struct DeveloperToolsView: View {
             .info
         }
         NDKLogger.setLogLevel(newLevel)
-        logLevel = newLevel
+        self.logLevel = newLevel
     }
 
     private func toggleNetworkLogging() {
-        isNetworkLoggingEnabled.toggle()
-        NDKLogger.setLogNetworkTraffic(isNetworkLoggingEnabled)
+        self.isNetworkLoggingEnabled.toggle()
+        NDKLogger.setLogNetworkTraffic(self.isNetworkLoggingEnabled)
     }
 
     private func copyPubkey(_ pubkey: String) {
@@ -223,9 +223,9 @@ private struct QuickStatRow: View {
 
     var body: some View {
         HStack {
-            Text(label)
+            Text(self.label)
             Spacer()
-            Text(value)
+            Text(self.value)
                 .font(.system(.body, design: .monospaced))
                 .foregroundStyle(.secondary)
         }
@@ -242,17 +242,17 @@ private struct ToolRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 16))
+            Image(systemName: self.icon)
+                .font(.callout)
                 .foregroundStyle(.white)
                 .frame(width: 32, height: 32)
-                .background(color)
+                .background(self.color)
                 .cornerRadius(8)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(title)
+                Text(self.title)
                     .font(.body)
-                Text(subtitle)
+                Text(self.subtitle)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

@@ -15,12 +15,12 @@ public struct RawEventSheet: View {
 
     public var body: some View {
         NavigationView {
-            contentView
+            self.contentView
                 .navigationTitle("Raw Event")
             #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
             #endif
-                .toolbar { toolbarContent }
+                .toolbar { self.toolbarContent }
         }
     }
 
@@ -28,7 +28,7 @@ public struct RawEventSheet: View {
         ScrollView {
             if let rawEventJSON {
                 Text(rawEventJSON)
-                    .font(.system(size: 12, design: .monospaced))
+                    .font(.caption.monospaced())
                     .padding()
                     .textSelection(.enabled)
             } else {
@@ -42,13 +42,13 @@ public struct RawEventSheet: View {
     @ToolbarContentBuilder private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .cancellationAction) {
             Button("Close") {
-                isPresented = false
+                self.isPresented = false
             }
         }
-        if rawEventJSON != nil {
+        if self.rawEventJSON != nil {
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    copyToClipboard()
+                    self.copyToClipboard()
                 } label: {
                     Label("Copy", systemImage: "doc.on.doc")
                 }
@@ -58,10 +58,10 @@ public struct RawEventSheet: View {
 
     private func copyToClipboard() {
         #if os(iOS)
-            UIPasteboard.general.string = rawEventJSON
+            UIPasteboard.general.string = self.rawEventJSON
         #else
             NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(rawEventJSON ?? "", forType: .string)
+            NSPasteboard.general.setString(self.rawEventJSON ?? "", forType: .string)
         #endif
     }
 }

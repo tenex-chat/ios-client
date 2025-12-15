@@ -23,8 +23,8 @@ struct DocumentRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            NDKUIProfilePicture(ndk: ndk, pubkey: document.pubkey, size: 36)
-            documentContent
+            NDKUIProfilePicture(ndk: self.ndk, pubkey: self.document.pubkey, size: 36)
+            self.documentContent
             Spacer()
         }
         .padding(.horizontal, 16)
@@ -35,7 +35,7 @@ struct DocumentRow: View {
                 .padding(.leading, 64)
         }
         .task {
-            await loadAuthorMetadata()
+            await self.loadAuthorMetadata()
         }
     }
 
@@ -47,11 +47,11 @@ struct DocumentRow: View {
     private let ndk: NDK
 
     private var title: String {
-        document.tagValue("title") ?? document.tagValue("name") ?? "Untitled"
+        self.document.tagValue("title") ?? self.document.tagValue("name") ?? "Untitled"
     }
 
     private var summary: String? {
-        document.tagValue("summary")
+        self.document.tagValue("summary")
     }
 
     private var authorName: String {
@@ -61,18 +61,18 @@ struct DocumentRow: View {
         if let name = metadata?.name, !name.isEmpty {
             return name
         }
-        return String(document.pubkey.prefix(8)) + "..."
+        return String(self.document.pubkey.prefix(8)) + "..."
     }
 
     private var hashtags: [String] {
-        document.tags(withName: "t")
+        self.document.tags(withName: "t")
             .compactMap { $0[safe: 1] }
             .prefix(3)
             .map { String($0) }
     }
 
     private var readingTime: String {
-        let words = document.content
+        let words = self.document.content
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .split(separator: " ")
             .count
@@ -82,67 +82,67 @@ struct DocumentRow: View {
 
     private var documentContent: some View {
         VStack(alignment: .leading, spacing: 4) {
-            documentHeader
-            titleView
+            self.documentHeader
+            self.titleView
             if let summary, !summary.isEmpty {
-                summaryView(summary)
+                self.summaryView(summary)
             }
-            bottomRow
+            self.bottomRow
         }
     }
 
     private var documentHeader: some View {
         HStack(spacing: 6) {
-            Text(authorName)
-                .font(.system(size: 14, weight: .medium))
+            Text(self.authorName)
+                .font(.subheadline.weight(.medium))
                 .foregroundStyle(.primary)
 
-            documentMetadata
+            self.documentMetadata
         }
     }
 
     private var documentMetadata: some View {
         HStack(spacing: 4) {
             Image(systemName: "doc.text")
-                .font(.system(size: 11))
+                .font(.caption)
 
             Text("Article")
-                .font(.system(size: 11))
+                .font(.caption)
 
             Text("·")
-                .font(.system(size: 11))
+                .font(.caption)
 
-            Text(Date(timeIntervalSince1970: TimeInterval(document.createdAt)), style: .relative)
-                .font(.system(size: 11))
+            Text(Date(timeIntervalSince1970: TimeInterval(self.document.createdAt)), style: .relative)
+                .font(.caption)
         }
         .foregroundStyle(.secondary)
     }
 
     private var titleView: some View {
-        Text(title)
-            .font(.system(size: 15, weight: .medium))
+        Text(self.title)
+            .font(.subheadline.weight(.medium))
             .foregroundStyle(.primary)
             .lineLimit(2)
     }
 
     private var bottomRow: some View {
         HStack(spacing: 12) {
-            hashtagsList
+            self.hashtagsList
             Spacer()
-            readingTimeView
+            self.readingTimeView
         }
         .padding(.top, 4)
     }
 
     @ViewBuilder private var hashtagsList: some View {
-        if !hashtags.isEmpty {
+        if !self.hashtags.isEmpty {
             HStack(spacing: 8) {
-                ForEach(hashtags, id: \.self) { tag in
+                ForEach(self.hashtags, id: \.self) { tag in
                     HStack(spacing: 2) {
                         Image(systemName: "number")
-                            .font(.system(size: 9))
+                            .font(.caption2)
                         Text(tag)
-                            .font(.system(size: 10))
+                            .font(.caption)
                     }
                     .foregroundStyle(.secondary)
                 }
@@ -153,23 +153,23 @@ struct DocumentRow: View {
     private var readingTimeView: some View {
         HStack(spacing: 4) {
             Image(systemName: "clock")
-                .font(.system(size: 10))
-            Text(readingTime)
-                .font(.system(size: 10))
+                .font(.caption)
+            Text(self.readingTime)
+                .font(.caption)
         }
         .foregroundStyle(.secondary)
     }
 
     private func summaryView(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 13))
+            .font(.subheadline)
             .foregroundStyle(.secondary)
             .lineLimit(2)
     }
 
     private func loadAuthorMetadata() async {
-        for await meta in await ndk.profileManager.subscribe(for: document.pubkey) {
-            metadata = meta
+        for await meta in await self.ndk.profileManager.subscribe(for: self.document.pubkey) {
+            self.metadata = meta
         }
     }
 }

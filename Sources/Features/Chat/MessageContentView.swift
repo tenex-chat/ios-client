@@ -15,17 +15,17 @@ public struct MessageContentView: View {
 
     public var body: some View {
         Group {
-            if message.isReasoning {
-                ReasoningBlockView(message: message)
+            if self.message.isReasoning {
+                ReasoningBlockView(message: self.message)
             } else if let toolCall = message.toolCall {
                 ToolCallView(toolCall: toolCall)
-            } else if message.isStreaming {
-                streamingContent
-            } else if message.content.contains("```") {
-                codeBlockContent
+            } else if self.message.isStreaming {
+                self.streamingContent
+            } else if self.message.content.contains("```") {
+                self.codeBlockContent
             } else {
-                Text(markdownText)
-                    .font(.system(size: 16))
+                Text(self.markdownText)
+                    .font(.callout)
                     .lineSpacing(1.4)
                     .foregroundStyle(.primary)
                     .textSelection(.enabled)
@@ -43,26 +43,26 @@ public struct MessageContentView: View {
 
     private var markdownText: AttributedString {
         do {
-            return try AttributedString(markdown: message.content)
+            return try AttributedString(markdown: self.message.content)
         } catch {
-            return AttributedString(message.content)
+            return AttributedString(self.message.content)
         }
     }
 
     private var streamingContent: some View {
         HStack(alignment: .bottom, spacing: 2) {
-            Text(markdownText)
-                .font(.system(size: 16))
+            Text(self.markdownText)
+                .font(.callout)
                 .lineSpacing(1.4)
                 .foregroundStyle(.primary)
 
             Rectangle()
                 .fill(.primary)
                 .frame(width: 2, height: 16)
-                .opacity(cursorVisible ? 1 : 0)
+                .opacity(self.cursorVisible ? 1 : 0)
                 .onAppear {
                     withAnimation(.easeInOut(duration: 0.5).repeatForever(autoreverses: true)) {
-                        cursorVisible = true
+                        self.cursorVisible = true
                     }
                 }
         }
@@ -70,12 +70,12 @@ public struct MessageContentView: View {
 
     private var codeBlockContent: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ForEach(splitByCodeBlocks(), id: \.offset) { item in
+            ForEach(self.splitByCodeBlocks(), id: \.offset) { item in
                 if item.isCode {
-                    codeBlock(item.text)
+                    self.codeBlock(item.text)
                 } else if !item.text.isEmpty {
                     Text(item.text)
-                        .font(.system(size: 16))
+                        .font(.callout)
                         .lineSpacing(1.4)
                         .foregroundStyle(.primary)
                 }
@@ -86,7 +86,7 @@ public struct MessageContentView: View {
 
     private func codeBlock(_ code: String) -> some View {
         Text(code)
-            .font(.system(size: 13, design: .monospaced))
+            .font(.subheadline.monospaced())
             .foregroundStyle(.primary)
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -97,10 +97,10 @@ public struct MessageContentView: View {
     private func splitByCodeBlocks() -> [(text: String, isCode: Bool, offset: Int)] {
         let pattern = "```[^`]*```"
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]) else {
-            return [(message.content, false, 0)]
+            return [(self.message.content, false, 0)]
         }
 
-        let content = message.content
+        let content = self.message.content
         let matches = regex.matches(in: content, range: NSRange(location: 0, length: content.utf16.count))
 
         var result: [(String, Bool, Int)] = []

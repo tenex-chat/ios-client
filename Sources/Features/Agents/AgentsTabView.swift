@@ -111,7 +111,7 @@ struct AgentRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text(self.agent.name)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.callout.weight(.semibold))
 
                     if self.agent.isGlobal {
                         self.globalBadge
@@ -120,7 +120,7 @@ struct AgentRow: View {
 
                 if let model = agent.model {
                     Text(model)
-                        .font(.system(size: 13))
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
 
@@ -138,7 +138,7 @@ struct AgentRow: View {
 
     private var globalBadge: some View {
         Text("Global")
-            .font(.system(size: 10, weight: .medium))
+            .font(.caption.weight(.medium))
             .foregroundStyle(.white)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -148,16 +148,16 @@ struct AgentRow: View {
     private var toolsView: some View {
         HStack(spacing: 4) {
             Image(systemName: "wrench.and.screwdriver")
-                .font(.system(size: 10))
+                .font(.caption)
                 .foregroundStyle(.secondary)
 
             Text(self.agent.tools.prefix(3).joined(separator: ", "))
-                .font(.system(size: 11))
+                .font(.caption)
                 .foregroundStyle(.secondary)
 
             if self.agent.tools.count > 3 {
                 Text("+\(self.agent.tools.count - 3)")
-                    .font(.system(size: 11))
+                    .font(.caption)
                     .foregroundStyle(.tertiary)
             }
         }

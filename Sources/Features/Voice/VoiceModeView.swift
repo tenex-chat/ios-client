@@ -37,8 +37,8 @@ public struct VoiceModeView: View {
 
     public var body: some View {
         ZStack {
-            backgroundGradient
-            contentStack
+            self.backgroundGradient
+            self.contentStack
         }
         .preferredColorScheme(.dark)
     }
@@ -53,7 +53,7 @@ public struct VoiceModeView: View {
 
     private var backgroundGradient: some View {
         LinearGradient(
-            colors: [Color.black, projectColor.opacity(0.3), Color.black],
+            colors: [Color.black, self.projectColor.opacity(0.3), Color.black],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -62,38 +62,38 @@ public struct VoiceModeView: View {
 
     private var contentStack: some View {
         VStack(spacing: 0) {
-            header
+            self.header
                 .padding(.horizontal)
                 .padding(.top)
 
             Spacer()
-            mainContent
+            self.mainContent
             Spacer()
 
-            voiceControls
+            self.voiceControls
                 .padding(.bottom, 40)
         }
     }
 
     private var voiceControls: some View {
         VoiceControlsView(
-            state: viewModel.state,
-            audioLevel: viewModel.audioLevel,
-            canSend: viewModel.canSend,
+            state: self.viewModel.state,
+            audioLevel: self.viewModel.audioLevel,
+            canSend: self.viewModel.canSend,
             onEndCall: {
                 Task {
-                    await viewModel.endCall()
-                    onDismiss()
+                    await self.viewModel.endCall()
+                    self.onDismiss()
                 }
             },
             onToggleMic: {
                 Task {
-                    await viewModel.toggleRecording()
+                    await self.viewModel.toggleRecording()
                 }
             },
             onSend: {
                 Task {
-                    await viewModel.sendMessage()
+                    await self.viewModel.sendMessage()
                 }
             }
         )
@@ -104,12 +104,12 @@ public struct VoiceModeView: View {
             // Close button
             Button {
                 Task {
-                    await viewModel.endCall()
-                    onDismiss()
+                    await self.viewModel.endCall()
+                    self.onDismiss()
                 }
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.callout.weight(.semibold))
                     .foregroundStyle(.white)
                     .frame(width: 32, height: 32)
                     .background(Color.white.opacity(0.2))
@@ -119,21 +119,21 @@ public struct VoiceModeView: View {
             Spacer()
 
             // Agent selector
-            if viewModel.agents.count > 1 {
-                agentSelector
+            if self.viewModel.agents.count > 1 {
+                self.agentSelector
             }
         }
     }
 
     private var agentSelector: some View {
         Menu {
-            ForEach(viewModel.agents) { agent in
+            ForEach(self.viewModel.agents) { agent in
                 Button {
-                    viewModel.selectAgent(agent)
+                    self.viewModel.selectAgent(agent)
                 } label: {
                     HStack {
                         Text(agent.name)
-                        if agent.id == viewModel.selectedAgent?.id {
+                        if agent.id == self.viewModel.selectedAgent?.id {
                             Image(systemName: "checkmark")
                         }
                     }
@@ -141,7 +141,7 @@ public struct VoiceModeView: View {
             }
         } label: {
             HStack(spacing: 8) {
-                Text(viewModel.selectedAgent?.name ?? "Select Agent")
+                Text(self.viewModel.selectedAgent?.name ?? "Select Agent")
                     .font(.subheadline)
                     .foregroundStyle(.white)
                 Image(systemName: "chevron.down")
@@ -161,24 +161,24 @@ public struct VoiceModeView: View {
             ZStack {
                 // Visualizer behind avatar
                 VoiceVisualizerView(
-                    audioLevel: viewModel.audioLevel,
-                    isActive: viewModel.state == .recording || viewModel.state == .playing,
-                    color: projectColor,
+                    audioLevel: self.viewModel.audioLevel,
+                    isActive: self.viewModel.state == .recording || self.viewModel.state == .playing,
+                    color: self.projectColor,
                     size: 140
                 )
 
                 // Agent avatar on top
                 if let agent = viewModel.selectedAgent {
-                    agentAvatar(for: agent)
+                    self.agentAvatar(for: agent)
                 }
             }
 
             // Status display
             VoiceStatusView(
-                state: viewModel.state,
-                transcript: viewModel.transcript,
-                error: viewModel.error,
-                agentName: viewModel.selectedAgent?.name
+                state: self.viewModel.state,
+                transcript: self.viewModel.transcript,
+                error: self.viewModel.error,
+                agentName: self.viewModel.selectedAgent?.name
             )
         }
     }
@@ -187,12 +187,12 @@ public struct VoiceModeView: View {
         ZStack {
             // Avatar circle
             Circle()
-                .fill(agentColor(for: agent.pubkey))
+                .fill(self.agentColor(for: agent.pubkey))
                 .frame(width: 80, height: 80)
 
             // Agent initials
-            Text(agentInitials(agent.name))
-                .font(.system(size: 28, weight: .semibold))
+            Text(self.agentInitials(agent.name))
+                .font(.title.weight(.semibold))
                 .foregroundStyle(.white)
         }
     }

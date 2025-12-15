@@ -65,7 +65,7 @@ public struct AgentSelectorView: View {
 
     private var globalBadge: some View {
         Text("Global")
-            .font(.system(size: 10, weight: .semibold))
+            .font(.caption.weight(.semibold))
             .foregroundStyle(.white)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
@@ -97,7 +97,7 @@ public struct AgentSelectorView: View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
                 Text(agent.name)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.callout.weight(.medium))
                     .foregroundStyle(.primary)
                 if agent.isGlobal {
                     self.globalBadge
@@ -105,7 +105,7 @@ public struct AgentSelectorView: View {
             }
             if let model = agent.model {
                 Text(model)
-                    .font(.system(size: 13))
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
         }
@@ -115,7 +115,7 @@ public struct AgentSelectorView: View {
     private func selectionIndicator(for agent: ProjectAgent) -> some View {
         if self.viewModel.selectedAgentPubkey == agent.pubkey {
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 22))
+                .font(.title2)
                 .foregroundStyle(.blue)
         }
     }
@@ -131,7 +131,7 @@ public struct AgentSelectorView: View {
                 .frame(width: 40, height: 40)
                 .overlay {
                     Text(agent.name.prefix(1).uppercased())
-                        .font(.system(size: 16, weight: .medium))
+                        .font(.callout.weight(.medium))
                         .foregroundStyle(.secondary)
                 }
         }
@@ -184,21 +184,21 @@ public struct AgentSelectorButton: View {
         if let agent = viewModel.selectedAgent {
             self.agentAvatar(for: agent)
             Text(agent.name)
-                .font(.system(size: 13, weight: .medium))
+                .font(.subheadline.weight(.medium))
                 .foregroundStyle(.primary)
         } else {
             Image(systemName: "sparkles")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
             Text("Agent")
-                .font(.system(size: 13, weight: .medium))
+                .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
         }
     }
 
     private var chevron: some View {
         Image(systemName: "chevron.up.chevron.down")
-            .font(.system(size: 9, weight: .bold))
+            .font(.caption2.weight(.bold))
             .foregroundStyle(.tertiary)
     }
 
@@ -223,7 +223,7 @@ public struct AgentSelectorButton: View {
                 .frame(width: 20, height: 20)
                 .overlay {
                     Text(agent.name.prefix(1).uppercased())
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.caption.weight(.medium))
                         .foregroundStyle(.secondary)
                 }
         }

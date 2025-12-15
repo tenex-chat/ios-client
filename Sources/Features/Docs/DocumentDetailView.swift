@@ -25,34 +25,34 @@ public struct DocumentDetailView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    headerSection
+                    self.headerSection
                     Divider()
-                    contentSection
+                    self.contentSection
                 }
                 .padding()
             }
-            .navigationTitle(title)
+            .navigationTitle(self.title)
             #if !os(macOS)
                 .navigationBarTitleDisplayMode(.inline)
             #endif
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("Done") {
-                            dismiss()
+                            self.dismiss()
                         }
                     }
 
                     ToolbarItem(placement: .primaryAction) {
                         ShareLink(
-                            item: shareText,
-                            subject: Text(title),
-                            message: Text(summary ?? "")
+                            item: self.shareText,
+                            subject: Text(self.title),
+                            message: Text(self.summary ?? "")
                         )
                     }
                 }
         }
         .task {
-            await loadAuthorMetadata()
+            await self.loadAuthorMetadata()
         }
     }
 
@@ -65,11 +65,11 @@ public struct DocumentDetailView: View {
     private let ndk: NDK
 
     private var title: String {
-        document.tagValue("title") ?? document.tagValue("name") ?? "Untitled"
+        self.document.tagValue("title") ?? self.document.tagValue("name") ?? "Untitled"
     }
 
     private var summary: String? {
-        document.tagValue("summary")
+        self.document.tagValue("summary")
     }
 
     private var authorName: String {
@@ -79,17 +79,17 @@ public struct DocumentDetailView: View {
         if let name = metadata?.name, !name.isEmpty {
             return name
         }
-        return String(document.pubkey.prefix(8)) + "..."
+        return String(self.document.pubkey.prefix(8)) + "..."
     }
 
     private var hashtags: [String] {
-        document.tags(withName: "t")
+        self.document.tags(withName: "t")
             .compactMap { $0[safe: 1] }
             .map { String($0) }
     }
 
     private var readingTime: String {
-        let words = document.content
+        let words = self.document.content
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .split(separator: " ")
             .count
@@ -101,60 +101,60 @@ public struct DocumentDetailView: View {
         if let encoded = try? document.encode() {
             return "nostr:\(encoded)"
         }
-        return "nostr:nevent1\(document.id)"
+        return "nostr:nevent1\(self.document.id)"
     }
 
     private var markdownText: AttributedString {
         do {
-            return try AttributedString(markdown: document.content)
+            return try AttributedString(markdown: self.document.content)
         } catch {
-            return AttributedString(document.content)
+            return AttributedString(self.document.content)
         }
     }
 
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            authorInfoRow
-            summaryText
-            hashtagsRow
+            self.authorInfoRow
+            self.summaryText
+            self.hashtagsRow
         }
     }
 
     private var authorInfoRow: some View {
         HStack(spacing: 10) {
-            NDKUIProfilePicture(ndk: ndk, pubkey: document.pubkey, size: 40)
+            NDKUIProfilePicture(ndk: self.ndk, pubkey: self.document.pubkey, size: 40)
             VStack(alignment: .leading, spacing: 2) {
-                Text(authorName)
-                    .font(.system(size: 14, weight: .medium))
-                authorMetadataRow
+                Text(self.authorName)
+                    .font(.subheadline.weight(.medium))
+                self.authorMetadataRow
             }
         }
     }
 
     private var authorMetadataRow: some View {
         HStack(spacing: 8) {
-            Text(Date(timeIntervalSince1970: TimeInterval(document.createdAt)), style: .date)
+            Text(Date(timeIntervalSince1970: TimeInterval(self.document.createdAt)), style: .date)
             Text("·")
-            Text(readingTime)
+            Text(self.readingTime)
         }
-        .font(.system(size: 12))
+        .font(.caption)
         .foregroundStyle(.secondary)
     }
 
     @ViewBuilder private var summaryText: some View {
         if let summary, !summary.isEmpty {
             Text(summary)
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .italic()
         }
     }
 
     @ViewBuilder private var hashtagsRow: some View {
-        if !hashtags.isEmpty {
+        if !self.hashtags.isEmpty {
             FlowLayout(spacing: 8) {
-                ForEach(hashtags, id: \.self) { tag in
-                    hashtagPill(tag)
+                ForEach(self.hashtags, id: \.self) { tag in
+                    self.hashtagPill(tag)
                 }
             }
         }
@@ -162,11 +162,11 @@ public struct DocumentDetailView: View {
 
     private var contentSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            if document.content.contains("```") {
-                codeBlockContent
+            if self.document.content.contains("```") {
+                self.codeBlockContent
             } else {
-                Text(markdownText)
-                    .font(.system(size: 16))
+                Text(self.markdownText)
+                    .font(.callout)
                     .lineSpacing(6)
                     .foregroundStyle(.primary)
                     .textSelection(.enabled)
@@ -177,12 +177,12 @@ public struct DocumentDetailView: View {
 
     private var codeBlockContent: some View {
         VStack(alignment: .leading, spacing: 12) {
-            ForEach(splitByCodeBlocks(), id: \.offset) { item in
+            ForEach(self.splitByCodeBlocks(), id: \.offset) { item in
                 if item.isCode {
-                    codeBlock(item.text)
+                    self.codeBlock(item.text)
                 } else if !item.text.isEmpty {
-                    Text(parseMarkdown(item.text))
-                        .font(.system(size: 16))
+                    Text(self.parseMarkdown(item.text))
+                        .font(.callout)
                         .lineSpacing(6)
                         .foregroundStyle(.primary)
                 }
@@ -194,9 +194,9 @@ public struct DocumentDetailView: View {
     private func hashtagPill(_ tag: String) -> some View {
         HStack(spacing: 2) {
             Image(systemName: "number")
-                .font(.system(size: 10))
+                .font(.caption)
             Text(tag)
-                .font(.system(size: 11))
+                .font(.caption)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
@@ -206,7 +206,7 @@ public struct DocumentDetailView: View {
 
     private func codeBlock(_ code: String) -> some View {
         Text(code)
-            .font(.system(size: 13, design: .monospaced))
+            .font(.subheadline.monospaced())
             .foregroundStyle(.primary)
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -225,10 +225,10 @@ public struct DocumentDetailView: View {
     private func splitByCodeBlocks() -> [(text: String, isCode: Bool, offset: Int)] {
         let pattern = "```[^`]*```"
         guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]) else {
-            return [(document.content, false, 0)]
+            return [(self.document.content, false, 0)]
         }
 
-        let content = document.content
+        let content = self.document.content
         let matches = regex.matches(in: content, range: NSRange(location: 0, length: content.utf16.count))
 
         var result: [(String, Bool, Int)] = []
@@ -262,8 +262,8 @@ public struct DocumentDetailView: View {
     }
 
     private func loadAuthorMetadata() async {
-        for await meta in await ndk.profileManager.subscribe(for: document.pubkey) {
-            metadata = meta
+        for await meta in await self.ndk.profileManager.subscribe(for: self.document.pubkey) {
+            self.metadata = meta
         }
     }
 }
@@ -277,12 +277,12 @@ private struct FlowLayout: Layout {
     var spacing: CGFloat = 8
 
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
-        let result = arrangeSubviews(proposal: proposal, subviews: subviews)
+        let result = self.arrangeSubviews(proposal: proposal, subviews: subviews)
         return result.size
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) {
-        let result = arrangeSubviews(proposal: proposal, subviews: subviews)
+        let result = self.arrangeSubviews(proposal: proposal, subviews: subviews)
 
         for (index, frame) in result.frames.enumerated() {
             let position = CGPoint(
@@ -309,12 +309,12 @@ private struct FlowLayout: Layout {
             if currentX + size.width > maxWidth, currentX > 0 {
                 // Move to next line
                 currentX = 0
-                currentY += lineHeight + spacing
+                currentY += lineHeight + self.spacing
                 lineHeight = 0
             }
 
             frames.append(CGRect(origin: CGPoint(x: currentX, y: currentY), size: size))
-            currentX += size.width + spacing
+            currentX += size.width + self.spacing
             lineHeight = max(lineHeight, size.height)
             totalHeight = currentY + lineHeight
         }
