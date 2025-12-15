@@ -88,7 +88,8 @@ public struct MessageRow: View {
 
             TruncatedContentView(
                 content: MessageContentView(message: self.message),
-                maxHeight: UIScreen.main.bounds.height * 0.5
+                maxHeight: UIScreen.main.bounds.height * 0.5,
+                message: self.message
             )
 
             if self.message.replyCount > 0, let onReplyTap {

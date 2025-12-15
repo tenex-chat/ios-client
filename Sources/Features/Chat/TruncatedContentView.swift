@@ -5,6 +5,7 @@
 //
 
 import SwiftUI
+import TENEXCore
 
 // MARK: - ContentHeightPreferenceKey
 
@@ -23,9 +24,10 @@ struct ContentHeightPreferenceKey: PreferenceKey {
 struct TruncatedContentView<Content: View>: View {
     // MARK: Lifecycle
 
-    init(content: Content, maxHeight: CGFloat) {
+    init(content: Content, maxHeight: CGFloat, message: Message) {
         self.content = content
         self.maxHeight = maxHeight
+        self.message = message
     }
 
     // MARK: Internal
@@ -49,6 +51,9 @@ struct TruncatedContentView<Content: View>: View {
                 self.showMoreButton
             }
         }
+        .sheet(isPresented: self.$isShowingSheet) {
+            ExpandedMessageSheet(message: self.message)
+        }
     }
 
     // MARK: Private
@@ -58,6 +63,7 @@ struct TruncatedContentView<Content: View>: View {
 
     private let content: Content
     private let maxHeight: CGFloat
+    private let message: Message
 
     private var isTruncated: Bool {
         self.contentHeight > self.maxHeight
