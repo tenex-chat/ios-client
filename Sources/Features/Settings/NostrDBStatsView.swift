@@ -170,26 +170,25 @@ struct NostrDBStatsView: View {
     }
 
     private func eventsByKindSection(_ stats: NdbStat) -> some View {
-        let nonEmptyKinds = stats.commonKinds.filter { !$0.value.isEmpty }
-        let hasOtherKinds = !stats.otherKinds.isEmpty
+        // Combine common kinds and other kinds into a single sorted list
+        var allKinds: [(kind: UInt64, counts: NdbStatCounts)] = []
 
-        return Section("Events by Kind") {
-            ForEach(Array(nonEmptyKinds), id: \.key.rawValue) { kind, counts in
-                KindStatRow(kindNumber: UInt64(kind.rawValue), counts: counts)
-            }
+        // Add common kinds
+        for (kind, counts) in stats.commonKinds where !counts.isEmpty {
+            allKinds.append((kind: UInt64(kind.rawValue), counts: counts))
+        }
 
-            if hasOtherKinds {
-                HStack {
-                    Text("Other Kinds")
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("\(stats.otherKinds.count)")
-                            .font(.system(.body, design: .monospaced))
-                        Text(FormattingUtilities.formatBytes(Int64(stats.otherKinds.totalSize)))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+        // Add other kinds
+        for (kind, counts) in stats.otherKinds.kinds where !counts.isEmpty {
+            allKinds.append((kind: kind, counts: counts))
+        }
+
+        // Sort by kind number
+        allKinds.sort { $0.kind < $1.kind }
+
+        return Section("Events by Kind (\(allKinds.count) kinds)") {
+            ForEach(allKinds, id: \.kind) { kind, counts in
+                KindStatRow(kindNumber: kind, counts: counts)
             }
         }
     }
