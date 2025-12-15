@@ -60,7 +60,7 @@ public final class ConversationState {
     public var displayMessages: [Message] {
         // Build reply index: parent ID -> [replies from ALL messages in thread]
         var repliesByParent: [String: [Message]] = [:]
-        for message in messages.values {
+        for message in self.messages.values {
             if let parentID = message.replyTo {
                 repliesByParent[parentID, default: []].append(message)
             }
@@ -71,9 +71,9 @@ public final class ConversationState {
         // Only include messages that should be displayed at this level:
         // - Root message (replyTo == nil)
         // - Direct replies to root (replyTo == rootEventID)
-        for message in messages.values {
+        for message in self.messages.values {
             let isRoot = message.replyTo == nil
-            let isDirectReplyToRoot = message.replyTo == rootEventID
+            let isDirectReplyToRoot = message.replyTo == self.rootEventID
 
             guard isRoot || isDirectReplyToRoot else {
                 continue // Skip nested replies - they're shown via reply indicators
@@ -96,10 +96,14 @@ public final class ConversationState {
             }
         }
 
-        // Add streaming sessions as synthetic messages
-        for session in streamingSessions.values {
-            let syntheticMessage = createSyntheticMessage(from: session)
-            all.append(syntheticMessage)
+        // Add streaming sessions as synthetic messages (only if they have content)
+        // If stream has no content, it will be shown as typing indicator instead
+        for session in self.streamingSessions.values {
+            let content = session.reconstructedContent.trimmingCharacters(in: .whitespaces)
+            if !content.isEmpty {
+                let syntheticMessage = self.createSyntheticMessage(from: session)
+                all.append(syntheticMessage)
+            }
         }
 
         // Sort by creation time (oldest first)
@@ -110,30 +114,41 @@ public final class ConversationState {
     /// - Parameter event: The NDKEvent to process
     public func processEvent(_ event: NDKEvent) {
         if event.isFinalMessage {
-            handleFinalMessage(event)
+            self.handleFinalMessage(event)
         } else if event.isStreamingDelta {
-            handleStreamingEvent(event)
-        } else if event.isTypingStart {
-            typingIndicators[event.pubkey] = event
-        } else if event.isTypingStop {
-            typingIndicators.removeValue(forKey: event.pubkey)
+            self.handleStreamingEvent(event)
+            self.updateTypingIndicators()
         }
     }
 
     /// Clear all state.
     public func clear() {
-        messages.removeAll()
-        streamingSessions.removeAll()
-        typingIndicators.removeAll()
+        self.messages.removeAll()
+        self.streamingSessions.removeAll()
+        self.typingIndicators.removeAll()
     }
 
     /// Add a message directly (e.g., the root thread event which isn't returned by subscriptions)
     /// - Parameter message: The message to add
     public func addMessage(_ message: Message) {
-        messages[message.id] = message
+        self.messages[message.id] = message
     }
 
     // MARK: Private
+
+    /// Update typing indicators based on streaming session state.
+    /// Shows typing indicator for sessions with no content.
+    private func updateTypingIndicators() {
+        self.typingIndicators.removeAll()
+
+        for (pubkey, session) in self.streamingSessions {
+            let content = session.reconstructedContent.trimmingCharacters(in: .whitespaces)
+            if content.isEmpty {
+                // Show typing indicator for empty streams
+                self.typingIndicators[pubkey] = session.latestEvent
+            }
+        }
+    }
 
     private func handleFinalMessage(_ event: NDKEvent) {
         // Store the message (keyed by ID for deduplication)
@@ -146,22 +161,20 @@ public final class ConversationState {
             replyTo: nil,
             kind: UInt16(event.kind)
         )
-        messages[event.id] = message
+        self.messages[event.id] = message
 
         // Trigger callback for agent messages (for auto-TTS)
-        onAgentMessage?(message)
-
-        // Clear typing indicator immediately
-        typingIndicators.removeValue(forKey: event.pubkey)
+        self.onAgentMessage?(message)
 
         // Clear streaming session immediately
         // (Late chunks are already handled by hasFinalized check in handleStreamingEvent)
-        streamingSessions.removeValue(forKey: event.pubkey)
+        // Typing indicators are managed by updateTypingIndicators() based on stream state
+        self.streamingSessions.removeValue(forKey: event.pubkey)
     }
 
     private func handleStreamingEvent(_ event: NDKEvent) {
         // Check if already finalized (match by pubkey + createdAt)
-        let hasFinalized = messages.values.contains { message in
+        let hasFinalized = self.messages.values.contains { message in
             message.pubkey == event.pubkey &&
                 Int64(message.createdAt.timeIntervalSince1970) == event.createdAt
         }
@@ -172,10 +185,10 @@ public final class ConversationState {
         // Get or create streaming session
         if var session = streamingSessions[event.pubkey] {
             session.addDelta(from: event)
-            streamingSessions[event.pubkey] = session
+            self.streamingSessions[event.pubkey] = session
         } else {
             let session = StreamingSession(event: event)
-            streamingSessions[event.pubkey] = session
+            self.streamingSessions[event.pubkey] = session
         }
     }
 

@@ -18,12 +18,6 @@ public extension NDKEvent {
     /// Kind 21111: Streaming delta
     static let kindStreamingDelta: UInt32 = 21_111
 
-    /// Kind 24111: Typing indicator start
-    static let kindTypingStart: UInt32 = 24_111
-
-    /// Kind 24112: Typing indicator stop
-    static let kindTypingStop: UInt32 = 24_112
-
     // MARK: - Event Type Detection
 
     /// Whether this is a streaming delta event (kind 21111)
@@ -34,16 +28,6 @@ public extension NDKEvent {
     /// Whether this is a final message event (kind 1111)
     var isFinalMessage: Bool {
         kind == Self.kindGenericReply
-    }
-
-    /// Whether this is a typing start indicator (kind 24111)
-    var isTypingStart: Bool {
-        kind == Self.kindTypingStart
-    }
-
-    /// Whether this is a typing stop indicator (kind 24112)
-    var isTypingStop: Bool {
-        kind == Self.kindTypingStop
     }
 
     // MARK: - Sequence Number
