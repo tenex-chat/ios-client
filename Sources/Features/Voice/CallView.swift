@@ -81,7 +81,9 @@ public struct CallView: View {
         }
         .onChange(of: self.viewModel.error) { _, error in
             if error != nil {
-                self.hapticManager.error()
+                #if canImport(UIKit)
+                    self.hapticManager.error()
+                #endif
             }
         }
     }
@@ -89,7 +91,11 @@ public struct CallView: View {
     // MARK: Private
 
     @State private var viewModel: CallViewModel
-    @State private var hapticManager = HapticManager()
+
+    #if canImport(UIKit)
+        @State private var hapticManager = HapticManager()
+    #endif
+
     @State private var showHoldHint = false
     @State private var sessionStartTime: Date?
     @State private var isShowingSettings = false
@@ -331,11 +337,15 @@ public struct CallView: View {
                 isProcessing: self.viewModel.state == .waitingForAgent || self.viewModel.agentIsProcessing,
                 isPaused: self.viewModel.isPaused,
                 onTap: {
-                    self.hapticManager.settingsToggle()
+                    #if canImport(UIKit)
+                        self.hapticManager.settingsToggle()
+                    #endif
                     self.viewModel.togglePause()
                 },
                 onLongPress: {
-                    self.hapticManager.tapHoldReleased()
+                    #if canImport(UIKit)
+                        self.hapticManager.tapHoldReleased()
+                    #endif
                     self.viewModel.interruptAgent()
                 }
             )
@@ -478,7 +488,9 @@ public struct CallView: View {
                 Task {
                     // In VAD mode, tap toggles mute instead of recording
                     if self.isVADMode {
-                        self.hapticManager.settingsToggle()
+                        #if canImport(UIKit)
+                            self.hapticManager.settingsToggle()
+                        #endif
                         self.viewModel.toggleMute()
                     } else {
                         self.handleMicTap()
@@ -504,7 +516,9 @@ public struct CallView: View {
     private var sendButton: some View {
         Button {
             Task {
-                self.hapticManager.messageSent()
+                #if canImport(UIKit)
+                    self.hapticManager.messageSent()
+                #endif
                 await self.viewModel.sendMessage()
             }
         } label: {
@@ -581,7 +595,9 @@ public struct CallView: View {
     private func handleStateChange(from oldState: CallState, to newState: CallState) {
         switch newState {
         case .playingResponse where oldState != .playingResponse:
-            self.hapticManager.ttsStarted()
+            #if canImport(UIKit)
+                self.hapticManager.ttsStarted()
+            #endif
         case .listening where oldState == .playingResponse:
             break
         default:
@@ -590,19 +606,25 @@ public struct CallView: View {
     }
 
     private func handleMicTap() {
-        if self.viewModel.state == .recording {
-            self.hapticManager.recordingStopped()
-        } else {
-            self.hapticManager.recordingStarted()
-        }
+        #if canImport(UIKit)
+            if self.viewModel.state == .recording {
+                self.hapticManager.recordingStopped()
+            } else {
+                self.hapticManager.recordingStarted()
+            }
+        #endif
     }
 
     private func handleLongPressStart() {
-        self.hapticManager.tapHoldBegan()
+        #if canImport(UIKit)
+            self.hapticManager.tapHoldBegan()
+        #endif
     }
 
     private func handleLongPressEnd() {
-        self.hapticManager.tapHoldReleased()
+        #if canImport(UIKit)
+            self.hapticManager.tapHoldReleased()
+        #endif
     }
 }
 
