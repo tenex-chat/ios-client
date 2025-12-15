@@ -170,25 +170,14 @@ struct NostrDBStatsView: View {
     }
 
     private func eventsByKindSection(_ stats: NdbStat) -> some View {
-        // Combine common kinds and other kinds into a single sorted list
-        var allKinds: [(kind: UInt64, counts: NdbStatCounts)] = []
+        // Build list of all kinds sorted by kind number
+        let sortedKinds = stats.kinds
+            .filter { !$0.value.isEmpty }
+            .sorted { $0.key < $1.key }
 
-        // Add common kinds
-        for (kind, counts) in stats.commonKinds where !counts.isEmpty {
-            allKinds.append((kind: UInt64(kind.rawValue), counts: counts))
-        }
-
-        // Add other kinds
-        for (kind, counts) in stats.otherKinds.kinds where !counts.isEmpty {
-            allKinds.append((kind: kind, counts: counts))
-        }
-
-        // Sort by kind number
-        allKinds.sort { $0.kind < $1.kind }
-
-        return Section("Events by Kind (\(allKinds.count) kinds)") {
-            ForEach(allKinds, id: \.kind) { kind, counts in
-                KindStatRow(kindNumber: kind, counts: counts)
+        return Section("Events by Kind (\(sortedKinds.count) kinds)") {
+            ForEach(sortedKinds, id: \.key) { kindNumber, counts in
+                KindStatRow(kindNumber: kindNumber, counts: counts)
             }
         }
     }

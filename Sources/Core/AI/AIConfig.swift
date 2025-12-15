@@ -267,6 +267,20 @@ public struct VoiceCallSettings: Codable, Sendable, Equatable {
         self.enableVOD = enableVOD
     }
 
+    /// Custom decoder to handle missing keys from older stored configs
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.vadMode = try container.decodeIfPresent(VADMode.self, forKey: .vadMode) ?? .pushToTalk
+        self.vadMethod = try container.decodeIfPresent(VADMethod.self, forKey: .vadMethod) ?? .energyBased
+        self.vadSensitivity = try container.decodeIfPresent(Double.self, forKey: .vadSensitivity) ?? 0.5
+        self.noiseSuppression = try container.decodeIfPresent(Bool.self, forKey: .noiseSuppression) ?? true
+        self.echoCancellation = try container.decodeIfPresent(Bool.self, forKey: .echoCancellation) ?? true
+        self.autoGainControl = try container.decodeIfPresent(Bool.self, forKey: .autoGainControl) ?? true
+        self.preferredInputDevice = try container.decodeIfPresent(String.self, forKey: .preferredInputDevice)
+        self.autoTTS = try container.decodeIfPresent(Bool.self, forKey: .autoTTS) ?? true
+        self.enableVOD = try container.decodeIfPresent(Bool.self, forKey: .enableVOD) ?? true
+    }
+
     // MARK: Public
 
     /// Voice activity detection mode
@@ -287,6 +301,20 @@ public struct VoiceCallSettings: Codable, Sendable, Equatable {
     public var autoTTS: Bool
     /// Enable voice-of-data (call recording)
     public var enableVOD: Bool
+
+    // MARK: Private
+
+    private enum CodingKeys: String, CodingKey {
+        case vadMode
+        case vadMethod
+        case vadSensitivity
+        case noiseSuppression
+        case echoCancellation
+        case autoGainControl
+        case preferredInputDevice
+        case autoTTS
+        case enableVOD
+    }
 }
 
 // MARK: - DebuggingSettings

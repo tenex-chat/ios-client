@@ -60,7 +60,11 @@ final class SystemTTSService: TTSService {
 
     // MARK: Private
 
+    // MARK: Private Properties
+
     private let synthesizer = AVSpeechSynthesizer()
+    /// Keep delegate alive for the duration of synthesis
+    private var currentDelegate: SpeechSynthesizerDelegate?
 
     /// System voices mapped from VoiceConfig IDs
     private let voiceMapping: [String: String] = [
@@ -89,35 +93,28 @@ final class SystemTTSService: TTSService {
     }
 
     private func performSynthesis(utterance: AVSpeechUtterance) async throws -> Data {
-        try await withCheckedThrowingContinuation { continuation in
-            Task { @MainActor in
-                do {
-                    #if os(iOS)
-                        let session = AVAudioSession.sharedInstance()
-                        try session.setCategory(.playAndRecord, mode: .default)
-                        try session.setActive(true)
-                    #endif
+        #if os(iOS)
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playAndRecord, mode: .default)
+            try session.setActive(true)
+        #endif
 
-                    var audioData = Data()
-                    let delegate = SpeechSynthesizerDelegate(
-                        onFinish: {
-                            // swiftlint:disable:next no_print_statements
-                            print("[SystemTTSService] Warning: Direct audio capture not implemented")
-                            continuation.resume(returning: audioData)
-                        },
-                        onError: { error in
-                            continuation.resume(throwing: error)
-                        }
-                    )
-
-                    self.synthesizer.delegate = delegate
-                    self.synthesizer.speak(utterance)
-
-                    withExtendedLifetime(delegate) {}
-                } catch {
-                    continuation.resume(throwing: AudioError.synthesisFailed(error))
+        return try await withCheckedThrowingContinuation { continuation in
+            let audioData = Data()
+            let delegate = SpeechSynthesizerDelegate(
+                onFinish: { [weak self] in
+                    self?.currentDelegate = nil
+                    continuation.resume(returning: audioData)
+                },
+                onError: { [weak self] error in
+                    self?.currentDelegate = nil
+                    continuation.resume(throwing: error)
                 }
-            }
+            )
+
+            self.currentDelegate = delegate
+            self.synthesizer.delegate = delegate
+            self.synthesizer.speak(utterance)
         }
     }
 }

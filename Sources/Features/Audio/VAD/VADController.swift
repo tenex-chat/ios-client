@@ -39,12 +39,6 @@ public final class VADController {
         self.service.updateSensitivity(sensitivity)
     }
 
-    deinit {
-        Task { @MainActor in
-            await stop()
-        }
-    }
-
     // MARK: Public
 
     /// Callback when speech starts

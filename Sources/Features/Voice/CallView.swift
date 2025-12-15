@@ -60,6 +60,11 @@ public struct CallView: View {
             if self.viewModel.state == .idle {
                 await self.viewModel.startCall()
             }
+
+            // Auto-start recording - user is here to talk
+            if self.viewModel.canRecord {
+                await self.viewModel.startRecording()
+            }
         }
         .onChange(of: self.viewModel.state) { oldState, newState in
             self.handleStateChange(from: oldState, to: newState)
@@ -77,6 +82,9 @@ public struct CallView: View {
     @State private var hapticManager = HapticManager()
     @State private var showHoldHint = false
     @State private var sessionStartTime: Date?
+    @State private var isShowingSettings = false
+
+    @Environment(\.aiConfigStorage) private var aiConfigStorage
 
     // Note: NDK instance reserved for future profile picture support
     private let ndk: NDK
@@ -273,7 +281,6 @@ public struct CallView: View {
     // MARK: - Controls Section
 
     private var controlsSection: some View {
-        // swiftlint:disable:next closure_body_length
         VStack(spacing: 16) {
             // Current transcript display
             if !self.viewModel.currentTranscript.isEmpty {
@@ -285,17 +292,6 @@ public struct CallView: View {
                 self.errorDisplay(error)
             }
 
-            // Audio visualizer
-            if self.viewModel.state == .recording {
-                VoiceVisualizerView(
-                    audioLevel: self.viewModel.audioLevel,
-                    isActive: true,
-                    color: self.projectColor,
-                    size: 80
-                )
-                .transition(.scale)
-            }
-
             // Control buttons with pulsing rings and hold hint
             ZStack {
                 // Pulsing rings for VAD listening state
@@ -305,7 +301,7 @@ public struct CallView: View {
 
                 // Control buttons
                 HStack(spacing: 24) {
-                    self.autoTTSButton
+                    self.settingsButton
                     self.micButton
                     self.sendButton
                 }
@@ -336,17 +332,19 @@ public struct CallView: View {
                 }
             }
         }
+        .sheet(isPresented: self.$isShowingSettings) {
+            self.voiceSettingsSheet
+        }
     }
 
-    private var autoTTSButton: some View {
+    private var settingsButton: some View {
         Button {
-            self.hapticManager.settingsToggle()
-            self.viewModel.toggleAutoTTS()
+            self.isShowingSettings = true
         } label: {
             VStack(spacing: 4) {
-                Image(systemName: self.viewModel.autoTTS ? "speaker.wave.3.fill" : "speaker.slash.fill")
+                Image(systemName: "gear")
                     .font(.system(size: 20))
-                Text(self.viewModel.autoTTS ? "Auto TTS" : "TTS Off")
+                Text("Settings")
                     .font(.caption2)
             }
             .foregroundStyle(.white)
@@ -443,6 +441,19 @@ public struct CallView: View {
         .clipShape(Capsule())
     }
 
+    private var voiceSettingsSheet: some View {
+        NavigationView {
+            if let storage = aiConfigStorage {
+                VoiceCallSettingsWrapper(storage: storage) {
+                    self.isShowingSettings = false
+                }
+            } else {
+                Text("Settings unavailable")
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
     private func errorDisplay(_ error: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
@@ -486,6 +497,71 @@ public struct CallView: View {
 }
 
 // swiftlint:enable type_body_length
+
+// MARK: - VoiceCallSettingsWrapper
+
+/// Wrapper to load and persist voice call settings from CallView
+private struct VoiceCallSettingsWrapper: View {
+    // MARK: Lifecycle
+
+    init(storage: AIConfigStorage, onDismiss: @escaping () -> Void) {
+        self.storage = storage
+        self.onDismiss = onDismiss
+    }
+
+    // MARK: Internal
+
+    var body: some View {
+        VoiceCallSettingsView(settings: self.$settings)
+            .navigationTitle("Voice Settings")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") {
+                        self.onDismiss()
+                    }
+                }
+            }
+            .task {
+                await self.loadSettings()
+            }
+            .onChange(of: self.settings) { _, _ in
+                // Only save after initial load is complete
+                guard self.hasLoaded else {
+                    return
+                }
+                Task {
+                    await self.saveSettings()
+                }
+            }
+    }
+
+    // MARK: Private
+
+    @State private var settings = VoiceCallSettings()
+    @State private var hasLoaded = false
+
+    private let storage: AIConfigStorage
+    private let onDismiss: () -> Void
+
+    private func loadSettings() async {
+        do {
+            if let config = try storage.load() {
+                self.settings = config.voiceCallSettings
+            }
+        } catch {}
+        self.hasLoaded = true
+    }
+
+    private func saveSettings() async {
+        do {
+            // Try to load existing config, or create fresh one if load fails
+            var config = (try? self.storage.load()) ?? AIConfig()
+            config.voiceCallSettings = self.settings
+            try self.storage.save(config)
+        } catch {}
+    }
+}
 
 // MARK: - Preview
 

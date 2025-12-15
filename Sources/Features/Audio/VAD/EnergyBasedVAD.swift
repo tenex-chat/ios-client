@@ -15,12 +15,6 @@ final class EnergyBasedVAD: VADService {
 
     init() {}
 
-    deinit {
-        Task { @MainActor in
-            await stop()
-        }
-    }
-
     // MARK: Internal
 
     var onSpeechStart: (@Sendable () -> Void)?

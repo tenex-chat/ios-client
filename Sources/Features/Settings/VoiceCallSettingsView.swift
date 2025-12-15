@@ -116,8 +116,6 @@ public struct VoiceCallSettingsView: View {
 
     @ViewBuilder private var callBehaviorSection: some View {
         Section {
-            Toggle("Auto-speak Responses", isOn: self.$settings.autoTTS)
-                .accessibilityLabel("Automatically speak agent responses")
             Toggle("Record Calls", isOn: self.$settings.enableVOD)
                 .accessibilityLabel("Enable call recording")
         } header: {

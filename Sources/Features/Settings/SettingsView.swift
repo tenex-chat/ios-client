@@ -157,9 +157,7 @@ private struct VoiceCallSettingsViewWrapper: View {
     }
 
     private func saveSettings() async {
-        guard var config = try? storage.load() else {
-            return
-        }
+        var config = (try? self.storage.load()) ?? AIConfig()
         config.voiceCallSettings = self.settings
         try? self.storage.save(config)
     }

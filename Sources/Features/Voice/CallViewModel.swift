@@ -210,21 +210,28 @@ public final class CallViewModel {
     /// Start the call
     public func startCall() async {
         guard self.state == .idle else {
+            self.logger.info("[startCall] Already started, state=\(String(describing: self.state))")
             return
         }
 
+        self.logger.info("[startCall] Starting call...")
         self.error = nil
         self.state = .connecting
         self.callStartTime = Date()
 
         // Start VOD recording if enabled
         if self.enableVOD {
+            self.logger.info("[startCall] Starting VOD recording")
             await self.startVODRecording()
         }
 
         // Start VAD if enabled
+        self.logger.info("[startCall] VAD mode: \(String(describing: self.vadMode))")
         if self.vadMode == .auto || self.vadMode == .autoWithHold {
+            self.logger.info("[startCall] Starting VAD")
             await self.startVAD()
+        } else {
+            self.logger.info("[startCall] VAD not started (push-to-talk mode)")
         }
 
         // Initialize TTS Queue
@@ -257,6 +264,7 @@ public final class CallViewModel {
 
         // Transition to listening state
         self.state = .listening
+        self.logger.info("[startCall] Call started, state=.listening, canRecord=\(self.canRecord)")
     }
 
     /// End the call
@@ -302,15 +310,19 @@ public final class CallViewModel {
     /// Start recording user speech
     public func startRecording() async {
         guard self.canRecord else {
+            self.logger.warning("[startRecording] Cannot record - canRecord is false")
             return
         }
 
+        self.logger.info("[startRecording] Starting recording...")
         self.error = nil
         self.state = .recording
 
         do {
             try await self.audioService.startRecording()
+            self.logger.info("[startRecording] Recording started successfully")
         } catch {
+            self.logger.error("[startRecording] Failed: \(error.localizedDescription)")
             self.error = error.localizedDescription
             self.state = .listening
         }
@@ -336,10 +348,16 @@ public final class CallViewModel {
 
     /// Toggle recording state (for push-to-talk)
     public func toggleRecording() async {
+        self.logger
+            .info("[toggleRecording] Called. state=\(String(describing: self.state)), canRecord=\(self.canRecord)")
         if self.state == .recording {
+            self.logger.info("[toggleRecording] Stopping recording")
             await self.stopRecording()
         } else if self.canRecord {
+            self.logger.info("[toggleRecording] Starting recording")
             await self.startRecording()
+        } else {
+            self.logger.warning("[toggleRecording] Cannot record - state is not .listening")
         }
     }
 

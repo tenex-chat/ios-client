@@ -1,0 +1,46 @@
+# Maestro Flow: Document Navigation
+# Verifies user can navigate to a document from the Docs tab
+#
+# Prerequisites: App in logged in state with at least one project with documents
+# Expected: User can tap a document and see document detail view
+
+appId: chat.tenex.ios
+---
+- launchApp
+
+# Wait for project list to load
+- assertVisible: "Projects"
+
+# Wait for projects to load
+- extendedWaitUntil:
+    visible: "No Projects"
+    optional: true
+
+# Tap first project
+- tapOn:
+    text: ".*"
+    index: 0
+    optional: true
+
+# Wait for project detail view
+- assertVisible: "Docs"
+
+# Tap Docs tab
+- tapOn: "Docs"
+
+# Wait for docs to load (either empty state or document list)
+- extendedWaitUntil:
+    visible: "No documents yet"
+    optional: true
+
+# Try tapping first document if it exists
+- tapOn:
+    id: ".*"
+    index: 0
+    optional: true
+
+# Take screenshot to debug what happened
+- takeScreenshot: document_navigation_result
+
+# Should NOT see project list (we should be in document detail)
+- assertNotVisible: "Projects"

@@ -83,6 +83,7 @@ struct MicButton: View {
             // Icon
             self.iconView
         }
+        .frame(width: 90, height: 90) // Fixed size to prevent layout shifts from audio level ring
         .scaleEffect(self.isPressed ? 0.95 : 1.0)
         .animation(.easeOut(duration: 0.1), value: self.isPressed)
         .simultaneousGesture(self.combinedGesture)
@@ -134,8 +135,23 @@ struct MicButton: View {
     }
 
     private var combinedGesture: some Gesture {
+        // Use simultaneous gestures to properly handle both tap and long press
+        // TapGesture handles quick taps
+        // LongPressGesture handles hold-to-talk
+        TapGesture()
+            .onEnded {
+                // swiftlint:disable:next no_print_statements
+                print("[MicButton] Tap detected")
+                self.onTap()
+            }
+            .simultaneously(with: self.longPressGesture)
+    }
+
+    private var longPressGesture: some Gesture {
         LongPressGesture(minimumDuration: 0.3)
             .onEnded { _ in
+                // swiftlint:disable:next no_print_statements
+                print("[MicButton] Long press started")
                 self.onLongPressStart()
             }
             .sequenced(before: DragGesture(minimumDistance: 0))
@@ -150,11 +166,10 @@ struct MicButton: View {
                 }
             }
             .onEnded { value in
-                switch value {
-                case .second(true, _):
+                if case .second(true, _) = value {
+                    // swiftlint:disable:next no_print_statements
+                    print("[MicButton] Long press ended")
                     self.onLongPressEnd()
-                default:
-                    self.onTap()
                 }
             }
     }
