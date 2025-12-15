@@ -55,6 +55,13 @@ final class EnergyBasedVAD: VADService {
             }
         }
 
+        // Start the audio engine to begin processing audio
+        do {
+            try audioEngine.start()
+        } catch {
+            throw VADError.initializationFailed(error)
+        }
+
         self.isActive = true
         self.isSpeaking = false
     }
@@ -63,6 +70,9 @@ final class EnergyBasedVAD: VADService {
         guard self.isActive else {
             return
         }
+
+        // Stop audio engine
+        self.audioEngine?.stop()
 
         // Remove tap
         self.audioEngine?.inputNode.removeTap(onBus: 0)
