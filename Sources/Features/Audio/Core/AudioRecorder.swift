@@ -39,9 +39,6 @@ final class AudioRecorder {
     /// - Returns: URL where recording will be saved
     @discardableResult
     func startRecording() async throws -> URL {
-        // swiftlint:disable:next no_print_statements
-        print("[AudioRecorder] startRecording called")
-
         #if !os(macOS)
             try await self.checkPermissionAndConfigureSession()
         #endif
@@ -51,8 +48,6 @@ final class AudioRecorder {
         let fileName = "recording_\(UUID().uuidString).wav"
         let fileURL = tempDir.appendingPathComponent(fileName)
         self.currentRecordingURL = fileURL
-        // swiftlint:disable:next no_print_statements
-        print("[AudioRecorder] Recording to: \(fileURL.path)")
 
         // Create audio recorder
         do {
@@ -60,11 +55,7 @@ final class AudioRecorder {
             self.audioRecorder?.isMeteringEnabled = true
             self.audioRecorder?.prepareToRecord()
 
-            // swiftlint:disable:next no_print_statements
-            print("[AudioRecorder] Starting record()...")
             guard self.audioRecorder?.record() == true else {
-                // swiftlint:disable:next no_print_statements
-                print("[AudioRecorder] record() returned false")
                 throw AudioError.recordingFailed(NSError(
                     domain: "AudioRecorder",
                     code: -1,
@@ -72,15 +63,11 @@ final class AudioRecorder {
                 ))
             }
 
-            // swiftlint:disable:next no_print_statements
-            print("[AudioRecorder] Recording started successfully!")
             self.isRecording = true
             self.startMetering()
 
             return fileURL
         } catch {
-            // swiftlint:disable:next no_print_statements
-            print("[AudioRecorder] Error: \(error)")
             throw AudioError.recordingFailed(error)
         }
     }
@@ -167,36 +154,20 @@ final class AudioRecorder {
     #if !os(macOS)
         private func checkPermissionAndConfigureSession() async throws {
             let permission = AVAudioSession.sharedInstance().recordPermission
-            // swiftlint:disable:next no_print_statements
-            print("[AudioRecorder] Current permission: \(permission.rawValue)")
             if permission == .undetermined {
-                // swiftlint:disable:next no_print_statements
-                print("[AudioRecorder] Requesting permission...")
                 let granted = await requestPermission()
                 if !granted {
-                    // swiftlint:disable:next no_print_statements
-                    print("[AudioRecorder] Permission denied")
                     throw AudioError.permissionDenied
                 }
-                // swiftlint:disable:next no_print_statements
-                print("[AudioRecorder] Permission granted")
             } else if permission != .granted {
-                // swiftlint:disable:next no_print_statements
-                print("[AudioRecorder] Permission not granted: \(permission.rawValue)")
                 throw AudioError.permissionDenied
             }
 
             let session = AVAudioSession.sharedInstance()
             do {
-                // swiftlint:disable:next no_print_statements
-                print("[AudioRecorder] Setting audio session category...")
                 try session.setCategory(.playAndRecord, mode: .default)
                 try session.setActive(true)
-                // swiftlint:disable:next no_print_statements
-                print("[AudioRecorder] Audio session configured")
             } catch {
-                // swiftlint:disable:next no_print_statements
-                print("[AudioRecorder] Audio session error: \(error)")
                 throw AudioError.recordingFailed(error)
             }
         }

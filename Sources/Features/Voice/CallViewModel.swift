@@ -419,14 +419,6 @@ public final class CallViewModel {
         }
     }
 
-    /// Handle incoming agent response
-    /// NOTE: This method is deprecated - messages now come through ConversationState subscription
-    /// Kept for backwards compatibility in case it's still called from ChatView
-    public func handleAgentResponse(_: String) async {
-        // Messages are now handled through subscribeToConversation()
-        // This is a no-op for backwards compatibility
-    }
-
     // MARK: - Playback Controls
 
     /// Stop current TTS playback

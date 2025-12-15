@@ -145,8 +145,6 @@ struct MicButton: View {
         // LongPressGesture handles hold-to-talk
         TapGesture()
             .onEnded {
-                // swiftlint:disable:next no_print_statements
-                print("[MicButton] Tap detected")
                 self.onTap()
             }
             .simultaneously(with: self.longPressGesture)
@@ -155,8 +153,6 @@ struct MicButton: View {
     private var longPressGesture: some Gesture {
         LongPressGesture(minimumDuration: 0.3)
             .onEnded { _ in
-                // swiftlint:disable:next no_print_statements
-                print("[MicButton] Long press started")
                 self.onLongPressStart()
             }
             .sequenced(before: DragGesture(minimumDistance: 0))
@@ -172,8 +168,6 @@ struct MicButton: View {
             }
             .onEnded { value in
                 if case .second(true, _) = value {
-                    // swiftlint:disable:next no_print_statements
-                    print("[MicButton] Long press ended")
                     self.onLongPressEnd()
                 }
             }

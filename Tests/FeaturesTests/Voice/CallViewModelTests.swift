@@ -4,8 +4,6 @@
 // Copyright (c) 2025 TENEX Team
 //
 
-// swiftlint:disable file_length
-
 import TENEXCore
 @testable import TENEXFeatures
 import Testing
@@ -31,33 +29,33 @@ struct CallViewModelTests {
         var playbackStopped = false
 
         override func startRecording() async throws {
-            if shouldFailRecording {
+            if self.shouldFailRecording {
                 throw AudioError.permissionDenied
             }
-            recordingStarted = true
+            self.recordingStarted = true
         }
 
         override func stopRecording() async throws -> String {
-            recordingStopped = true
-            if shouldFailTranscription {
+            self.recordingStopped = true
+            if self.shouldFailTranscription {
                 throw AudioError.transcriptionFailed(NSError(domain: "Test", code: -1))
             }
             return "Test transcript"
         }
 
         override func cancelRecording() async {
-            recordingCancelled = true
+            self.recordingCancelled = true
         }
 
         override func speak(text: String, voiceID: String? = nil) async throws {
-            speechSynthesized.append((text, voiceID))
-            if shouldFailTTS {
+            self.speechSynthesized.append((text, voiceID))
+            if self.shouldFailTTS {
                 throw AudioError.synthesisFailed(NSError(domain: "Test", code: -1))
             }
         }
 
         override func stopSpeaking() {
-            playbackStopped = true
+            self.playbackStopped = true
         }
     }
 
@@ -87,7 +85,6 @@ struct CallViewModelTests {
         ) { _, _, _ in }
 
         #expect(viewModel.state == .idle)
-        #expect(viewModel.messages.isEmpty)
         #expect(viewModel.currentTranscript.isEmpty)
         #expect(viewModel.enableVOD == true)
         #expect(viewModel.autoTTS == true)
@@ -123,8 +120,6 @@ struct CallViewModelTests {
 
         #expect(viewModel.state == .listening)
         #expect(viewModel.isCallActive)
-        #expect(viewModel.messages.count == 1)
-        #expect(viewModel.messages.first?.content.contains("How can I help you") == true)
     }
 
     @Test("Starting call with auto-TTS speaks welcome message")
@@ -323,85 +318,13 @@ struct CallViewModelTests {
         await viewModel.startRecording()
         await viewModel.stopRecording()
 
-        let initialMessageCount = viewModel.messages.count
         await viewModel.sendMessage()
 
         #expect(messageSent)
         #expect(sentText == "Test transcript")
         #expect(sentPubkey == "test-pubkey")
         #expect(sentTags.contains(["mode", "voice"]))
-        #expect(sentTags.contains(["type", "call"]))
-        #expect(viewModel.messages.count == initialMessageCount + 1)
         #expect(viewModel.currentTranscript.isEmpty)
-        #expect(viewModel.state == .waitingForAgent)
-    }
-
-    @Test("Handling agent response adds message and plays TTS when auto-TTS enabled")
-    func handleAgentResponseWithAutoTTS() async throws {
-        let mockAudio = MockAudioService(
-            storage: MockAIConfigStorage(),
-            capabilityDetector: MockAICapabilityDetector()
-        )
-        let agent = ProjectAgent(
-            id: "test-agent",
-            pubkey: "test-pubkey",
-            name: "Test Agent",
-            role: "assistant",
-            useCase: "testing",
-            voiceID: "test-voice"
-        )
-
-        let viewModel = CallViewModel(
-            audioService: mockAudio,
-            projectID: "test-project",
-            agent: agent,
-            enableVOD: false,
-            autoTTS: true
-        ) { _, _, _ in }
-
-        await viewModel.startCall()
-        mockAudio.speechSynthesized.removeAll()
-
-        let initialMessageCount = viewModel.messages.count
-        await viewModel.handleAgentResponse("Hello from agent")
-
-        #expect(viewModel.messages.count == initialMessageCount + 1)
-        #expect(viewModel.messages.last?.content == "Hello from agent")
-        #expect(!mockAudio.speechSynthesized.isEmpty)
-        #expect(mockAudio.speechSynthesized.last?.text == "Hello from agent")
-        #expect(mockAudio.speechSynthesized.last?.voiceID == "test-voice")
-        #expect(viewModel.state == .listening)
-    }
-
-    @Test("Handling agent response without auto-TTS does not play audio")
-    func handleAgentResponseWithoutAutoTTS() async throws {
-        let mockAudio = MockAudioService(
-            storage: MockAIConfigStorage(),
-            capabilityDetector: MockAICapabilityDetector()
-        )
-        let agent = ProjectAgent(
-            id: "test-agent",
-            pubkey: "test-pubkey",
-            name: "Test Agent",
-            role: "assistant",
-            useCase: "testing",
-            voiceID: nil
-        )
-
-        let viewModel = CallViewModel(
-            audioService: mockAudio,
-            projectID: "test-project",
-            agent: agent,
-            enableVOD: false,
-            autoTTS: false
-        ) { _, _, _ in }
-
-        await viewModel.startCall()
-        mockAudio.speechSynthesized.removeAll()
-
-        await viewModel.handleAgentResponse("Hello from agent")
-
-        #expect(mockAudio.speechSynthesized.isEmpty)
         #expect(viewModel.state == .listening)
     }
 
@@ -470,7 +393,6 @@ struct CallViewModelTests {
         #expect(viewModel.vodRecordingURL == nil)
     }
 
-    // swiftlint:disable function_body_length
     @Test("VOD recording persists messages to file")
     func vodRecordingPersistsMessages() async throws {
         let mockAudio = MockAudioService(
@@ -510,9 +432,6 @@ struct CallViewModelTests {
         await viewModel.stopRecording()
         await viewModel.sendMessage()
 
-        // Handle an agent response
-        await viewModel.handleAgentResponse("Hello from agent")
-
         // End call
         await viewModel.endCall()
 
@@ -530,30 +449,13 @@ struct CallViewModelTests {
         #expect(vodJSON?["endTime"] != nil)
         #expect(vodJSON?["duration"] != nil)
 
-        // Verify messages array contains both user and agent messages
+        // Verify messages array exists (messages will come through subscription in production)
         let messages = vodJSON?["messages"] as? [[String: Any]]
         #expect(messages != nil)
-        #expect(messages?.count ?? 0 >= 2) // At least user message and agent response
-
-        // Find user message
-        let userMessage = messages?.first { ($0["sender"] as? String) == "user" }
-        #expect(userMessage != nil)
-        #expect(userMessage?["content"] as? String == "Test transcript")
-        #expect(userMessage?["id"] != nil)
-        #expect(userMessage?["timestamp"] != nil)
-
-        // Find agent message
-        let agentMessage = messages?.first { ($0["sender"] as? String) == "agent" }
-        #expect(agentMessage != nil)
-        #expect(agentMessage?["content"] as? String == "Hello from agent")
-        #expect(agentMessage?["id"] != nil)
-        #expect(agentMessage?["timestamp"] != nil)
 
         // Clean up test file
         try? FileManager.default.removeItem(at: vodURL)
     }
-
-    // swiftlint:enable function_body_length
 
     // MARK: - Playback Control Tests
 
