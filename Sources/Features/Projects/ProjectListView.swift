@@ -86,11 +86,24 @@ public struct ProjectListView: View {
     @State private var showingCreateWizard = false
     @State private var showingGroupEditor = false
     @State private var editingGroup: ProjectGroup?
+    @State private var isOfflineSectionExpanded = true
     @Environment(\.ndk) private var ndk
     @Environment(DataStore.self) private var dataStore: DataStore?
 
     private var allProjects: [Project] {
         self.viewModel.allNonArchivedProjects
+    }
+
+    private var onlineProjects: [Project] {
+        self.viewModel.projects.filter { project in
+            self.dataStore?.isProjectOnline(projectCoordinate: project.coordinate) ?? false
+        }
+    }
+
+    private var offlineProjects: [Project] {
+        self.viewModel.projects.filter { project in
+            !(self.dataStore?.isProjectOnline(projectCoordinate: project.coordinate) ?? false)
+        }
     }
 
     private var emptyStateTitle: String {
@@ -177,11 +190,63 @@ public struct ProjectListView: View {
 
     private var projectList: some View {
         List {
-            ForEach(self.viewModel.projects) { project in
-                self.projectRow(for: project)
-            }
+            self.onlineProjectsSection
+            self.offlineProjectsSection
         }
         .listStyle(.plain)
+        .onAppear {
+            // Collapse offline section by default if there are online projects
+            if !self.onlineProjects.isEmpty, self.isOfflineSectionExpanded {
+                self.isOfflineSectionExpanded = false
+            }
+        }
+    }
+
+    @ViewBuilder private var onlineProjectsSection: some View {
+        if !self.onlineProjects.isEmpty {
+            Section {
+                ForEach(self.onlineProjects) { project in
+                    self.projectRow(for: project)
+                }
+            } header: {
+                Text("Online")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+                    .textCase(nil)
+            }
+        }
+    }
+
+    @ViewBuilder private var offlineProjectsSection: some View {
+        if !self.offlineProjects.isEmpty {
+            Section {
+                DisclosureGroup(isExpanded: self.$isOfflineSectionExpanded) {
+                    ForEach(self.offlineProjects) { project in
+                        self.projectRow(for: project)
+                    }
+                } label: {
+                    self.offlineProjectsSectionLabel
+                }
+            }
+        }
+    }
+
+    private var offlineProjectsSectionLabel: some View {
+        HStack {
+            Text("Offline")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Text("\(self.offlineProjects.count)")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+                .background(Color.secondary.opacity(0.1))
+                .clipShape(Capsule())
+        }
     }
 
     private var emptyView: some View {
