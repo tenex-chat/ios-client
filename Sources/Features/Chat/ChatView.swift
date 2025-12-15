@@ -178,6 +178,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
 
     @ViewBuilder
     private func mainContent(viewModel: ChatViewModel) -> some View {
+        @Bindable var bindableViewModel = viewModel
         let displayedMessages = self.messagesForCurrentFocus(viewModel: viewModel)
 
         VStack(spacing: 0) {
@@ -200,7 +201,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
         }
         .sheet(isPresented: self.$isShowingSettings) {
             NavigationView {
-                ConversationSettingsView(settings: $viewModel.conversationSettings)
+                ConversationSettingsView(settings: $bindableViewModel.conversationSettings)
                     .toolbar {
                         ToolbarItem(placement: .navigationBarTrailing) {
                             Button("Done") {

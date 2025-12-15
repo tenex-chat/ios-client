@@ -147,6 +147,7 @@ public final class CallViewModel {
     ///   - audioService: Audio service for recording, TTS, and playback
     ///   - projectID: Project identifier
     ///   - agent: Agent to call
+    ///   - voiceID: Voice ID for TTS (from AgentVoiceConfigStorage)
     ///   - enableVOD: Whether to record the call for playback (Video/Voice on Demand)
     ///   - autoTTS: Whether to automatically speak agent responses
     ///   - onSendMessage: Callback to send message to agent (messageText, agentPubkey, tags in Nostr format)
@@ -154,6 +155,7 @@ public final class CallViewModel {
         audioService: AudioService,
         projectID: String,
         agent: ProjectAgent,
+        voiceID: String? = nil,
         onSendMessage: @escaping (String, String, [[String]]) async throws -> Void,
         enableVOD: Bool = true,
         autoTTS: Bool = true
@@ -161,6 +163,7 @@ public final class CallViewModel {
         self.audioService = audioService
         self.projectID = projectID
         self.agent = agent
+        self.voiceID = voiceID
         self.enableVOD = enableVOD
         self.autoTTS = autoTTS
         self.onSendMessage = onSendMessage
@@ -183,6 +186,9 @@ public final class CallViewModel {
     /// Agent in the call
     public let agent: ProjectAgent
 
+    /// Voice ID for TTS (from AgentVoiceConfigStorage)
+    public let voiceID: String?
+
     /// Whether VOD recording is enabled
     public let enableVOD: Bool
 
@@ -197,97 +203,97 @@ public final class CallViewModel {
 
     /// Audio level for visualization (0.0 to 1.0)
     public var audioLevel: Double {
-        audioService.recorder.audioLevel
+        self.audioService.recorder.audioLevel
     }
 
     /// Whether the call is active
     public var isCallActive: Bool {
-        state != .idle && state != .ended
+        self.state != .idle && self.state != .ended
     }
 
     /// Whether user can record
     public var canRecord: Bool {
-        state == .listening
+        self.state == .listening
     }
 
     /// Whether send button should be enabled
     public var canSend: Bool {
-        !currentTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && state != .processingSTT
-            && state != .waitingForAgent
+        !self.currentTranscript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && self.state != .processingSTT
+            && self.state != .waitingForAgent
     }
 
     // MARK: - Call Lifecycle
 
     /// Start the call
     public func startCall() async {
-        guard state == .idle else {
+        guard self.state == .idle else {
             return
         }
 
-        error = nil
-        state = .connecting
-        callStartTime = Date()
+        self.error = nil
+        self.state = .connecting
+        self.callStartTime = Date()
 
         // Start VOD recording if enabled
-        if enableVOD {
-            await startVODRecording()
+        if self.enableVOD {
+            await self.startVODRecording()
         }
 
         // Transition to listening state
-        state = .listening
+        self.state = .listening
 
         // Add system message
         let systemMessage = CallMessage(
-            sender: .agent(pubkey: agent.pubkey, name: agent.name, voiceID: agent.voiceID),
+            sender: .agent(pubkey: agent.pubkey, name: self.agent.name, voiceID: self.voiceID),
             content: Self.welcomeMessage
         )
-        messages.append(systemMessage)
+        self.messages.append(systemMessage)
 
         // Speak welcome message if auto-TTS is enabled
-        if autoTTS {
-            state = .playingResponse
-            ttsTask = Task {
+        if self.autoTTS {
+            self.state = .playingResponse
+            self.ttsTask = Task {
                 do {
-                    try await audioService.speak(text: systemMessage.content, voiceID: agent.voiceID)
+                    try await self.audioService.speak(text: systemMessage.content, voiceID: self.voiceID)
                     if !Task.isCancelled {
-                        state = .listening
+                        self.state = .listening
                     }
                 } catch {
                     if !Task.isCancelled {
                         self.error = error.localizedDescription
-                        state = .listening
+                        self.state = .listening
                     }
                 }
             }
-            await ttsTask?.value
+            await self.ttsTask?.value
         }
     }
 
     /// End the call
     public func endCall() async {
         // Cancel any recording
-        if state == .recording {
-            await audioService.cancelRecording()
+        if self.state == .recording {
+            await self.audioService.cancelRecording()
         }
 
         // Cancel any ongoing TTS task
-        ttsTask?.cancel()
-        ttsTask = nil
+        self.ttsTask?.cancel()
+        self.ttsTask = nil
 
         // Stop any playback
-        audioService.stopSpeaking()
+        self.audioService.stopSpeaking()
 
         // Stop VOD recording
-        await stopVODRecording()
+        await self.stopVODRecording()
 
         // Update state
-        state = .ended
-        currentTranscript = ""
+        self.state = .ended
+        self.currentTranscript = ""
 
         // Calculate final duration
         if let startTime = callStartTime {
-            callDuration = Date().timeIntervalSince(startTime)
+            self.callDuration = Date().timeIntervalSince(startTime)
         }
     }
 
@@ -295,141 +301,141 @@ public final class CallViewModel {
 
     /// Start recording user speech
     public func startRecording() async {
-        guard canRecord else {
+        guard self.canRecord else {
             return
         }
 
-        error = nil
-        state = .recording
+        self.error = nil
+        self.state = .recording
 
         do {
-            try await audioService.startRecording()
+            try await self.audioService.startRecording()
         } catch {
             self.error = error.localizedDescription
-            state = .listening
+            self.state = .listening
         }
     }
 
     /// Stop recording and transcribe
     public func stopRecording() async {
-        guard state == .recording else {
+        guard self.state == .recording else {
             return
         }
 
-        state = .processingSTT
+        self.state = .processingSTT
 
         do {
             let transcribedText = try await audioService.stopRecording()
-            currentTranscript = transcribedText
-            state = .listening
+            self.currentTranscript = transcribedText
+            self.state = .listening
         } catch {
             self.error = error.localizedDescription
-            state = .listening
+            self.state = .listening
         }
     }
 
     /// Toggle recording state (for push-to-talk)
     public func toggleRecording() async {
-        if state == .recording {
-            await stopRecording()
-        } else if canRecord {
-            await startRecording()
+        if self.state == .recording {
+            await self.stopRecording()
+        } else if self.canRecord {
+            await self.startRecording()
         }
     }
 
     /// Cancel current recording without transcribing
     public func cancelRecording() async {
-        guard state == .recording else {
+        guard self.state == .recording else {
             return
         }
 
-        await audioService.cancelRecording()
-        state = .listening
+        await self.audioService.cancelRecording()
+        self.state = .listening
     }
 
     // MARK: - Messaging
 
     /// Send the current transcript to the agent
     public func sendMessage() async {
-        guard canSend else {
+        guard self.canSend else {
             return
         }
 
-        let messageText = currentTranscript
-        currentTranscript = ""
-        error = nil
+        let messageText = self.currentTranscript
+        self.currentTranscript = ""
+        self.error = nil
 
         // Add user message to conversation
         let userMessage = CallMessage(
             sender: .user,
             content: messageText
         )
-        messages.append(userMessage)
+        self.messages.append(userMessage)
 
         // Record to VOD if enabled
-        if enableVOD, let recordingURL = vodRecordingURL {
-            await recordMessageToVOD(message: userMessage, to: recordingURL)
+        if self.enableVOD, let recordingURL = vodRecordingURL {
+            await self.recordMessageToVOD(message: userMessage, to: recordingURL)
         }
 
-        state = .waitingForAgent
+        self.state = .waitingForAgent
 
         do {
             // Send message with voice mode and call tags in proper Nostr format
-            try await onSendMessage(messageText, agent.pubkey, [["mode", "voice"], ["type", "call"]])
+            try await self.onSendMessage(messageText, self.agent.pubkey, [["mode", "voice"], ["type", "call"]])
 
             // Note: Agent response will be handled by handleAgentResponse()
         } catch {
             self.error = error.localizedDescription
             // Restore transcript on failure
-            currentTranscript = messageText
-            state = .listening
+            self.currentTranscript = messageText
+            self.state = .listening
             // Remove the message since it failed to send
             // Verify it's still the last message before removing
-            if messages.last?.id == userMessage.id {
-                messages.removeLast()
+            if self.messages.last?.id == userMessage.id {
+                self.messages.removeLast()
             }
         }
     }
 
     /// Handle incoming agent response
     public func handleAgentResponse(_ text: String) async {
-        guard isCallActive else {
+        guard self.isCallActive else {
             return
         }
 
-        state = .playingResponse
-        error = nil
+        self.state = .playingResponse
+        self.error = nil
 
         // Add agent message to conversation
         let agentMessage = CallMessage(
-            sender: .agent(pubkey: agent.pubkey, name: agent.name, voiceID: agent.voiceID),
+            sender: .agent(pubkey: agent.pubkey, name: self.agent.name, voiceID: self.voiceID),
             content: text
         )
-        messages.append(agentMessage)
+        self.messages.append(agentMessage)
 
         // Record to VOD if enabled
-        if enableVOD, let recordingURL = vodRecordingURL {
-            await recordMessageToVOD(message: agentMessage, to: recordingURL)
+        if self.enableVOD, let recordingURL = vodRecordingURL {
+            await self.recordMessageToVOD(message: agentMessage, to: recordingURL)
         }
 
         // Play TTS if auto-TTS is enabled
-        if autoTTS {
-            ttsTask = Task {
+        if self.autoTTS {
+            self.ttsTask = Task {
                 do {
-                    try await audioService.speak(text: text, voiceID: agent.voiceID)
+                    try await self.audioService.speak(text: text, voiceID: self.voiceID)
                     if !Task.isCancelled {
-                        state = .listening
+                        self.state = .listening
                     }
                 } catch {
                     if !Task.isCancelled {
                         self.error = error.localizedDescription
-                        state = .listening
+                        self.state = .listening
                     }
                 }
             }
-            await ttsTask?.value
+            await self.ttsTask?.value
         } else {
-            state = .listening
+            self.state = .listening
         }
     }
 
@@ -437,15 +443,15 @@ public final class CallViewModel {
 
     /// Stop current TTS playback
     public func stopPlayback() {
-        audioService.stopSpeaking()
-        if state == .playingResponse {
-            state = .listening
+        self.audioService.stopSpeaking()
+        if self.state == .playingResponse {
+            self.state = .listening
         }
     }
 
     /// Toggle auto-TTS on/off
     public func toggleAutoTTS() {
-        autoTTS.toggle()
+        self.autoTTS.toggle()
     }
 
     /// Replay a specific message's audio
@@ -454,15 +460,15 @@ public final class CallViewModel {
             return
         }
 
-        let previousState = state
-        state = .playingResponse
+        let previousState = self.state
+        self.state = .playingResponse
 
         do {
-            try await audioService.speak(text: message.content, voiceID: agent.voiceID)
-            state = previousState
+            try await self.audioService.speak(text: message.content, voiceID: self.voiceID)
+            self.state = previousState
         } catch {
             self.error = error.localizedDescription
-            state = previousState
+            self.state = previousState
         }
     }
 
@@ -484,7 +490,7 @@ public final class CallViewModel {
     // MARK: - VOD Directory Management
 
     /// Get the dedicated VOD recordings directory
-    private static func vodRecordingsDirectory() -> URL {
+    private nonisolated static func vodRecordingsDirectory() -> URL {
         let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         return documentsURL.appendingPathComponent("VODRecordings", isDirectory: true)
     }
@@ -541,37 +547,37 @@ public final class CallViewModel {
 
     /// Start VOD recording
     private func startVODRecording() async {
-        guard enableVOD else {
+        guard self.enableVOD else {
             return
         }
 
         do {
             // Ensure VOD directory exists
-            try ensureVODDirectory()
+            try self.ensureVODDirectory()
 
             // Clean up old recordings in background
-            cleanupOldVODRecordings()
+            self.cleanupOldVODRecordings()
 
             // Create file in dedicated directory
             let vodDir = Self.vodRecordingsDirectory()
             let fileName = "call_\(projectID)_\(agent.pubkey)_\(Date().timeIntervalSince1970).json"
             let fileURL = vodDir.appendingPathComponent(fileName)
 
-            vodRecordingURL = fileURL
+            self.vodRecordingURL = fileURL
 
             // Initialize VOD file with metadata using actor
             let metadata: [String: Any] = [
                 "projectID": projectID,
                 "agentPubkey": agent.pubkey,
-                "agentName": agent.name,
+                "agentName": self.agent.name,
                 "startTime": ISO8601DateFormatter().string(from: Date()),
                 "messages": [],
             ]
 
-            try await vodActor.initializeRecording(at: fileURL, metadata: metadata)
+            try await self.vodActor.initializeRecording(at: fileURL, metadata: metadata)
         } catch {
             self.error = "Failed to start VOD recording: \(error.localizedDescription)"
-            vodRecordingURL = nil
+            self.vodRecordingURL = nil
         }
     }
 
@@ -591,10 +597,10 @@ public final class CallViewModel {
             ]
 
             // Use actor to safely append message
-            try await vodActor.appendMessage(to: url, messageEntry: messageEntry)
+            try await self.vodActor.appendMessage(to: url, messageEntry: messageEntry)
         } catch {
             // Silently fail - don't interrupt the call
-            logger.error("Failed to record message to VOD: \(error.localizedDescription)")
+            self.logger.error("Failed to record message to VOD: \(error.localizedDescription)")
         }
     }
 
@@ -606,9 +612,9 @@ public final class CallViewModel {
 
         do {
             let endTime = ISO8601DateFormatter().string(from: Date())
-            try await vodActor.finalizeRecording(at: url, endTime: endTime, duration: callDuration)
+            try await self.vodActor.finalizeRecording(at: url, endTime: endTime, duration: self.callDuration)
         } catch {
-            logger.error("Failed to finalize VOD recording: \(error.localizedDescription)")
+            self.logger.error("Failed to finalize VOD recording: \(error.localizedDescription)")
         }
     }
 }

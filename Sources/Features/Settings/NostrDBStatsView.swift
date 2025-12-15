@@ -9,6 +9,13 @@ import NDKSwiftNostrDB
 import SwiftUI
 import TENEXShared
 
+// MARK: - NdbStatCounts Extension
+
+extension NdbStatCounts {
+    // swiftlint:disable:next empty_count
+    var isEmpty: Bool { count == 0 }
+}
+
 // MARK: - NostrDBStatsView
 
 /// View for displaying NostrDB cache statistics and analytics
@@ -22,7 +29,7 @@ struct NostrDBStatsView: View {
     var body: some View {
         Group {
             if let ndk {
-                contentView(ndk: ndk)
+                self.contentView(ndk: ndk)
             } else {
                 Text("NDK not available")
             }
@@ -40,17 +47,17 @@ struct NostrDBStatsView: View {
     @State private var error: String?
 
     @ViewBuilder private var contentSection: some View {
-        if isLoading {
-            loadingSection
+        if self.isLoading {
+            self.loadingSection
         } else if let error {
-            errorSection(error)
+            self.errorSection(error)
         } else if let stats {
-            overviewSection(stats)
-            eventsByKindSection(stats)
-            databaseIndexesSection(stats)
-            storageDetailsSection
+            self.overviewSection(stats)
+            self.eventsByKindSection(stats)
+            self.databaseIndexesSection(stats)
+            self.storageDetailsSection
         } else {
-            notAvailableSection
+            self.notAvailableSection
         }
     }
 
@@ -100,7 +107,7 @@ struct NostrDBStatsView: View {
                 .padding(.vertical, 4)
 
                 Button {
-                    copyToClipboard(cachePath)
+                    self.copyToClipboard(cachePath)
                 } label: {
                     Label("Copy Path", systemImage: "doc.on.doc")
                 }
@@ -147,7 +154,7 @@ struct NostrDBStatsView: View {
             HStack {
                 Text("Database Files")
                 Spacer()
-                Text(FormattingUtilities.formatBytes(databaseSize))
+                Text(FormattingUtilities.formatBytes(self.databaseSize))
                     .font(.system(.body, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
@@ -155,7 +162,7 @@ struct NostrDBStatsView: View {
             HStack {
                 Text("In-Memory Cache")
                 Spacer()
-                Text("\(inMemoryCount) events")
+                Text("\(self.inMemoryCount) events")
                     .font(.system(.body, design: .monospaced))
                     .foregroundStyle(.secondary)
             }
@@ -199,31 +206,31 @@ struct NostrDBStatsView: View {
 
     private func contentView(ndk: NDK) -> some View {
         List {
-            contentSection
+            self.contentSection
         }
         .navigationTitle("NostrDB Statistics")
         #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
         #endif
-            .task { await loadStats(ndk: ndk) }
-            .refreshable { await loadStats(ndk: ndk) }
+            .task { await self.loadStats(ndk: ndk) }
+            .refreshable { await self.loadStats(ndk: ndk) }
     }
 
     private func loadStats(ndk: NDK) async {
-        isLoading = true
-        error = nil
+        self.isLoading = true
+        self.error = nil
 
         guard let nostrDBCache = ndk.cache as? NDKNostrDBCache else {
-            stats = nil
-            isLoading = false
+            self.stats = nil
+            self.isLoading = false
             return
         }
 
-        stats = await nostrDBCache.getStats()
-        databaseSize = await nostrDBCache.getDatabaseSize()
-        cachePath = await nostrDBCache.getCachePath()
-        inMemoryCount = await nostrDBCache.inMemoryEventCount
-        isLoading = false
+        self.stats = await nostrDBCache.getStats()
+        self.databaseSize = await nostrDBCache.getDatabaseSize()
+        self.cachePath = await nostrDBCache.getCachePath()
+        self.inMemoryCount = await nostrDBCache.inMemoryEventCount
+        self.isLoading = false
     }
 
     private func copyToClipboard(_ text: String) {
@@ -244,12 +251,12 @@ private struct KindStatRow: View {
 
     var body: some View {
         HStack {
-            Text(kind.name)
+            Text(self.kind.name)
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text("\(counts.count)")
+                Text("\(self.counts.count)")
                     .font(.system(.body, design: .monospaced))
-                Text(FormattingUtilities.formatBytes(Int64(counts.totalSize)))
+                Text(FormattingUtilities.formatBytes(Int64(self.counts.totalSize)))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -265,14 +272,14 @@ private struct DatabaseStatRow: View {
 
     var body: some View {
         HStack {
-            Text(database.name)
+            Text(self.database.name)
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text("\(counts.count) entries")
+                Text("\(self.counts.count) entries")
                     .font(.system(.caption, design: .monospaced))
                 HStack(spacing: 8) {
-                    Text("K: \(FormattingUtilities.formatBytes(Int64(counts.keySize)))")
-                    Text("V: \(FormattingUtilities.formatBytes(Int64(counts.valueSize)))")
+                    Text("K: \(FormattingUtilities.formatBytes(Int64(self.counts.keySize)))")
+                    Text("V: \(FormattingUtilities.formatBytes(Int64(self.counts.valueSize)))")
                 }
                 .font(.caption2)
                 .foregroundStyle(.secondary)

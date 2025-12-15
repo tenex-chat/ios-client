@@ -89,9 +89,9 @@ public struct VODRecording: Identifiable {
                 : .agent(pubkey: agentPubkey, name: agentName, voiceID: nil)
 
             return CallMessage(
-                id: id,
                 sender: sender,
                 content: content,
+                id: id,
                 timestamp: timestamp
             )
         }
@@ -163,31 +163,31 @@ public final class VODPlaybackViewModel {
 
     /// Current message being played
     public var currentMessage: CallMessage? {
-        guard currentMessageIndex < recording.messages.count else {
+        guard self.currentMessageIndex < self.recording.messages.count else {
             return nil
         }
-        return recording.messages[currentMessageIndex]
+        return self.recording.messages[self.currentMessageIndex]
     }
 
     /// Play the recording from the beginning
     public func play() async {
-        guard !isPlaying else {
+        guard !self.isPlaying else {
             return
         }
 
-        isPlaying = true
-        error = nil
+        self.isPlaying = true
+        self.error = nil
 
         // Play each message sequentially
-        for (index, message) in recording.messages.enumerated() {
-            guard isPlaying else { break }
+        for (index, message) in self.recording.messages.enumerated() {
+            guard self.isPlaying else { break }
 
-            currentMessageIndex = index
+            self.currentMessageIndex = index
 
             // Only speak agent messages
             if case .agent = message.sender {
                 do {
-                    try await audioService.speak(text: message.content, voiceID: nil)
+                    try await self.audioService.speak(text: message.content, voiceID: nil)
                 } catch {
                     self.error = error.localizedDescription
                     break
@@ -195,49 +195,49 @@ public final class VODPlaybackViewModel {
             }
 
             // Delay between messages (based on playback speed)
-            if index < recording.messages.count - 1 {
-                try? await Task.sleep(nanoseconds: UInt64(1_000_000_000 / playbackSpeed))
+            if index < self.recording.messages.count - 1 {
+                try? await Task.sleep(nanoseconds: UInt64(1_000_000_000 / self.playbackSpeed))
             }
         }
 
-        isPlaying = false
-        currentMessageIndex = recording.messages.count - 1
+        self.isPlaying = false
+        self.currentMessageIndex = self.recording.messages.count - 1
     }
 
     /// Pause playback
     public func pause() {
-        isPlaying = false
-        audioService.stopSpeaking()
+        self.isPlaying = false
+        self.audioService.stopSpeaking()
     }
 
     /// Stop playback and reset
     public func stop() {
-        isPlaying = false
-        audioService.stopSpeaking()
-        currentMessageIndex = 0
+        self.isPlaying = false
+        self.audioService.stopSpeaking()
+        self.currentMessageIndex = 0
     }
 
     /// Seek to a specific message
     public func seek(to index: Int) {
-        guard index >= 0, index < recording.messages.count else {
+        guard index >= 0, index < self.recording.messages.count else {
             return
         }
 
-        audioService.stopSpeaking()
-        currentMessageIndex = index
+        self.audioService.stopSpeaking()
+        self.currentMessageIndex = index
     }
 
     /// Play a specific message
     public func playMessage(at index: Int) async {
-        guard index >= 0, index < recording.messages.count else {
+        guard index >= 0, index < self.recording.messages.count else {
             return
         }
 
-        let message = recording.messages[index]
-        currentMessageIndex = index
+        let message = self.recording.messages[index]
+        self.currentMessageIndex = index
 
         do {
-            try await audioService.speak(text: message.content, voiceID: nil)
+            try await self.audioService.speak(text: message.content, voiceID: nil)
         } catch {
             self.error = error.localizedDescription
         }
@@ -273,15 +273,15 @@ public struct VODPlaybackView: View {
 
                 VStack(spacing: 0) {
                     // Recording info
-                    recordingInfo
+                    self.recordingInfo
                         .padding()
                         .background(Color.white.opacity(0.05))
 
                     // Messages
-                    messagesView
+                    self.messagesView
 
                     // Playback controls
-                    playbackControls
+                    self.playbackControls
                         .padding()
                         .background(Color.white.opacity(0.05))
                 }
@@ -291,9 +291,9 @@ public struct VODPlaybackView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
-                        onDismiss()
+                        self.onDismiss()
                     }
-                    .foregroundStyle(projectColor)
+                    .foregroundStyle(self.projectColor)
                 }
             }
             .preferredColorScheme(.dark)
@@ -308,21 +308,21 @@ public struct VODPlaybackView: View {
     private let onDismiss: () -> Void
 
     private var progress: Double {
-        guard !viewModel.recording.messages.isEmpty else {
+        guard !self.viewModel.recording.messages.isEmpty else {
             return 0
         }
-        return Double(viewModel.currentMessageIndex + 1) / Double(viewModel.recording.messages.count)
+        return Double(self.viewModel.currentMessageIndex + 1) / Double(self.viewModel.recording.messages.count)
     }
 
     private var recordingInfo: some View {
         VStack(spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(viewModel.recording.agentName)
+                    Text(self.viewModel.recording.agentName)
                         .font(.headline)
                         .foregroundStyle(.white)
 
-                    Text(formatDate(viewModel.recording.startTime))
+                    Text(self.formatDate(self.viewModel.recording.startTime))
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.7))
                 }
@@ -334,13 +334,13 @@ public struct VODPlaybackView: View {
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.7))
 
-                    Text(formatDuration(viewModel.recording.duration))
+                    Text(self.formatDuration(self.viewModel.recording.duration))
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(.white)
                 }
             }
 
-            progressIndicator
+            self.progressIndicator
         }
     }
 
@@ -352,9 +352,9 @@ public struct VODPlaybackView: View {
                     .frame(height: 4)
 
                 Rectangle()
-                    .fill(projectColor)
+                    .fill(self.projectColor)
                     .frame(
-                        width: geometry.size.width * progress,
+                        width: geometry.size.width * self.progress,
                         height: 4
                     )
             }
@@ -367,24 +367,24 @@ public struct VODPlaybackView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 16) {
-                    ForEach(Array(viewModel.recording.messages.enumerated()), id: \.element.id) { index, message in
+                    ForEach(Array(self.viewModel.recording.messages.enumerated()), id: \.element.id) { index, message in
                         MessageBubble(
                             message: message,
-                            accentColor: projectColor
+                            accentColor: self.projectColor
                         ) {
                             Task {
-                                await viewModel.playMessage(at: index)
+                                await self.viewModel.playMessage(at: index)
                             }
                         }
-                        .opacity(index <= viewModel.currentMessageIndex ? 1.0 : 0.5)
+                        .opacity(index <= self.viewModel.currentMessageIndex ? 1.0 : 0.5)
                         .id(message.id)
                     }
                 }
                 .padding()
             }
-            .onChange(of: viewModel.currentMessageIndex) { _, newValue in
-                if newValue < viewModel.recording.messages.count {
-                    let message = viewModel.recording.messages[newValue]
+            .onChange(of: self.viewModel.currentMessageIndex) { _, newValue in
+                if newValue < self.viewModel.recording.messages.count {
+                    let message = self.viewModel.recording.messages[newValue]
                     withAnimation {
                         proxy.scrollTo(message.id, anchor: .center)
                     }
@@ -397,13 +397,13 @@ public struct VODPlaybackView: View {
         VStack(spacing: 16) {
             // Error display
             if let error = viewModel.error {
-                errorDisplay(error)
+                self.errorDisplay(error)
             }
 
-            controlButtons
+            self.controlButtons
 
             // Message counter
-            Text("\(viewModel.currentMessageIndex + 1) / \(viewModel.recording.messages.count)")
+            Text("\(self.viewModel.currentMessageIndex + 1) / \(self.viewModel.recording.messages.count)")
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.7))
         }
@@ -411,15 +411,15 @@ public struct VODPlaybackView: View {
 
     private var controlButtons: some View {
         HStack(spacing: 32) {
-            stopButton
-            playPauseButton
-            speedControl
+            self.stopButton
+            self.playPauseButton
+            self.speedControl
         }
     }
 
     private var stopButton: some View {
         Button {
-            viewModel.stop()
+            self.viewModel.stop()
         } label: {
             Image(systemName: "stop.fill")
                 .font(.system(size: 24))
@@ -431,23 +431,23 @@ public struct VODPlaybackView: View {
     private var playPauseButton: some View {
         Button {
             Task {
-                if viewModel.isPlaying {
-                    viewModel.pause()
+                if self.viewModel.isPlaying {
+                    self.viewModel.pause()
                 } else {
-                    await viewModel.play()
+                    await self.viewModel.play()
                 }
             }
         } label: {
             ZStack {
                 Circle()
-                    .fill(projectColor)
+                    .fill(self.projectColor)
                     .frame(width: 70, height: 70)
 
-                Image(systemName: viewModel.isPlaying ? "pause.fill" : "play.fill")
+                Image(systemName: self.viewModel.isPlaying ? "pause.fill" : "play.fill")
                     .font(.system(size: 32))
                     .foregroundStyle(.white)
             }
-            .shadow(color: projectColor.opacity(0.5), radius: 10)
+            .shadow(color: self.projectColor.opacity(0.5), radius: 10)
         }
     }
 
@@ -455,14 +455,14 @@ public struct VODPlaybackView: View {
         Menu {
             ForEach([0.5, 0.75, 1.0, 1.25, 1.5, 2.0], id: \.self) { speed in
                 Button("\(String(format: "%.2f", speed))x") {
-                    viewModel.playbackSpeed = speed
+                    self.viewModel.playbackSpeed = speed
                 }
             }
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: "speedometer")
                     .font(.system(size: 20))
-                Text("\(String(format: "%.2f", viewModel.playbackSpeed))x")
+                Text("\(String(format: "%.2f", self.viewModel.playbackSpeed))x")
                     .font(.caption2)
             }
             .foregroundStyle(.white)
