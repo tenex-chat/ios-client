@@ -155,13 +155,14 @@ struct ThreadRow: View {
         VStack(alignment: .leading, spacing: 3) {
             // Thread title
             Text(self.thread.title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.headline)
+                .fontWeight(.semibold)
                 .foregroundStyle(.primary)
 
             // Thread summary (if available)
             if let summary = thread.summary {
                 Text(summary)
-                    .font(.system(size: 11))
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
@@ -170,13 +171,14 @@ struct ThreadRow: View {
             HStack(spacing: 8) {
                 // Reply count
                 Label("\(self.thread.replyCount)", systemImage: "bubble.left.fill")
-                    .font(.system(size: 10))
+                    .font(.caption)
                     .foregroundStyle(.tertiary)
 
                 // Phase badge (if available)
                 if let phase = thread.phase {
                     Text(phase)
-                        .font(.system(size: 9, weight: .medium))
+                        .font(.caption2)
+                        .fontWeight(.medium)
                         .padding(.horizontal, 5)
                         .padding(.vertical, 2)
                         .background(Color.blue.opacity(0.15))
@@ -188,7 +190,7 @@ struct ThreadRow: View {
 
                 // Creation date
                 Text(self.thread.createdAt, style: .relative)
-                    .font(.system(size: 10))
+                    .font(.caption)
                     .foregroundStyle(.tertiary)
             }
         }

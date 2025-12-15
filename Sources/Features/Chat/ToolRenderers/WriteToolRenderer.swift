@@ -21,8 +21,8 @@ public struct WriteToolRenderer: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            headerButton
-            if expanded { expandedContent }
+            self.headerButton
+            if self.expanded { self.expandedContent }
         }
     }
 
@@ -35,17 +35,17 @@ public struct WriteToolRenderer: View {
 
     private var headerButton: some View {
         Button {
-            withAnimation(.easeInOut(duration: 0.2)) { expanded.toggle() }
+            withAnimation(.easeInOut(duration: 0.2)) { self.expanded.toggle() }
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: expanded ? "chevron.down" : "chevron.right")
-                    .font(.system(size: 12))
+                Image(systemName: self.expanded ? "chevron.down" : "chevron.right")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
                 Image(systemName: "pencil")
-                    .font(.system(size: 14))
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
-                Text("Writing ").font(.system(size: 14)).foregroundStyle(.secondary)
-                    + Text(displayPath).font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary)
+                Text("Writing ").font(.subheadline).foregroundStyle(.secondary)
+                    + Text(self.displayPath).font(.caption.monospaced()).foregroundStyle(.secondary)
             }
         }
         .buttonStyle(.plain)
@@ -53,8 +53,8 @@ public struct WriteToolRenderer: View {
 
     private var expandedContent: some View {
         ScrollView {
-            Text(content)
-                .font(.system(size: 12, design: .monospaced))
+            Text(self.content)
+                .font(.caption.monospaced())
                 .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)

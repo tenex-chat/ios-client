@@ -21,15 +21,15 @@ public struct ShellToolRenderer: View {
     public var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "terminal")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
 
             Text("Executing: ")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
                 +
-                Text(displayText)
-                .font(.system(size: 12, design: .monospaced))
+                Text(self.displayText)
+                .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
         }
         .lineLimit(1)
@@ -42,9 +42,9 @@ public struct ShellToolRenderer: View {
     private var displayText: String {
         // Truncate long commands
         let maxLength = 80
-        if command.count <= maxLength {
-            return command
+        if self.command.count <= maxLength {
+            return self.command
         }
-        return String(command.prefix(maxLength)) + "..."
+        return String(self.command.prefix(maxLength)) + "..."
     }
 }

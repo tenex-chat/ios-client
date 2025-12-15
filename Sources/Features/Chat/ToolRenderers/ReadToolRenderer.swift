@@ -21,15 +21,15 @@ public struct ReadToolRenderer: View {
     public var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "doc.text")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
 
             Text("Reading ")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
                 +
-                Text(displayPath)
-                .font(.system(size: 12, design: .monospaced))
+                Text(self.displayPath)
+                .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
         }
     }

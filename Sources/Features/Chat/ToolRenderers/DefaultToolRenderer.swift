@@ -21,15 +21,15 @@ public struct DefaultToolRenderer: View {
     public var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "gearshape")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
 
             Text("Executing ")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
                 +
-                Text(toolName)
-                .font(.system(size: 14, weight: .medium))
+                Text(self.toolName)
+                .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
         }
     }

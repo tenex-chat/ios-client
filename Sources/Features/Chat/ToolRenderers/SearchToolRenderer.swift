@@ -21,15 +21,15 @@ public struct SearchToolRenderer: View {
     public var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
 
             Text("Searching ")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
                 +
-                Text(pattern)
-                .font(.system(size: 12, design: .monospaced))
+                Text(self.pattern)
+                .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
         }
     }

@@ -21,15 +21,15 @@ public struct WebSearchToolRenderer: View {
     public var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "globe")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
 
             Text("Searching web for ")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
                 +
-                Text(query)
-                .font(.system(size: 12, design: .monospaced))
+                Text(self.query)
+                .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
         }
     }

@@ -21,15 +21,15 @@ public struct WebFetchToolRenderer: View {
     public var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "arrow.down.doc")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
 
             Text("Fetching ")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
                 +
-                Text(truncatedURL)
-                .font(.system(size: 12, design: .monospaced))
+                Text(self.truncatedURL)
+                .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
         }
     }
@@ -40,9 +40,9 @@ public struct WebFetchToolRenderer: View {
 
     private var truncatedURL: String {
         let maxLength = 60
-        if url.count <= maxLength {
-            return url
+        if self.url.count <= maxLength {
+            return self.url
         }
-        return String(url.prefix(maxLength)) + "..."
+        return String(self.url.prefix(maxLength)) + "..."
     }
 }

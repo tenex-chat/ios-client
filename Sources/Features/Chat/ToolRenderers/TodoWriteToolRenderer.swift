@@ -24,19 +24,19 @@ public struct TodoWriteToolRenderer: View {
             // Header
             HStack(spacing: 8) {
                 Image(systemName: "checklist")
-                    .font(.system(size: 14))
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
 
                 Text("Updating task list")
-                    .font(.system(size: 14))
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
 
             // Todo items
-            if !todos.isEmpty {
+            if !self.todos.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
-                    ForEach(Array(todos.enumerated()), id: \.offset) { _, todo in
-                        todoRow(todo)
+                    ForEach(Array(self.todos.enumerated()), id: \.offset) { _, todo in
+                        self.todoRow(todo)
                     }
                 }
                 .padding(.leading, 24)
@@ -51,10 +51,10 @@ public struct TodoWriteToolRenderer: View {
     @ViewBuilder
     private func todoRow(_ todo: TodoItem) -> some View {
         HStack(spacing: 8) {
-            statusIcon(for: todo.status)
+            self.statusIcon(for: todo.status)
             Text(todo.content)
-                .font(.system(size: 14))
-                .foregroundStyle(textColor(for: todo.status))
+                .font(.subheadline)
+                .foregroundStyle(self.textColor(for: todo.status))
                 .strikethrough(todo.status == .completed, color: .secondary)
         }
     }
@@ -64,24 +64,24 @@ public struct TodoWriteToolRenderer: View {
         switch status {
         case .completed:
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.green)
 
         case .inProgress:
             if #available(iOS 18.0, macOS 15.0, *) {
                 Image(systemName: "arrow.circlepath")
-                    .font(.system(size: 14))
+                    .font(.subheadline)
                     .foregroundStyle(.blue)
                     .symbolEffect(.rotate, options: .repeating)
             } else {
                 Image(systemName: "arrow.circlepath")
-                    .font(.system(size: 14))
+                    .font(.subheadline)
                     .foregroundStyle(.blue)
             }
 
         case .pending:
             Image(systemName: "circle")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
     }

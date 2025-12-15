@@ -23,11 +23,11 @@ public struct CodebaseSearchToolRenderer: View {
     public var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            Text(displayText)
-                .font(.system(size: 14))
+            Text(self.displayText)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
     }
@@ -42,18 +42,18 @@ public struct CodebaseSearchToolRenderer: View {
         var text = AttributedString("Searching codebase for ")
 
         var queryAttr = AttributedString(query)
-        queryAttr.font = .system(size: 12, design: .monospaced)
+        queryAttr.font = .caption.monospaced()
         text.append(queryAttr)
 
         if let fileType, !fileType.isEmpty {
             text.append(AttributedString(" in "))
             var typeAttr = AttributedString(".\(fileType)")
-            typeAttr.font = .system(size: 12, design: .monospaced)
+            typeAttr.font = .caption.monospaced()
             text.append(typeAttr)
             text.append(AttributedString(" files"))
         }
 
-        text.append(AttributedString(" (\(searchType))"))
+        text.append(AttributedString(" (\(self.searchType))"))
 
         return text
     }

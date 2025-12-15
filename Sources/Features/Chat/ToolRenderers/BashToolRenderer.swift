@@ -22,11 +22,11 @@ public struct BashToolRenderer: View {
     public var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "terminal")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            Text(displayText)
-                .font(.system(size: 14))
+            Text(self.displayText)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
@@ -45,9 +45,9 @@ public struct BashToolRenderer: View {
 
         // Truncate long commands
         let maxLength = 60
-        if command.count <= maxLength {
-            return command
+        if self.command.count <= maxLength {
+            return self.command
         }
-        return String(command.prefix(maxLength)) + "..."
+        return String(self.command.prefix(maxLength)) + "..."
     }
 }

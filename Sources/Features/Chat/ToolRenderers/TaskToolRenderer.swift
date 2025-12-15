@@ -22,11 +22,11 @@ public struct TaskToolRenderer: View {
     public var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "arrow.triangle.branch")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            Text(displayText)
-                .font(.system(size: 14))
+            Text(self.displayText)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
     }
@@ -41,7 +41,7 @@ public struct TaskToolRenderer: View {
 
         if let subagentType, !subagentType.isEmpty {
             var typeAttr = AttributedString(subagentType)
-            typeAttr.font = .system(size: 12, design: .monospaced)
+            typeAttr.font = .caption.monospaced()
             text.append(typeAttr)
             text.append(AttributedString(" agent"))
         } else {

@@ -23,11 +23,11 @@ public struct DelegateToolRenderer: View {
     public var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "person.2")
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            Text(displayText)
-                .font(.system(size: 14))
+            Text(self.displayText)
+                .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
     }
@@ -38,24 +38,24 @@ public struct DelegateToolRenderer: View {
     private let mode: String
 
     private var recipients: [String] {
-        delegations.compactMap(\.recipient).filter { !$0.isEmpty }
+        self.delegations.compactMap(\.recipient).filter { !$0.isEmpty }
     }
 
     private var displayText: AttributedString {
         var text = AttributedString("Delegating to ")
 
-        for (index, recipient) in recipients.enumerated() {
+        for (index, recipient) in self.recipients.enumerated() {
             var recipientAttr = AttributedString(recipient)
-            recipientAttr.font = .system(size: 12, design: .monospaced)
+            recipientAttr.font = .caption.monospaced()
             text.append(recipientAttr)
 
-            if index < recipients.count - 1 {
+            if index < self.recipients.count - 1 {
                 text.append(AttributedString(", "))
             }
         }
 
-        if mode != "wait" {
-            text.append(AttributedString(" (\(mode))"))
+        if self.mode != "wait" {
+            text.append(AttributedString(" (\(self.mode))"))
         }
 
         return text
