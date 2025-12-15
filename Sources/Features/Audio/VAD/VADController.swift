@@ -30,13 +30,9 @@ public final class VADController {
         case .energyBased:
             self.service = EnergyBasedVAD()
         case .appleSpeech:
-            // Apple Speech VAD is only available on iOS 18+
-            if #available(iOS 18.0, macOS 15.0, *) {
-                self.service = AppleSpeechDetectorVAD()
-            } else {
-                // Fallback to energy-based on older OS versions
-                self.service = EnergyBasedVAD()
-            }
+            // TODO: AppleSpeechDetectorVAD needs correct iOS 26 SpeechDetector API
+            // Temporarily using EnergyBasedVAD until we get the correct API method
+            self.service = EnergyBasedVAD()
         }
 
         // Set initial sensitivity

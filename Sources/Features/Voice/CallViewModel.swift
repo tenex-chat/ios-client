@@ -6,6 +6,7 @@
 
 import AVFoundation
 import Foundation
+import NDKSwiftCore
 import Observation
 import OSLog
 import TENEXCore

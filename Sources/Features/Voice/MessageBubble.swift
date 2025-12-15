@@ -51,8 +51,8 @@ public struct MessageBubble: View {
     }
 
     private var displayName: String {
-        // Use message profile or pubkey
-        self.message.profile?.displayName ?? self.message.pubkey.prefix(8).description
+        // Use pubkey prefix as display name
+        self.message.pubkey.prefix(8).description
     }
 
     private var messageContent: some View {
