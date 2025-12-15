@@ -23,16 +23,19 @@ public struct CallView: View {
     ///   - viewModel: Call view model
     ///   - ndk: NDK instance for profile pictures
     ///   - projectColor: Project accent color
+    ///   - availableAgents: List of agents to choose from
     ///   - onDismiss: Callback when call is dismissed
     public init(
         viewModel: CallViewModel,
         ndk: NDK,
         projectColor: Color = .blue,
+        availableAgents: [ProjectAgent] = [],
         onDismiss: @escaping () -> Void
     ) {
         _viewModel = State(initialValue: viewModel)
         self.ndk = ndk
         self.projectColor = projectColor
+        self.availableAgents = availableAgents
         self.onDismiss = onDismiss
     }
 
@@ -83,12 +86,13 @@ public struct CallView: View {
     @State private var showHoldHint = false
     @State private var sessionStartTime: Date?
     @State private var isShowingSettings = false
+    @State private var isShowingAgentSelector = false
 
     @Environment(\.aiConfigStorage) private var aiConfigStorage
 
-    // Note: NDK instance reserved for future profile picture support
     private let ndk: NDK
     private let projectColor: Color
+    private let availableAgents: [ProjectAgent]
     private let onDismiss: () -> Void
 
     /// Messages sent/received during this call session only
@@ -123,15 +127,20 @@ public struct CallView: View {
     }
 
     private var micButtonState: MicButtonState {
+        // Muted state takes priority in VAD mode
+        if self.viewModel.isMuted, self.isVADMode {
+            return .muted
+        }
+
         if self.viewModel.isHoldingMic {
             return .held
         }
 
         switch self.viewModel.state {
         case .idle:
-            return self.viewModel.vadMode == .auto || self.viewModel.vadMode == .autoWithHold ? .vadListening : .idle
+            return self.isVADMode ? .vadListening : .idle
         case .listening:
-            return self.viewModel.vadMode == .auto || self.viewModel.vadMode == .autoWithHold ? .vadListening : .idle
+            return self.isVADMode ? .vadListening : .idle
         case .recording:
             return .recording
         case .processingSTT:
@@ -141,6 +150,10 @@ public struct CallView: View {
         default:
             return .idle
         }
+    }
+
+    private var isVADMode: Bool {
+        self.viewModel.vadMode == .auto || self.viewModel.vadMode == .autoWithHold
     }
 
     private var backgroundGradient: some View {
@@ -179,8 +192,29 @@ public struct CallView: View {
         HStack {
             self.endCallButton
             Spacer()
-            self.agentStatusInfo
-            self.agentAvatar.padding(.leading, 12)
+            self.agentSelectorArea
+        }
+    }
+
+    @ViewBuilder private var agentSelectorArea: some View {
+        Button {
+            if self.availableAgents.count > 1 {
+                self.isShowingAgentSelector = true
+            }
+        } label: {
+            HStack(spacing: 12) {
+                self.agentStatusInfo
+                self.agentAvatar
+                if self.availableAgents.count > 1 {
+                    Image(systemName: "chevron.down")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: self.$isShowingAgentSelector) {
+            self.agentSelectorSheet
         }
     }
 
@@ -193,7 +227,7 @@ public struct CallView: View {
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "phone.down.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.headline)
                 Text("End Call")
                     .font(.subheadline.weight(.medium))
             }
@@ -222,7 +256,7 @@ public struct CallView: View {
                 .frame(width: 50, height: 50)
 
             Text(self.agentInitials)
-                .font(.system(size: 18, weight: .semibold))
+                .font(.title3.weight(.semibold))
                 .foregroundStyle(.white)
         }
     }
@@ -343,7 +377,7 @@ public struct CallView: View {
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: "gear")
-                    .font(.system(size: 20))
+                    .font(.title3)
                 Text("Settings")
                     .font(.caption2)
             }
@@ -359,8 +393,14 @@ public struct CallView: View {
             projectColor: self.projectColor,
             onTap: {
                 Task {
-                    self.handleMicTap()
-                    await self.viewModel.toggleRecording()
+                    // In VAD mode, tap toggles mute instead of recording
+                    if self.isVADMode {
+                        self.hapticManager.settingsToggle()
+                        self.viewModel.toggleMute()
+                    } else {
+                        self.handleMicTap()
+                        await self.viewModel.toggleRecording()
+                    }
                 }
             },
             onLongPressStart: {
@@ -387,7 +427,7 @@ public struct CallView: View {
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: "paperplane.fill")
-                    .font(.system(size: 20))
+                    .font(.title3)
                 Text("Send")
                     .font(.caption2)
             }
@@ -454,6 +494,20 @@ public struct CallView: View {
         .presentationDetents([.medium, .large])
     }
 
+    private var agentSelectorSheet: some View {
+        CallAgentSelectorSheet(
+            agents: self.availableAgents,
+            currentAgentPubkey: self.viewModel.agent.pubkey,
+            onSelect: { agent in
+                self.viewModel.changeAgent(agent)
+                self.isShowingAgentSelector = false
+            },
+            onCancel: {
+                self.isShowingAgentSelector = false
+            }
+        )
+    }
+
     private func errorDisplay(_ error: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
@@ -497,71 +551,6 @@ public struct CallView: View {
 }
 
 // swiftlint:enable type_body_length
-
-// MARK: - VoiceCallSettingsWrapper
-
-/// Wrapper to load and persist voice call settings from CallView
-private struct VoiceCallSettingsWrapper: View {
-    // MARK: Lifecycle
-
-    init(storage: AIConfigStorage, onDismiss: @escaping () -> Void) {
-        self.storage = storage
-        self.onDismiss = onDismiss
-    }
-
-    // MARK: Internal
-
-    var body: some View {
-        VoiceCallSettingsView(settings: self.$settings)
-            .navigationTitle("Voice Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
-                        self.onDismiss()
-                    }
-                }
-            }
-            .task {
-                await self.loadSettings()
-            }
-            .onChange(of: self.settings) { _, _ in
-                // Only save after initial load is complete
-                guard self.hasLoaded else {
-                    return
-                }
-                Task {
-                    await self.saveSettings()
-                }
-            }
-    }
-
-    // MARK: Private
-
-    @State private var settings = VoiceCallSettings()
-    @State private var hasLoaded = false
-
-    private let storage: AIConfigStorage
-    private let onDismiss: () -> Void
-
-    private func loadSettings() async {
-        do {
-            if let config = try storage.load() {
-                self.settings = config.voiceCallSettings
-            }
-        } catch {}
-        self.hasLoaded = true
-    }
-
-    private func saveSettings() async {
-        do {
-            // Try to load existing config, or create fresh one if load fails
-            var config = (try? self.storage.load()) ?? AIConfig()
-            config.voiceCallSettings = self.settings
-            try self.storage.save(config)
-        } catch {}
-    }
-}
 
 // MARK: - Preview
 

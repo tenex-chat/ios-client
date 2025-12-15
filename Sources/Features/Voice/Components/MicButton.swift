@@ -11,6 +11,7 @@ import SwiftUI
 enum MicButtonState {
     case idle
     case vadListening
+    case muted
     case recording
     case held
     case processing
@@ -103,6 +104,8 @@ struct MicButton: View {
             self.projectColor
         case .vadListening:
             self.projectColor
+        case .muted:
+            .gray
         case .recording:
             .red
         case .held:
@@ -123,6 +126,8 @@ struct MicButton: View {
         case .idle,
              .vadListening:
             self.projectColor
+        case .muted:
+            .gray
         case .recording:
             .red
         case .held:
@@ -180,6 +185,8 @@ struct MicButton: View {
             "Microphone"
         case .vadListening:
             "Listening for speech"
+        case .muted:
+            "Microphone muted"
         case .recording:
             "Recording"
         case .held:
@@ -196,7 +203,9 @@ struct MicButton: View {
         case .idle:
             "Tap to start recording"
         case .vadListening:
-            "Speak to record, or tap to pause"
+            "Tap to mute"
+        case .muted:
+            "Tap to unmute"
         case .recording:
             "Tap to stop recording"
         case .held:
@@ -222,12 +231,17 @@ struct MicButton: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.8)))
         case .playing:
             Image(systemName: "speaker.wave.3.fill")
-                .font(.system(size: 28))
+                .font(.title)
+                .foregroundStyle(.white)
+                .transition(.opacity.combined(with: .scale(scale: 0.8)))
+        case .muted:
+            Image(systemName: "mic.slash.fill")
+                .font(.title)
                 .foregroundStyle(.white)
                 .transition(.opacity.combined(with: .scale(scale: 0.8)))
         default:
             Image(systemName: "mic.fill")
-                .font(.system(size: 28))
+                .font(.title)
                 .foregroundStyle(.white)
                 .transition(.opacity.combined(with: .scale(scale: 0.8)))
         }

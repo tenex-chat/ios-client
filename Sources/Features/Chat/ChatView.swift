@@ -257,7 +257,8 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                     CallView(
                         viewModel: callVM,
                         ndk: ndk,
-                        projectColor: .blue
+                        projectColor: .blue,
+                        availableAgents: self.onlineAgents
                     ) {
                         self.isShowingCallView = false
                     }
@@ -796,9 +797,10 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     }
 
     /// Create message send handler for CallViewModel
+    /// Returns thread ID if a new thread was created (for CallViewModel to subscribe)
     private func createMessageSendHandler(
         chatViewModel: ChatViewModel
-    ) -> (String, String, [[String]]) async throws -> Void {
+    ) -> (String, String, [[String]]) async throws -> String? {
         { [weak chatViewModel] text, agentPubkey, tags in
             guard let chatViewModel else {
                 throw NSError(
@@ -820,6 +822,9 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                 selectedNudges: [],
                 selectedBranch: nil
             )
+
+            // Return thread ID so CallViewModel can subscribe
+            return chatViewModel.threadID
         }
     }
 }

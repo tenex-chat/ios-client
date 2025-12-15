@@ -112,13 +112,14 @@ public final class CallViewModel {
     ///   - vadController: Optional VAD controller for hands-free operation
     ///   - vadMode: Voice activity detection mode
     ///   - onSendMessage: Callback to send message to agent (messageText, agentPubkey, tags in Nostr format)
+    ///                    Returns the thread event ID if a new thread was created (for subscription setup)
     public init(
         audioService: AudioService,
         ndk: NDK,
         projectID: String,
         agent: ProjectAgent,
         userPubkey: String,
-        onSendMessage: @escaping (String, String, [[String]]) async throws -> Void,
+        onSendMessage: @escaping (String, String, [[String]]) async throws -> String?,
         voiceID: String? = nil,
         rootEvent: NDKEvent? = nil,
         branchTag: String? = nil,
@@ -132,7 +133,7 @@ public final class CallViewModel {
         self.projectID = projectID
         self.agent = agent
         self.voiceID = voiceID
-        self.rootEvent = rootEvent
+        self.currentThreadID = rootEvent?.id
         self.branchTag = branchTag
         self.userPubkey = userPubkey
         self.enableVOD = enableVOD
@@ -156,11 +157,17 @@ public final class CallViewModel {
     /// Error message if any
     public private(set) var error: String?
 
-    /// Agent in the call
-    public let agent: ProjectAgent
+    /// Agent in the call (mutable to allow changing during call)
+    public private(set) var agent: ProjectAgent
 
     /// Voice ID for TTS (from AgentVoiceConfigStorage)
     public let voiceID: String?
+
+    /// Whether mic is muted (VAD won't trigger)
+    public private(set) var isMuted = false
+
+    /// Current thread ID for subscriptions
+    public private(set) var currentThreadID: String?
 
     /// Whether VOD recording is enabled
     public let enableVOD: Bool
@@ -193,9 +200,9 @@ public final class CallViewModel {
         self.state != .idle && self.state != .ended
     }
 
-    /// Whether user can record
+    /// Whether user can record (not muted and in listening state)
     public var canRecord: Bool {
-        self.state == .listening
+        !self.isMuted && self.state == .listening
     }
 
     /// Whether send button should be enabled
@@ -254,9 +261,9 @@ public final class CallViewModel {
             }
         }
 
-        // Subscribe to conversation if rootEvent provided
-        if let rootEvent = self.rootEvent {
-            self.conversationState = ConversationState(rootEventID: rootEvent.id)
+        // Subscribe to conversation if thread ID exists
+        if let threadID = self.currentThreadID {
+            self.conversationState = ConversationState(rootEventID: threadID)
             Task {
                 await self.subscribeToConversation()
             }
@@ -392,10 +399,18 @@ public final class CallViewModel {
                 tags.append(["branch", branchTag])
             }
 
-            // Send message via callback
-            try await self.onSendMessage(messageText, self.agent.pubkey, tags)
+            // Send message via callback - may return thread ID if new thread was created
+            let returnedThreadID = try await self.onSendMessage(messageText, self.agent.pubkey, tags)
 
-            // Note: Message will appear via ConversationState subscription
+            // If we got a new thread ID and don't have one yet, set up subscription
+            if let newThreadID = returnedThreadID, self.currentThreadID == nil {
+                self.currentThreadID = newThreadID
+                self.conversationState = ConversationState(rootEventID: newThreadID)
+                await self.subscribeToConversation()
+            }
+
+            // Return to listening state (agent response will come via subscription)
+            self.state = .listening
         } catch {
             self.error = error.localizedDescription
             // Restore transcript on failure
@@ -481,6 +496,24 @@ public final class CallViewModel {
         }
     }
 
+    // MARK: - Mute Control
+
+    /// Toggle microphone mute state
+    /// When muted, VAD won't trigger and manual recording is disabled
+    public func toggleMute() {
+        self.isMuted.toggle()
+        self.logger.info("[toggleMute] isMuted=\(self.isMuted)")
+    }
+
+    // MARK: - Agent Selection
+
+    /// Change the current agent
+    /// - Parameter newAgent: The new agent to speak with
+    public func changeAgent(_ newAgent: ProjectAgent) {
+        self.agent = newAgent
+        self.logger.info("[changeAgent] Changed to agent: \(newAgent.name)")
+    }
+
     // MARK: Private
 
     // MARK: - Constants
@@ -490,9 +523,8 @@ public final class CallViewModel {
     private let audioService: AudioService
     private let ndk: NDK
     private let projectID: String
-    private let rootEvent: NDKEvent?
     private let branchTag: String?
-    private let onSendMessage: (String, String, [[String]]) async throws -> Void
+    private let onSendMessage: (String, String, [[String]]) async throws -> String?
     private var callStartTime: Date?
     private let logger = Logger(subsystem: "com.tenex.ios", category: "CallViewModel")
     private let vodActor = VODRecordingActor()
@@ -672,7 +704,8 @@ public final class CallViewModel {
 
     /// Handle VAD speech start event
     private func handleVADSpeechStart() async {
-        guard !self.isHoldingMic else {
+        // Don't start recording if muted or holding
+        guard !self.isMuted, !self.isHoldingMic else {
             return
         }
 
@@ -693,19 +726,28 @@ public final class CallViewModel {
         }
 
         await self.stopRecording()
+
+        // Auto-send after VAD transcription (like a real phone call)
+        if self.canSend {
+            self.logger.info("[handleVADSpeechEnd] Auto-sending after VAD transcription")
+            await self.sendMessage()
+        }
     }
 
     // MARK: - Conversation Subscription
 
     /// Subscribe to conversation events and process incoming messages
     private func subscribeToConversation() async {
-        guard let rootEvent = self.rootEvent else {
+        guard let threadID = self.currentThreadID else {
+            self.logger.warning("[subscribeToConversation] No thread ID, cannot subscribe")
             return
         }
 
+        self.logger.info("[subscribeToConversation] Subscribing to thread: \(threadID)")
+
         let filter = NDKFilter(
             kinds: [1111], // Final messages only
-            tags: ["E": Set([rootEvent.id])]
+            tags: ["E": Set([threadID])]
         )
 
         self.subscription = self.ndk.subscribe(filter: filter)
