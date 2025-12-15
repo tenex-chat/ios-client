@@ -20,15 +20,24 @@ public struct SettingsView: View {
 
     public var body: some View {
         List {
-            accountSection
+            self.accountSection
 
             Section("General") {
-                NavigationLink(destination: aiSettingsView) {
+                NavigationLink(destination: self.aiSettingsView) {
                     SettingsRow(
                         icon: "brain",
                         title: "AI Settings",
                         subtitle: "Configure LLM, TTS, and STT providers",
                         color: .blue
+                    )
+                }
+
+                NavigationLink(destination: self.voiceCallSettingsView) {
+                    SettingsRow(
+                        icon: "phone.fill",
+                        title: "Voice Call",
+                        subtitle: "Voice detection, audio processing, and call behavior",
+                        color: .green
                     )
                 }
             }
@@ -50,11 +59,11 @@ public struct SettingsView: View {
         #endif
             .confirmationDialog(
                 "Are you sure you want to sign out?",
-                isPresented: $showingSignOutConfirmation,
+                isPresented: self.$showingSignOutConfirmation,
                 titleVisibility: .visible
             ) {
                 Button("Sign Out", role: .destructive) {
-                    authManager.logout()
+                    self.authManager.logout()
                 }
                 Button("Cancel", role: .cancel) {}
             }
@@ -89,7 +98,7 @@ public struct SettingsView: View {
             }
 
             Button(role: .destructive) {
-                showingSignOutConfirmation = true
+                self.showingSignOutConfirmation = true
             } label: {
                 Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
             }
@@ -102,5 +111,56 @@ public struct SettingsView: View {
         let capabilityDetector = RuntimeAICapabilityDetector()
         let viewModel = AISettingsViewModel(storage: storage, capabilityDetector: capabilityDetector)
         AISettingsView(viewModel: viewModel)
+    }
+
+    @ViewBuilder private var voiceCallSettingsView: some View {
+        let keychain = KeychainStorage(service: "com.tenex.ai")
+        let storage = UserDefaultsAIConfigStorage(keychain: keychain)
+        VoiceCallSettingsViewWrapper(storage: storage)
+    }
+}
+
+// MARK: - VoiceCallSettingsViewWrapper
+
+/// Wrapper to load and persist voice call settings
+private struct VoiceCallSettingsViewWrapper: View {
+    // MARK: Lifecycle
+
+    init(storage: AIConfigStorage) {
+        self.storage = storage
+    }
+
+    // MARK: Internal
+
+    var body: some View {
+        VoiceCallSettingsView(settings: self.$settings)
+            .task {
+                await self.loadSettings()
+            }
+            .onChange(of: self.settings) {
+                Task {
+                    await self.saveSettings()
+                }
+            }
+    }
+
+    // MARK: Private
+
+    @State private var settings = VoiceCallSettings()
+
+    private let storage: AIConfigStorage
+
+    private func loadSettings() async {
+        if let config = try? storage.load() {
+            self.settings = config.voiceCallSettings
+        }
+    }
+
+    private func saveSettings() async {
+        guard var config = try? storage.load() else {
+            return
+        }
+        config.voiceCallSettings = self.settings
+        try? self.storage.save(config)
     }
 }

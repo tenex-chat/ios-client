@@ -287,16 +287,18 @@ public struct VODPlaybackView: View {
                 }
             }
             .navigationTitle("Call Recording")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        self.onDismiss()
+            #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+            #endif
+                .toolbar {
+                    ToolbarItem(placement: .automatic) {
+                        Button("Done") {
+                            self.onDismiss()
+                        }
+                        .foregroundStyle(self.projectColor)
                     }
-                    .foregroundStyle(self.projectColor)
                 }
-            }
-            .preferredColorScheme(.dark)
+                .preferredColorScheme(.dark)
         }
     }
 

@@ -219,6 +219,62 @@ public struct STTSettings: Codable, Sendable, Equatable {
     public var fallbackChain: [STTProvider]
 }
 
+// MARK: - VADMode
+
+/// Voice Activity Detection mode
+public enum VADMode: String, Codable, Sendable, CaseIterable {
+    case disabled
+    case pushToTalk = "push-to-talk"
+    case auto
+    case autoWithHold = "auto-with-hold"
+}
+
+// MARK: - VoiceCallSettings
+
+/// Voice call settings
+public struct VoiceCallSettings: Codable, Sendable, Equatable {
+    // MARK: Lifecycle
+
+    public init(
+        vadMode: VADMode = .pushToTalk,
+        vadSensitivity: Double = 0.5,
+        noiseSuppression: Bool = true,
+        echoCancellation: Bool = true,
+        autoGainControl: Bool = true,
+        preferredInputDevice: String? = nil,
+        autoTTS: Bool = true,
+        enableVOD: Bool = true
+    ) {
+        self.vadMode = vadMode
+        self.vadSensitivity = vadSensitivity
+        self.noiseSuppression = noiseSuppression
+        self.echoCancellation = echoCancellation
+        self.autoGainControl = autoGainControl
+        self.preferredInputDevice = preferredInputDevice
+        self.autoTTS = autoTTS
+        self.enableVOD = enableVOD
+    }
+
+    // MARK: Public
+
+    /// Voice activity detection mode
+    public var vadMode: VADMode
+    /// VAD sensitivity (0.0-1.0)
+    public var vadSensitivity: Double
+    /// Enable noise suppression
+    public var noiseSuppression: Bool
+    /// Enable echo cancellation
+    public var echoCancellation: Bool
+    /// Enable auto gain control
+    public var autoGainControl: Bool
+    /// Preferred input device ID
+    public var preferredInputDevice: String?
+    /// Auto-speak agent responses
+    public var autoTTS: Bool
+    /// Enable voice-of-data (call recording)
+    public var enableVOD: Bool
+}
+
 // MARK: - DebuggingSettings
 
 /// Debugging settings for AI interactions
@@ -252,13 +308,15 @@ public struct AIConfig: Codable, Sendable, Equatable {
         activeLLMConfigID: String? = nil,
         featureAssignments: [AIFeature: String] = [:],
         ttsSettings: TTSSettings = TTSSettings(),
-        sttSettings: STTSettings = STTSettings()
+        sttSettings: STTSettings = STTSettings(),
+        voiceCallSettings: VoiceCallSettings = VoiceCallSettings()
     ) {
         self.llmConfigs = llmConfigs
         self.activeLLMConfigID = activeLLMConfigID
         self.featureAssignments = featureAssignments
         self.ttsSettings = ttsSettings
         self.sttSettings = sttSettings
+        self.voiceCallSettings = voiceCallSettings
     }
 
     // MARK: Public
@@ -273,4 +331,6 @@ public struct AIConfig: Codable, Sendable, Equatable {
     public var ttsSettings: TTSSettings
     /// Speech-to-text settings
     public var sttSettings: STTSettings
+    /// Voice call settings
+    public var voiceCallSettings: VoiceCallSettings
 }
