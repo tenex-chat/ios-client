@@ -84,53 +84,7 @@ public enum CallState: Sendable, Equatable {
     case ended
 }
 
-// MARK: - CallMessage
-
-/// Represents a message in the call conversation
-public struct CallMessage: Identifiable, Sendable {
-    // MARK: Lifecycle
-
-    public init(
-        sender: CallParticipant,
-        content: String,
-        id: String? = nil,
-        timestamp: Date? = nil,
-        audioURL: URL? = nil
-    ) {
-        self.id = id ?? UUID().uuidString
-        self.sender = sender
-        self.content = content
-        self.timestamp = timestamp ?? Date()
-        self.audioURL = audioURL
-    }
-
-    // MARK: Public
-
-    public let id: String
-    public let sender: CallParticipant
-    public let content: String
-    public let timestamp: Date
-    public var audioURL: URL?
-}
-
-// MARK: - CallParticipant
-
-/// Represents a participant in the call
-public enum CallParticipant: Sendable, Equatable {
-    case user
-    case agent(pubkey: String, name: String, voiceID: String?)
-
-    // MARK: Public
-
-    public var displayName: String {
-        switch self {
-        case .user:
-            "You"
-        case let .agent(_, name, _):
-            name
-        }
-    }
-}
+// CallMessage and CallParticipant removed - now using Message from ConversationState
 
 // MARK: - CallViewModel
 
@@ -145,9 +99,13 @@ public final class CallViewModel {
     /// Initialize call view model
     /// - Parameters:
     ///   - audioService: Audio service for recording, TTS, and playback
+    ///   - ndk: NDK instance for conversation subscriptions
     ///   - projectID: Project identifier
     ///   - agent: Agent to call
     ///   - voiceID: Voice ID for TTS (from AgentVoiceConfigStorage)
+    ///   - rootEvent: Optional thread to continue (if opening from existing conversation)
+    ///   - branchTag: Optional branch tag for voice mode
+    ///   - userPubkey: Current user's pubkey (for filtering messages)
     ///   - enableVOD: Whether to record the call for playback (Video/Voice on Demand)
     ///   - autoTTS: Whether to automatically speak agent responses
     ///   - vadController: Optional VAD controller for hands-free operation
@@ -155,19 +113,27 @@ public final class CallViewModel {
     ///   - onSendMessage: Callback to send message to agent (messageText, agentPubkey, tags in Nostr format)
     public init(
         audioService: AudioService,
+        ndk: NDK,
         projectID: String,
         agent: ProjectAgent,
-        voiceID: String? = nil,
+        userPubkey: String,
         onSendMessage: @escaping (String, String, [[String]]) async throws -> Void,
+        voiceID: String? = nil,
+        rootEvent: NDKEvent? = nil,
+        branchTag: String? = nil,
         enableVOD: Bool = true,
         autoTTS: Bool = true,
         vadController: VADController? = nil,
         vadMode: VADMode = .pushToTalk
     ) {
         self.audioService = audioService
+        self.ndk = ndk
         self.projectID = projectID
         self.agent = agent
         self.voiceID = voiceID
+        self.rootEvent = rootEvent
+        self.branchTag = branchTag
+        self.userPubkey = userPubkey
         self.enableVOD = enableVOD
         self.autoTTS = autoTTS
         self.vadController = vadController
@@ -183,8 +149,8 @@ public final class CallViewModel {
     /// Current transcript from STT
     public private(set) var currentTranscript = ""
 
-    /// Call messages (conversation history)
-    public private(set) var messages: [CallMessage] = []
+    /// Conversation state (manages messages and subscriptions)
+    public private(set) var conversationState: ConversationState?
 
     /// Error message if any
     public private(set) var error: String?
@@ -257,34 +223,36 @@ public final class CallViewModel {
             await self.startVAD()
         }
 
-        // Transition to listening state
-        self.state = .listening
-
-        // Add system message
-        let systemMessage = CallMessage(
-            sender: .agent(pubkey: agent.pubkey, name: self.agent.name, voiceID: self.voiceID),
-            content: Self.welcomeMessage
-        )
-        self.messages.append(systemMessage)
-
-        // Speak welcome message if auto-TTS is enabled
+        // Initialize TTS Queue
         if self.autoTTS {
-            self.state = .playingResponse
-            self.ttsTask = Task {
-                do {
-                    try await self.audioService.speak(text: systemMessage.content, voiceID: self.voiceID)
-                    if !Task.isCancelled {
-                        self.state = .listening
-                    }
-                } catch {
-                    if !Task.isCancelled {
-                        self.error = error.localizedDescription
-                        self.state = .listening
-                    }
+            self.ttsQueue = TTSQueue(
+                audioService: self.audioService,
+                userPubkey: self.userPubkey,
+                voiceID: self.voiceID
+            )
+
+            self.ttsQueue?.onPlaybackStateChange = { [weak self] isPlaying in
+                guard let self else {
+                    return
+                }
+                if isPlaying {
+                    self.state = .playingResponse
+                } else if self.state == .playingResponse {
+                    self.state = .listening
                 }
             }
-            await self.ttsTask?.value
         }
+
+        // Subscribe to conversation if rootEvent provided
+        if let rootEvent = self.rootEvent {
+            self.conversationState = ConversationState(rootEventID: rootEvent.id)
+            Task {
+                await self.subscribeToConversation()
+            }
+        }
+
+        // Transition to listening state
+        self.state = .listening
     }
 
     /// End the call
@@ -303,6 +271,11 @@ public final class CallViewModel {
 
         // Stop any playback
         self.audioService.stopSpeaking()
+
+        // Clear TTS queue and subscription
+        self.ttsQueue?.clearQueue()
+        self.subscription = nil
+        self.conversationState = nil
 
         // Stop VOD recording
         await self.stopVODRecording()
@@ -386,78 +359,33 @@ public final class CallViewModel {
         self.currentTranscript = ""
         self.error = nil
 
-        // Add user message to conversation
-        let userMessage = CallMessage(
-            sender: .user,
-            content: messageText
-        )
-        self.messages.append(userMessage)
-
-        // Record to VOD if enabled
-        if self.enableVOD, let recordingURL = vodRecordingURL {
-            await self.recordMessageToVOD(message: userMessage, to: recordingURL)
-        }
-
         self.state = .waitingForAgent
 
         do {
-            // Send message with voice mode and call tags in proper Nostr format
-            try await self.onSendMessage(messageText, self.agent.pubkey, [["mode", "voice"], ["type", "call"]])
+            // Build tags with voice mode and branch (if specified)
+            var tags: [[String]] = [["mode", "voice"]]
+            if let branchTag = self.branchTag {
+                tags.append(["branch", branchTag])
+            }
 
-            // Note: Agent response will be handled by handleAgentResponse()
+            // Send message via callback
+            try await self.onSendMessage(messageText, self.agent.pubkey, tags)
+
+            // Note: Message will appear via ConversationState subscription
         } catch {
             self.error = error.localizedDescription
             // Restore transcript on failure
             self.currentTranscript = messageText
             self.state = .listening
-            // Remove the message since it failed to send
-            // Verify it's still the last message before removing
-            if self.messages.last?.id == userMessage.id {
-                self.messages.removeLast()
-            }
         }
     }
 
     /// Handle incoming agent response
-    public func handleAgentResponse(_ text: String) async {
-        guard self.isCallActive else {
-            return
-        }
-
-        self.state = .playingResponse
-        self.error = nil
-
-        // Add agent message to conversation
-        let agentMessage = CallMessage(
-            sender: .agent(pubkey: agent.pubkey, name: self.agent.name, voiceID: self.voiceID),
-            content: text
-        )
-        self.messages.append(agentMessage)
-
-        // Record to VOD if enabled
-        if self.enableVOD, let recordingURL = vodRecordingURL {
-            await self.recordMessageToVOD(message: agentMessage, to: recordingURL)
-        }
-
-        // Play TTS if auto-TTS is enabled
-        if self.autoTTS {
-            self.ttsTask = Task {
-                do {
-                    try await self.audioService.speak(text: text, voiceID: self.voiceID)
-                    if !Task.isCancelled {
-                        self.state = .listening
-                    }
-                } catch {
-                    if !Task.isCancelled {
-                        self.error = error.localizedDescription
-                        self.state = .listening
-                    }
-                }
-            }
-            await self.ttsTask?.value
-        } else {
-            self.state = .listening
-        }
+    /// NOTE: This method is deprecated - messages now come through ConversationState subscription
+    /// Kept for backwards compatibility in case it's still called from ChatView
+    public func handleAgentResponse(_: String) async {
+        // Messages are now handled through subscribeToConversation()
+        // This is a no-op for backwards compatibility
     }
 
     // MARK: - Playback Controls
@@ -477,7 +405,11 @@ public final class CallViewModel {
 
     /// Replay a specific message's audio
     public func replayMessage(_ messageID: String) async {
-        guard let message = messages.first(where: { $0.id == messageID }) else {
+        guard let conversationState = self.conversationState else {
+            return
+        }
+
+        guard let message = conversationState.displayMessages.first(where: { $0.id == messageID }) else {
             return
         }
 
@@ -529,17 +461,24 @@ public final class CallViewModel {
 
     // MARK: - Constants
 
-    private static let welcomeMessage = "Call started. How can I help you?"
     private static let vodRetentionDays = 30
 
     private let audioService: AudioService
+    private let ndk: NDK
     private let projectID: String
+    private let rootEvent: NDKEvent?
+    private let branchTag: String?
+    private let userPubkey: String
     private let onSendMessage: (String, String, [[String]]) async throws -> Void
     private var callStartTime: Date?
     private let logger = Logger(subsystem: "com.tenex.ios", category: "CallViewModel")
     private let vodActor = VODRecordingActor()
     private var ttsTask: Task<Void, Never>?
     private let vadController: VADController?
+
+    // NEW: TTS Queue and subscription
+    private var ttsQueue: TTSQueue?
+    private var subscription: NDKSubscription<NDKEvent>?
 
     // MARK: - VOD Directory Management
 
@@ -636,7 +575,7 @@ public final class CallViewModel {
     }
 
     /// Record a message to VOD file
-    private func recordMessageToVOD(message: CallMessage, to url: URL) async {
+    private func recordMessageToVOD(message: Message, to url: URL) async {
         guard FileManager.default.fileExists(atPath: url.path) else {
             return
         }
@@ -645,9 +584,9 @@ public final class CallViewModel {
             // Create message entry
             let messageEntry: [String: Any] = [
                 "id": message.id,
-                "sender": message.sender == .user ? "user" : "agent",
+                "sender": message.pubkey == self.userPubkey ? "user" : "agent",
                 "content": message.content,
-                "timestamp": ISO8601DateFormatter().string(from: message.timestamp),
+                "timestamp": ISO8601DateFormatter().string(from: message.createdAt),
             ]
 
             // Use actor to safely append message
@@ -713,6 +652,13 @@ public final class CallViewModel {
             return
         }
 
+        // Stop TTS playback and clear queue when user starts speaking
+        if self.state == .playingResponse {
+            self.ttsQueue?.clearQueue()
+            self.audioService.stopSpeaking()
+            self.state = .listening
+        }
+
         await self.startRecording()
     }
 
@@ -723,6 +669,41 @@ public final class CallViewModel {
         }
 
         await self.stopRecording()
+    }
+
+    // MARK: - Conversation Subscription
+
+    /// Subscribe to conversation events and process incoming messages
+    private func subscribeToConversation() async {
+        guard let rootEvent = self.rootEvent else {
+            return
+        }
+
+        let filter = NDKFilter(
+            kinds: [1111], // Final messages only
+            tags: ["E": Set([rootEvent.id])]
+        )
+
+        self.subscription = self.ndk.subscribe(filter: filter)
+
+        guard let subscription = self.subscription else {
+            return
+        }
+
+        // Process events as they arrive
+        for await event in subscription.events {
+            guard let message = Message.from(event: event) else {
+                continue
+            }
+
+            // Process event in ConversationState
+            self.conversationState?.processEvent(event)
+
+            // Queue for TTS if from agent and autoTTS is enabled
+            if message.pubkey != self.userPubkey, self.autoTTS {
+                self.ttsQueue?.processMessages([message])
+            }
+        }
     }
 }
 

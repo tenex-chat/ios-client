@@ -44,6 +44,9 @@ public struct CallView: View {
         }
         .preferredColorScheme(.dark)
         .task {
+            // Track when call session started
+            self.sessionStartTime = Date()
+
             // Start call when view appears
             if self.viewModel.state == .idle {
                 await self.viewModel.startCall()
@@ -64,11 +67,27 @@ public struct CallView: View {
     @State private var viewModel: CallViewModel
     @State private var hapticManager = HapticManager()
     @State private var showHoldHint = false
+    @State private var sessionStartTime: Date?
 
     // Note: NDK instance reserved for future profile picture support
     private let ndk: NDK
     private let projectColor: Color
     private let onDismiss: () -> Void
+
+    /// Messages sent/received during this call session only
+    private var sessionMessages: [Message] {
+        guard let startTime = sessionStartTime else {
+            return []
+        }
+        guard let conversationState = viewModel.conversationState else {
+            return []
+        }
+
+        // Only show messages created after call started
+        return conversationState.displayMessages.filter {
+            $0.createdAt >= startTime
+        }
+    }
 
     private var agentInitials: String {
         let words = self.viewModel.agent.name.split(separator: " ")
@@ -122,7 +141,7 @@ public struct CallView: View {
                 .padding(.horizontal)
                 .padding(.top)
 
-            if self.viewModel.messages.isEmpty {
+            if self.sessionMessages.isEmpty {
                 Spacer()
                 self.waitingForCallView
                 Spacer()
@@ -216,7 +235,7 @@ public struct CallView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 16) {
-                    ForEach(self.viewModel.messages) { message in
+                    ForEach(self.sessionMessages) { message in
                         MessageBubble(
                             message: message,
                             accentColor: self.projectColor
@@ -230,9 +249,9 @@ public struct CallView: View {
                 }
                 .padding(.vertical, 16)
             }
-            .onChange(of: self.viewModel.messages.count) { _, _ in
+            .onChange(of: self.sessionMessages.count) { _, _ in
                 // Auto-scroll to bottom when new message arrives
-                if let lastMessage = viewModel.messages.last {
+                if let lastMessage = sessionMessages.last {
                     withAnimation {
                         proxy.scrollTo(lastMessage.id, anchor: .bottom)
                     }

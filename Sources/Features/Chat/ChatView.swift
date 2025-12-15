@@ -229,15 +229,20 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                     }
             }
         }
-        // swiftlint:disable:next trailing_closure
-        .sheet(isPresented: self.$isShowingCallView) {
+        .fullScreenCover(isPresented: self.$isShowingCallView) {
             if let ndk, let callVM = self.createCallViewModel() {
-                CallView(
-                    viewModel: callVM,
-                    ndk: ndk,
-                    projectColor: .blue,
-                    onDismiss: { self.isShowingCallView = false }
-                )
+                ZStack {
+                    Color.black.ignoresSafeArea()
+
+                    CallView(
+                        viewModel: callVM,
+                        ndk: ndk,
+                        projectColor: .blue
+                    ) {
+                        self.isShowingCallView = false
+                    }
+                    .frame(maxWidth: 390, maxHeight: 844) // iPhone dimensions
+                }
             } else {
                 Text("Unable to start call")
                     .onAppear {
@@ -571,8 +576,8 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     /// - Returns: A configured CallViewModel, or nil if unable to create (no agent, no audio service, etc.)
     private func createCallViewModel() -> CallViewModel? {
         // Validate required services
-        guard let audioService else {
-            self.callViewErrorMessage = "Audio service not available"
+        guard let audioService, let ndk else {
+            self.callViewErrorMessage = "Audio service or NDK not available"
             return nil
         }
 
@@ -592,13 +597,17 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
         let settings = AIConfigStorage().loadConfig().voiceCallSettings
         let vadController = self.createVADControllerIfNeeded(settings: settings)
 
-        // Create CallViewModel with proper callbacks
+        // Create CallViewModel with proper callbacks and threading
         return CallViewModel(
             audioService: audioService,
+            ndk: ndk,
             projectID: self.projectReference,
             agent: agent,
-            voiceID: voiceID,
+            userPubkey: self.currentUserPubkey,
             onSendMessage: self.createMessageSendHandler(chatViewModel: chatViewModel),
+            voiceID: voiceID,
+            rootEvent: chatViewModel.threadEvent, // Pass existing thread
+            branchTag: nil,
             enableVOD: true,
             autoTTS: true,
             vadController: vadController,
