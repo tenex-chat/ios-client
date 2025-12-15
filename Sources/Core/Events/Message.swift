@@ -256,7 +256,8 @@ public struct Message: Identifiable, Sendable {
         pTaggedPubkeys: [String] = [],
         suggestions: [String] = [],
         rawEventJSON: String? = nil,
-        projectCoordinate: String? = nil
+        projectCoordinate: String? = nil,
+        hasAskTag: Bool = false
     ) {
         self.id = id
         self.pubkey = pubkey
@@ -276,6 +277,7 @@ public struct Message: Identifiable, Sendable {
         self.suggestions = suggestions
         self.rawEventJSON = rawEventJSON
         self.projectCoordinate = projectCoordinate
+        self.hasAskTag = hasAskTag
     }
 
     // MARK: Public
@@ -334,6 +336,9 @@ public struct Message: Identifiable, Sendable {
     /// Project coordinate from 'a' tag (e.g., "31933:pubkey:dtag")
     public let projectCoordinate: String?
 
+    /// Whether this message has an "ask" tag (agent escalation)
+    public let hasAskTag: Bool
+
     /// Whether this message is a tool call
     public var isToolCall: Bool { self.toolCall != nil }
 
@@ -386,7 +391,8 @@ public struct Message: Identifiable, Sendable {
             pTaggedPubkeys: self.pTaggedPubkeys,
             suggestions: self.suggestions,
             rawEventJSON: self.rawEventJSON,
-            projectCoordinate: self.projectCoordinate
+            projectCoordinate: self.projectCoordinate,
+            hasAskTag: self.hasAskTag
         )
     }
 
@@ -414,7 +420,8 @@ public struct Message: Identifiable, Sendable {
             pTaggedPubkeys: self.pTaggedPubkeys,
             suggestions: self.suggestions,
             rawEventJSON: self.rawEventJSON,
-            projectCoordinate: self.projectCoordinate
+            projectCoordinate: self.projectCoordinate,
+            hasAskTag: self.hasAskTag
         )
     }
 
@@ -428,6 +435,7 @@ public struct Message: Identifiable, Sendable {
         let pTaggedPubkeys: [String]
         let suggestions: [String]
         let rawEventJSON: String?
+        let hasAskTag: Bool
     }
 
     private static func createThreadRoot(from event: NDKEvent, metadata: EventMetadata) -> Self {
@@ -445,7 +453,8 @@ public struct Message: Identifiable, Sendable {
             pTaggedPubkeys: metadata.pTaggedPubkeys,
             suggestions: metadata.suggestions,
             rawEventJSON: metadata.rawEventJSON,
-            projectCoordinate: event.tagValue("a")
+            projectCoordinate: event.tagValue("a"),
+            hasAskTag: metadata.hasAskTag
         )
     }
 
@@ -474,7 +483,8 @@ public struct Message: Identifiable, Sendable {
             pTaggedPubkeys: metadata.pTaggedPubkeys,
             suggestions: metadata.suggestions,
             rawEventJSON: metadata.rawEventJSON,
-            projectCoordinate: event.tagValue("a")
+            projectCoordinate: event.tagValue("a"),
+            hasAskTag: metadata.hasAskTag
         )
     }
 
@@ -485,6 +495,7 @@ public struct Message: Identifiable, Sendable {
         let phase = event.tags(withName: "phase").first?[safe: 1]
         let pTaggedPubkeys = event.tags(withName: "p").compactMap { $0[safe: 1] }
         let suggestions = event.tags(withName: "suggestion").compactMap { $0[safe: 1] }
+        let hasAskTag = event.tags(withName: "ask").first != nil
 
         let eventDict: [String: Any] = [
             "id": event.id,
@@ -512,7 +523,8 @@ public struct Message: Identifiable, Sendable {
             phase: phase,
             pTaggedPubkeys: pTaggedPubkeys,
             suggestions: suggestions,
-            rawEventJSON: rawEventJSON
+            rawEventJSON: rawEventJSON,
+            hasAskTag: hasAskTag
         )
     }
 }

@@ -78,7 +78,7 @@ public struct MessageBubble: View {
                 .background(self.isUser ? self.accentColor.opacity(0.8) : Color.white.opacity(0.15))
                 .clipShape(RoundedRectangle(cornerRadius: 16))
 
-            if !self.isUser {
+            if !self.isUser, TTSCache.shared.hasCached(messageID: self.message.id) {
                 self.replayButton
             }
         }

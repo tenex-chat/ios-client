@@ -13,7 +13,7 @@ import TENEXCore
 
 // MARK: - CallViewModel
 
-// swiftlint:disable type_body_length
+// swiftlint:disable type_body_length file_length
 
 /// Enhanced view model for agent calls with auto-TTS, STT, and VOD recording
 @MainActor
@@ -414,7 +414,13 @@ public final class CallViewModel {
         self.state = .playingResponse
 
         do {
-            try await self.audioService.speak(text: message.content, voiceID: self.voiceID)
+            // Check cache first
+            if let cachedAudio = TTSCache.shared.audioFor(messageID: messageID) {
+                try await self.audioService.play(audioData: cachedAudio)
+            } else {
+                // Not cached - synthesize (which will cache for future)
+                try await self.audioService.speak(text: message.content, voiceID: self.voiceID)
+            }
             self.state = previousState
         } catch {
             self.error = error.localizedDescription
@@ -764,4 +770,4 @@ public final class CallViewModel {
     }
 }
 
-// swiftlint:enable type_body_length
+// swiftlint:enable type_body_length file_length

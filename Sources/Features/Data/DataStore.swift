@@ -7,6 +7,7 @@
 import Foundation
 import NDKSwiftCore
 import Observation
+import os
 import TENEXCore
 
 /// Centralized data manager for high-level app entities
@@ -41,6 +42,15 @@ public final class DataStore {
     /// All nudges (system prompt modifiers)
     public private(set) var nudges: [Nudge] = []
 
+    /// Recent conversation replies (kind:1111 with #K:11) across all projects
+    public private(set) var recentConversationReplies: [Message] = []
+
+    /// Inbox messages (agent escalations p-tagging current user)
+    public private(set) var inboxMessages: [Message] = []
+
+    /// Unread inbox count
+    public private(set) var inboxUnreadCount = 0
+
     /// Whether projects are currently loading
     public private(set) var isLoadingProjects = false
 
@@ -57,43 +67,62 @@ public final class DataStore {
     /// - Parameter userPubkey: The authenticated user's pubkey
     public func startSubscriptions(for userPubkey: String) {
         guard self.userPubkey != userPubkey else {
+            self.logger.debug("Subscriptions already active for user: \(userPubkey)")
             return
         }
 
+        self.logger.info("Starting subscriptions for user: \(userPubkey)")
+
         // Clean up existing subscriptions
-        stopSubscriptions()
+        self.stopSubscriptions()
 
         self.userPubkey = userPubkey
 
         // Start new subscriptions
-        projectsTask = Task { await subscribeToProjects(userPubkey: userPubkey) }
-        agentsTask = Task { await subscribeToAgents() }
-        toolsTask = Task { await subscribeToTools() }
-        statusTask = Task { await subscribeToProjectStatuses(userPubkey: userPubkey) }
-        nudgesTask = Task { await subscribeToNudges() }
+        self.projectsTask = Task { await self.subscribeToProjects(userPubkey: userPubkey) }
+        self.agentsTask = Task { await self.subscribeToAgents() }
+        self.toolsTask = Task { await self.subscribeToTools() }
+        self.statusTask = Task { await self.subscribeToProjectStatuses(userPubkey: userPubkey) }
+        self.nudgesTask = Task { await self.subscribeToNudges() }
+        self.recentConversationsTask = Task { await self.subscribeToRecentConversations() }
+        self.inboxTask = Task { await self.subscribeToInbox(userPubkey: userPubkey) }
+
+        self.logger.info("All subscriptions started")
     }
 
     /// Stop all subscriptions and clear state
     public func stopSubscriptions() {
-        projectsTask?.cancel()
-        agentsTask?.cancel()
-        toolsTask?.cancel()
-        statusTask?.cancel()
-        nudgesTask?.cancel()
+        self.logger.info("Stopping all subscriptions")
 
-        projectsTask = nil
-        agentsTask = nil
-        toolsTask = nil
-        statusTask = nil
-        nudgesTask = nil
+        self.projectsTask?.cancel()
+        self.agentsTask?.cancel()
+        self.toolsTask?.cancel()
+        self.statusTask?.cancel()
+        self.nudgesTask?.cancel()
+        self.recentConversationsTask?.cancel()
+        self.inboxTask?.cancel()
+
+        self.projectsTask = nil
+        self.agentsTask = nil
+        self.toolsTask = nil
+        self.statusTask = nil
+        self.nudgesTask = nil
+        self.recentConversationsTask = nil
+        self.inboxTask = nil
 
         // Clear state
-        projects = []
-        agents = []
-        tools = []
-        projectStatuses = [:]
-        nudges = []
-        userPubkey = nil
+        self.projects = []
+        self.agents = []
+        self.tools = []
+        self.projectStatuses = [:]
+        self.nudges = []
+        self.recentConversationReplies = []
+        self.inboxMessages = []
+        self.inboxUnreadCount = 0
+        self.inboxEventCache = [:]
+        self.userPubkey = nil
+
+        self.logger.info("All subscriptions stopped and state cleared")
     }
 
     // MARK: - Project Status
@@ -112,7 +141,7 @@ public final class DataStore {
     /// - Parameter projectCoordinate: The project coordinate (kind:pubkey:dTag)
     /// - Returns: The project status if available
     public func getProjectStatus(projectCoordinate: String) -> ProjectStatus? {
-        projectStatuses[projectCoordinate]
+        self.projectStatuses[projectCoordinate]
     }
 
     // MARK: - Project Actions
@@ -125,10 +154,29 @@ public final class DataStore {
             .content("")
             .tag(["a", project.coordinate])
             .build()
-        try await ndk.publish(event)
+        try await self.ndk.publish(event)
+    }
+
+    // MARK: - Inbox Actions
+
+    /// Mark all inbox messages as read
+    public func markInboxAsRead() {
+        self.lastInboxVisit = Date()
+        self.inboxUnreadCount = 0
     }
 
     // MARK: Internal
+
+    // MARK: - UserDefaults Helpers
+
+    var lastInboxVisit: Date {
+        get {
+            UserDefaults.standard.object(forKey: "lastInboxVisit") as? Date ?? Date()
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "lastInboxVisit")
+        }
+    }
 
     // MARK: - Testing Support
 
@@ -137,7 +185,7 @@ public final class DataStore {
     ///   - status: The project status to set
     ///   - coordinate: The project coordinate
     func setProjectStatus(_ status: ProjectStatus, for coordinate: String) {
-        projectStatuses[coordinate] = status
+        self.projectStatuses[coordinate] = status
     }
 
     // MARK: Private
@@ -146,6 +194,7 @@ public final class DataStore {
 
     private let ndk: NDK
     private var userPubkey: String?
+    private let logger = Logger(subsystem: "com.tenex.ios", category: "DataStore")
 
     // MARK: - Subscription Tasks
 
@@ -154,18 +203,24 @@ public final class DataStore {
     private var toolsTask: Task<Void, Never>?
     private var statusTask: Task<Void, Never>?
     private var nudgesTask: Task<Void, Never>?
+    private var recentConversationsTask: Task<Void, Never>?
+    private var inboxTask: Task<Void, Never>?
+
+    // MARK: - Inbox Filtering Cache
+
+    /// Cache of event metadata for inbox filtering (eventID -> (authorPubkey, createdAt))
+    private var inboxEventCache: [String: (pubkey: String, createdAt: Date)] = [:]
 
     // MARK: - Private Subscription Methods
 
     private func subscribeToProjects(userPubkey: String) async {
-        isLoadingProjects = true
+        self.isLoadingProjects = true
         defer { isLoadingProjects = false }
 
-        let filter = Project.filter(for: userPubkey)
         var projectsByID: [String: Project] = [:]
         var projectOrder: [String] = []
 
-        let subscription = ndk.subscribe(filter: filter)
+        let subscription = self.ndk.subscribe(filter: Project.filter(for: userPubkey))
 
         for await event in subscription.events {
             if let project = Project.from(event: event) {
@@ -173,46 +228,46 @@ public final class DataStore {
                     projectOrder.append(project.id)
                 }
                 projectsByID[project.id] = project
-                projects = projectOrder.compactMap { projectsByID[$0] }
+                self.projects = projectOrder.compactMap { projectsByID[$0] }
             }
         }
     }
 
     private func subscribeToAgents() async {
-        isLoadingAgents = true
+        self.isLoadingAgents = true
         defer { isLoadingAgents = false }
 
         let filter = NDKFilter(kinds: [4199], limit: 100)
-        let subscription = ndk.subscribe(filter: filter)
+        let subscription = self.ndk.subscribe(filter: filter)
         var agentsByID: [String: AgentDefinition] = [:]
 
         for await event in subscription.events {
             if let agent = AgentDefinition.from(event: event) {
                 agentsByID[agent.id] = agent
-                agents = Array(agentsByID.values)
+                self.agents = Array(agentsByID.values)
             }
         }
     }
 
     private func subscribeToTools() async {
-        isLoadingTools = true
+        self.isLoadingTools = true
         defer { isLoadingTools = false }
 
         let filter = NDKFilter(kinds: [4200], limit: 100)
-        let subscription = ndk.subscribe(filter: filter)
+        let subscription = self.ndk.subscribe(filter: filter)
         var toolsByID: [String: MCPTool] = [:]
 
         for await event in subscription.events {
             if let tool = MCPTool.from(event: event) {
                 toolsByID[tool.id] = tool
-                tools = Array(toolsByID.values)
+                self.tools = Array(toolsByID.values)
             }
         }
     }
 
     private func subscribeToProjectStatuses(userPubkey: String) async {
         let filter = ProjectStatus.filter(for: userPubkey)
-        let subscription = ndk.subscribe(filter: filter)
+        let subscription = self.ndk.subscribe(filter: filter)
 
         for await event in subscription.events {
             if let status = ProjectStatus.from(event: event) {
@@ -222,24 +277,206 @@ public final class DataStore {
                         continue
                     }
                 }
-                projectStatuses[status.projectCoordinate] = status
+                self.projectStatuses[status.projectCoordinate] = status
             }
         }
     }
 
     private func subscribeToNudges() async {
-        isLoadingNudges = true
+        self.isLoadingNudges = true
         defer { isLoadingNudges = false }
 
         let filter = NDKFilter(kinds: [4201], limit: 100)
-        let subscription = ndk.subscribe(filter: filter)
+        let subscription = self.ndk.subscribe(filter: filter)
         var nudgesByID: [String: Nudge] = [:]
 
         for await event in subscription.events {
             if let nudge = Nudge.from(event: event) {
                 nudgesByID[nudge.id] = nudge
-                nudges = Array(nudgesByID.values).sorted { $0.createdAt > $1.createdAt }
+                self.nudges = Array(nudgesByID.values).sorted { $0.createdAt > $1.createdAt }
             }
         }
+    }
+
+    private func subscribeToRecentConversations() async {
+        var currentProjectCoordinates: [String] = []
+
+        while !Task.isCancelled {
+            // Get current project coordinates
+            let projectCoordinates = self.projects.map(\.coordinate)
+
+            // Skip if no projects yet
+            guard !projectCoordinates.isEmpty else {
+                try? await Task.sleep(for: .seconds(1))
+                continue
+            }
+
+            // Only restart subscription if projects changed
+            guard projectCoordinates != currentProjectCoordinates else {
+                try? await Task.sleep(for: .seconds(1))
+                continue
+            }
+
+            currentProjectCoordinates = projectCoordinates
+
+            // Create filter for recent conversation replies
+            let filter = NDKFilter(
+                kinds: [1111], // GenericReply
+                limit: 200,
+                tags: [
+                    "a": Set(projectCoordinates), // All our projects
+                    "K": Set(["11"]), // Root event kind is 11 (threads)
+                ]
+            )
+
+            let subscription = self.ndk.subscribe(filter: filter)
+            var messagesByID: [String: Message] = [:]
+
+            for await event in subscription.events {
+                // Check if projects changed (break to restart subscription immediately)
+                if self.projects.map(\.coordinate) != currentProjectCoordinates {
+                    break
+                }
+
+                if let message = Message.from(event: event) {
+                    messagesByID[message.id] = message
+                    self.recentConversationReplies = Array(messagesByID.values)
+                        .sorted { $0.createdAt > $1.createdAt }
+                }
+            }
+
+            // No sleep here - restart immediately when projects change
+        }
+    }
+
+    private func subscribeToInbox(userPubkey: String) async {
+        var currentAgentPubkeys: Set<String> = []
+
+        while !Task.isCancelled {
+            // Get all agent pubkeys from project statuses
+            let agentPubkeys = Set(
+                projectStatuses.values.flatMap { status in
+                    status.agents.map(\.pubkey)
+                }
+            )
+
+            guard !agentPubkeys.isEmpty else {
+                try? await Task.sleep(for: .seconds(1))
+                continue
+            }
+
+            // Only restart subscription if agent set changed
+            guard agentPubkeys != currentAgentPubkeys else {
+                try? await Task.sleep(for: .seconds(1))
+                continue
+            }
+
+            currentAgentPubkeys = agentPubkeys
+
+            // Create filter for inbox messages
+            let filter = NDKFilter(
+                authors: Array(agentPubkeys),
+                kinds: [1111],
+                limit: 100,
+                tags: ["p": Set([userPubkey])]
+            )
+
+            let subscription = self.ndk.subscribe(filter: filter)
+            var messagesByID: [String: Message] = [:]
+
+            for await event in subscription.events {
+                // Check if agent set changed (break to restart subscription immediately)
+                let currentAgents = Set(
+                    projectStatuses.values.flatMap { status in
+                        status.agents.map(\.pubkey)
+                    }
+                )
+                if currentAgents != currentAgentPubkeys {
+                    break
+                }
+
+                if let message = Message.from(event: event) {
+                    // Apply smart filtering
+                    if await self.shouldIncludeInInbox(event: event, userPubkey: userPubkey) {
+                        messagesByID[message.id] = message
+
+                        // Sort: ask-tagged first, then by timestamp
+                        self.inboxMessages = Array(messagesByID.values).sorted { msg1, msg2 in
+                            if msg1.hasAskTag != msg2.hasAskTag {
+                                return msg1.hasAskTag
+                            }
+                            return msg1.createdAt > msg2.createdAt
+                        }
+
+                        // Update unread count
+                        self.inboxUnreadCount = self.inboxMessages.count { $0.createdAt > self.lastInboxVisit }
+                    }
+                }
+            }
+
+            // No sleep here - restart immediately when agent set changes
+        }
+    }
+
+    private func shouldIncludeInInbox(event: NDKEvent, userPubkey: String) async -> Bool {
+        // Get 'e' tag (what this event is replying to)
+        guard let eTag = event.tagValue("e"), !eTag.isEmpty else {
+            self.logger.debug("No e-tag found, including in inbox: \(event.id)")
+            return true // No reply context, include in inbox
+        }
+
+        // Check cache first
+        if let cached = inboxEventCache[eTag] {
+            self.logger.debug("Using cached data for inbox filtering: \(eTag)")
+            // Use cached data
+            guard cached.pubkey == userPubkey else {
+                return true // Not a reply to user's message
+            }
+
+            let fiveMinutesAgo = Date().addingTimeInterval(-5 * 60)
+            let shouldInclude = cached.createdAt < fiveMinutesAgo
+            self.logger.debug("Filtering inbox message (cached): \(shouldInclude)")
+            return shouldInclude // Only include if older than 5 minutes
+        }
+
+        // Fetch the e-tagged event if not in cache
+        self.logger.debug("Fetching reply-to event for inbox filtering: \(eTag)")
+        let filter = NDKFilter(ids: [eTag])
+        let subscription = self.ndk.subscribe(filter: filter)
+
+        var replyToEvent: NDKEvent?
+        for await fetchedEvent in subscription.events.prefix(1) {
+            replyToEvent = fetchedEvent
+        }
+
+        guard let replyToEvent else {
+            self.logger.warning("Reply-to event not found, including in inbox: \(eTag)")
+            return true // Can't find context, include in inbox
+        }
+
+        // Cache the event metadata
+        let eventDate = Date(timeIntervalSince1970: TimeInterval(replyToEvent.createdAt))
+        self.inboxEventCache[eTag] = (pubkey: replyToEvent.pubkey, createdAt: eventDate)
+
+        // Apply cache size limit (keep last 1000 entries)
+        if self.inboxEventCache.count > 1000 {
+            let oldestKeys = self.inboxEventCache.keys.prefix(self.inboxEventCache.count - 1000)
+            for key in oldestKeys {
+                self.inboxEventCache.removeValue(forKey: key)
+            }
+            self.logger.debug("Evicted \(oldestKeys.count) entries from inbox event cache")
+        }
+
+        // Check if user authored the reply-to event
+        guard replyToEvent.pubkey == userPubkey else {
+            self.logger.debug("Not a reply to user's message, including in inbox")
+            return true // Not a reply to user's message
+        }
+
+        // Check if user replied within past 5 minutes
+        let fiveMinutesAgo = Date().addingTimeInterval(-5 * 60)
+        let shouldInclude = eventDate < fiveMinutesAgo
+        self.logger.debug("Reply to user's recent message, should include: \(shouldInclude)")
+        return shouldInclude // Only include if older than 5 minutes
     }
 }

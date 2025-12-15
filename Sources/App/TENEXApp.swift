@@ -32,19 +32,19 @@ struct TENEXApp: App {
                     ContentView()
                         .environment(authManager)
                         .environment(\.ndk, ndk)
-                        .environment(\.aiConfig, aiConfig)
+                        .environment(\.aiConfig, self.aiConfig)
                         .environment(\.aiConfigStorage, aiConfigStorage)
                         .environment(\.audioService, audioService)
                         .onChange(of: authManager.activePubkey) { oldPubkey, newPubkey in
-                            handleAuthChange(oldPubkey: oldPubkey, newPubkey: newPubkey)
+                            self.handleAuthChange(oldPubkey: oldPubkey, newPubkey: newPubkey)
                         }
-                        .environment(dataStore)
+                        .environment(self.dataStore)
                 } else {
                     ProgressView("Initializing...")
                 }
             }
             .task {
-                await initializeApp()
+                await self.initializeApp()
             }
         }
     }
@@ -65,7 +65,7 @@ struct TENEXApp: App {
     private func initializeApp() async {
         // Initialize NDK with NostrDB cache
         if ndk == nil {
-            await initializeNDK()
+            await self.initializeNDK()
         }
 
         guard let ndk, let authManager else {
@@ -73,11 +73,11 @@ struct TENEXApp: App {
         }
 
         // Load AI configuration
-        await loadAIConfig()
+        await self.loadAIConfig()
 
         // Initialize DataStore with NDK
-        if dataStore == nil {
-            dataStore = DataStore(ndk: ndk)
+        if self.dataStore == nil {
+            self.dataStore = DataStore(ndk: ndk)
         }
 
         // Initialize auth manager (restores sessions and sets ndk.signer automatically)
@@ -88,7 +88,7 @@ struct TENEXApp: App {
 
         // Start data subscriptions after auth
         if authManager.isAuthenticated, let pubkey = authManager.activePubkey {
-            dataStore?.startSubscriptions(for: pubkey)
+            self.dataStore?.startSubscriptions(for: pubkey)
         }
     }
 
@@ -116,26 +116,26 @@ struct TENEXApp: App {
                 outboxEnabled: false
             )
 
-            ndk = initializedNDK
-            authManager = NDKAuthManager(ndk: initializedNDK)
+            self.ndk = initializedNDK
+            self.authManager = NDKAuthManager(ndk: initializedNDK)
         } catch {
             Logger().error("Failed to initialize NostrDB: \(error). Using default cache.")
             let initializedNDK = NDK(
                 relayURLs: ["wss://tenex.chat"],
                 outboxEnabled: false
             )
-            ndk = initializedNDK
-            authManager = NDKAuthManager(ndk: initializedNDK)
+            self.ndk = initializedNDK
+            self.authManager = NDKAuthManager(ndk: initializedNDK)
         }
     }
 
     private func handleAuthChange(oldPubkey: String?, newPubkey: String?) {
         if let newPubkey {
             // User logged in or switched accounts - start subscriptions for new user
-            dataStore?.startSubscriptions(for: newPubkey)
+            self.dataStore?.startSubscriptions(for: newPubkey)
         } else if oldPubkey != nil {
             // User logged out - clear all data
-            dataStore?.stopSubscriptions()
+            self.dataStore?.stopSubscriptions()
         }
     }
 
@@ -143,12 +143,12 @@ struct TENEXApp: App {
     private func loadAIConfig() async {
         let keychain = KeychainStorage(service: "com.tenex.ai")
         let storage = UserDefaultsAIConfigStorage(keychain: keychain)
-        aiConfigStorage = storage
-        aiConfig = try? storage.load()
+        self.aiConfigStorage = storage
+        self.aiConfig = try? storage.load()
 
         // Initialize AudioService
         let capabilityDetector = RuntimeAICapabilityDetector()
-        audioService = AudioService(storage: storage, capabilityDetector: capabilityDetector)
+        self.audioService = AudioService(storage: storage, capabilityDetector: capabilityDetector)
     }
 }
 
@@ -159,10 +159,10 @@ struct ContentView: View {
 
     var body: some View {
         Group {
-            if authManager.isAuthenticated {
-                NavigationShell()
+            if self.authManager.isAuthenticated {
+                MainTabView()
             } else {
-                LoginView(viewModel: LoginViewModel(authManager: authManager))
+                LoginView(viewModel: LoginViewModel(authManager: self.authManager))
             }
         }
     }

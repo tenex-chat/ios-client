@@ -24,6 +24,7 @@ public struct MessageRow: View {
         onAgentTap: (() -> Void)? = nil,
         onQuote: (() -> Void)? = nil,
         onTimestampTap: (() -> Void)? = nil,
+        onPlayTTS: (() -> Void)? = nil,
         showDebugInfo: Bool = false
     ) {
         self.message = message
@@ -34,6 +35,7 @@ public struct MessageRow: View {
         self.onAgentTap = onAgentTap
         self.onQuote = onQuote
         self.onTimestampTap = onTimestampTap
+        self.onPlayTTS = onPlayTTS
         self.showDebugInfo = showDebugInfo
         self.isAgent = currentUserPubkey != nil && message.pubkey != currentUserPubkey
     }
@@ -68,6 +70,7 @@ public struct MessageRow: View {
     private let onAgentTap: (() -> Void)?
     private let onQuote: (() -> Void)?
     private let onTimestampTap: (() -> Void)?
+    private let onPlayTTS: (() -> Void)?
     private let showDebugInfo: Bool
     private let isAgent: Bool
 
@@ -188,6 +191,14 @@ public struct MessageRow: View {
                 onQuote()
             } label: {
                 Label("Quote", systemImage: "quote.bubble")
+            }
+        }
+
+        if let onPlayTTS {
+            Button {
+                onPlayTTS()
+            } label: {
+                Label("Play Audio", systemImage: "speaker.wave.2.fill")
             }
         }
 
