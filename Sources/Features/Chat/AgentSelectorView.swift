@@ -164,8 +164,9 @@ public struct AgentSelectorView: View {
 public struct AgentSelectorButton: View {
     // MARK: Lifecycle
 
-    public init(viewModel: AgentSelectorViewModel) {
+    public init(viewModel: AgentSelectorViewModel, onSettings: ((ProjectAgent) -> Void)? = nil) {
         self.viewModel = viewModel
+        self.onSettings = onSettings
     }
 
     // MARK: Public
@@ -178,7 +179,7 @@ public struct AgentSelectorButton: View {
         }
         .buttonStyle(.plain)
         .sheet(isPresented: self.$viewModel.isPresented) {
-            AgentSelectorView(viewModel: self.viewModel)
+            AgentSelectorView(viewModel: self.viewModel, onSettings: self.onSettings)
         }
     }
 
@@ -187,6 +188,8 @@ public struct AgentSelectorButton: View {
     @Environment(\.ndk) private var ndk
 
     @Bindable private var viewModel: AgentSelectorViewModel
+
+    private let onSettings: ((ProjectAgent) -> Void)?
 
     private var buttonContent: some View {
         HStack(spacing: 6) {

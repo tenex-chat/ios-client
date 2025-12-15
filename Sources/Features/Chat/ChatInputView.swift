@@ -44,6 +44,8 @@ private extension Color {
 
 // MARK: - ChatInputView
 
+// swiftlint:disable type_body_length
+
 /// Multi-line text input for composing chat messages
 /// Integrates AgentSelector, MentionAutocomplete, Nudges, and Branch selection
 public struct ChatInputView: View {
@@ -133,6 +135,7 @@ public struct ChatInputView: View {
     @State private var showNudgeSelector = false
     @State private var showBranchSelector = false
     @State private var showAgentConfig = false
+    @State private var configAgent: ProjectAgent?
     @FocusState private var isInputFocused: Bool
 
     /// Dynamic Type scaling for send button
@@ -149,14 +152,14 @@ public struct ChatInputView: View {
 
     /// Available models from project status
     private var availableModels: [String] {
-        self.dataStore.getProjectStatus(projectCoordinate: self.projectReference)
-            .map { Array(Set($0.agents.compactMap(\.model))).sorted() } ?? []
+        self.dataStore.getProjectStatus(projectCoordinate: self.projectReference)?
+            .models ?? []
     }
 
     /// Available tools from project status
     private var availableTools: [String] {
-        self.dataStore.getProjectStatus(projectCoordinate: self.projectReference)
-            .map { Array(Set($0.agents.flatMap(\.tools))).sorted() } ?? []
+        self.dataStore.getProjectStatus(projectCoordinate: self.projectReference)?
+            .tools ?? []
     }
 
     /// Available branches from project status
@@ -226,10 +229,25 @@ public struct ChatInputView: View {
     private var controlsRow: some View {
         HStack(spacing: 8) {
             self.nudgeButton
-            AgentSelectorButton(viewModel: self.agentSelectorVM)
+            AgentSelectorButton(viewModel: self.agentSelectorVM) { agent in
+                self.configAgent = agent
+                self.showAgentConfig = true
+            }
             self.branchButton
             Spacer()
             self.expandButton
+        }
+        .sheet(isPresented: self.$showAgentConfig) {
+            if let agent = configAgent {
+                AgentConfigSheet(
+                    isPresented: self.$showAgentConfig,
+                    agent: agent,
+                    availableModels: self.availableModels,
+                    availableTools: self.availableTools,
+                    projectReference: self.projectReference,
+                    ndk: self.ndk
+                )
+            }
         }
     }
 
@@ -398,3 +416,5 @@ public struct ChatInputView: View {
         self.mentionVM.hide()
     }
 }
+
+// swiftlint:enable type_body_length
