@@ -341,12 +341,12 @@ public final class ChatViewModel { // swiftlint:disable:this type_body_length
             tags: ["E": Set([threadID])]
         )
 
-        // Filter 2: ephemeral events (21111, 24111, 24112)
+        // Filter 2: ephemeral events (21111 streaming deltas)
         // - since: 1 minute ago to prevent overwhelming with old events
         // - limit: 5 to cap the number of ephemeral events
         let oneMinuteAgo = Timestamp(Date().addingTimeInterval(-60).timeIntervalSince1970)
         let ephemeralFilter = NDKFilter(
-            kinds: [21_111, 24_111, 24_112],
+            kinds: [21_111],
             since: oneMinuteAgo,
             limit: 5,
             tags: ["E": Set([threadID])]
