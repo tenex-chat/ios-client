@@ -40,7 +40,7 @@ struct MicButton: View {
 
     // MARK: Internal
 
-    @State var isPressed = false
+    @GestureState var isPressed = false
 
     let state: MicButtonState
     let audioLevel: Double
@@ -135,9 +135,6 @@ struct MicButton: View {
 
     private var combinedGesture: some Gesture {
         LongPressGesture(minimumDuration: 0.3)
-            .onChanged { _ in
-                self.isPressed = true
-            }
             .onEnded { _ in
                 self.onLongPressStart()
             }
@@ -159,7 +156,6 @@ struct MicButton: View {
                 default:
                     self.onTap()
                 }
-                self.isPressed = false
             }
     }
 
