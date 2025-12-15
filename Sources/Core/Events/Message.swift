@@ -63,12 +63,12 @@ public struct ToolCall: Sendable {
 
     /// Get a string argument by key
     public func string(for key: String) -> String? {
-        args[key]?.value as? String
+        self.args[key]?.value as? String
     }
 
     /// Get a string argument with a default value
     public func string(for key: String, default defaultValue: String) -> String {
-        (args[key]?.value as? String) ?? defaultValue
+        (self.args[key]?.value as? String) ?? defaultValue
     }
 
     /// Get an array of todos (for TodoWrite tool)
@@ -94,7 +94,7 @@ public struct ToolCall: Sendable {
         guard let fullPath = string(for: key) else {
             return ""
         }
-        return Self.getDisplayPath(fullPath: fullPath, projectDTag: projectDTag, branch: branch)
+        return Self.getDisplayPath(fullPath: fullPath, projectDTag: self.projectDTag, branch: self.branch)
     }
 
     // MARK: Internal
@@ -109,8 +109,8 @@ public struct ToolCall: Sendable {
             return nil
         }
 
-        let args = parseToolArgs(from: event)
-        let projectDTag = extractProjectDTag(from: event)
+        let args = self.parseToolArgs(from: event)
+        let projectDTag = self.extractProjectDTag(from: event)
         let branch = event.tagValue("branch")
 
         return Self(
@@ -255,7 +255,8 @@ public struct Message: Identifiable, Sendable {
         phase: String? = nil,
         pTaggedPubkeys: [String] = [],
         suggestions: [String] = [],
-        rawEventJSON: String? = nil
+        rawEventJSON: String? = nil,
+        projectCoordinate: String? = nil
     ) {
         self.id = id
         self.pubkey = pubkey
@@ -274,6 +275,7 @@ public struct Message: Identifiable, Sendable {
         self.pTaggedPubkeys = pTaggedPubkeys
         self.suggestions = suggestions
         self.rawEventJSON = rawEventJSON
+        self.projectCoordinate = projectCoordinate
     }
 
     // MARK: Public
@@ -284,7 +286,7 @@ public struct Message: Identifiable, Sendable {
     /// The pubkey of the message author
     public let pubkey: String
 
-    /// The thread ID this message belongs to
+    /// The thread ID this message belongs to (from 'E' tag - root event reference)
     public let threadID: String
 
     /// The message content (raw markdown)
@@ -329,70 +331,27 @@ public struct Message: Identifiable, Sendable {
     /// Raw event JSON for debugging
     public let rawEventJSON: String?
 
+    /// Project coordinate from 'a' tag (e.g., "31933:pubkey:dtag")
+    public let projectCoordinate: String?
+
     /// Whether this message is a tool call
-    public var isToolCall: Bool { toolCall != nil }
+    public var isToolCall: Bool { self.toolCall != nil }
 
     /// Create a Message from a Nostr event
     /// - Parameter event: The NDKEvent (must be kind:11 or kind:1111)
     /// - Returns: A Message instance, or nil if the event is invalid
     public static func from(event: NDKEvent) -> Self? {
-        let metadata = extractMetadata(from: event)
+        let metadata = self.extractMetadata(from: event)
 
-        // Handle kind:11 (thread event - the original post)
         if event.kind == 11 {
-            return Self(
-                id: event.id,
-                pubkey: event.pubkey,
-                threadID: event.id,
-                content: event.content,
-                createdAt: metadata.createdAt,
-                replyTo: nil,
-                kind: UInt16(event.kind),
-                isReasoning: metadata.isReasoning,
-                branch: metadata.branch,
-                phase: metadata.phase,
-                pTaggedPubkeys: metadata.pTaggedPubkeys,
-                suggestions: metadata.suggestions,
-                rawEventJSON: metadata.rawEventJSON
-            )
+            return self.createThreadRoot(from: event, metadata: metadata)
         }
 
-        // Handle kind:1111 (GenericReply - replies to the thread)
         guard event.kind == 1111 else {
             return nil
         }
 
-        // Extract thread ID from 'a' tag (required for replies)
-        guard let aTag = event.tags(withName: "a").first,
-              aTag.count > 1,
-              !aTag[1].isEmpty
-        else {
-            return nil
-        }
-        let threadID = aTag[1]
-
-        // Extract optional parent message ID from 'e' tag
-        let replyTo = event.tags(withName: "e").first?[safe: 1]
-
-        // Parse tool call data if present
-        let toolCall = ToolCall.from(event: event)
-
-        return Self(
-            id: event.id,
-            pubkey: event.pubkey,
-            threadID: threadID,
-            content: event.content,
-            createdAt: metadata.createdAt,
-            replyTo: replyTo,
-            kind: UInt16(event.kind),
-            toolCall: toolCall,
-            isReasoning: metadata.isReasoning,
-            branch: metadata.branch,
-            phase: metadata.phase,
-            pTaggedPubkeys: metadata.pTaggedPubkeys,
-            suggestions: metadata.suggestions,
-            rawEventJSON: metadata.rawEventJSON
-        )
+        return self.createThreadReply(from: event, metadata: metadata)
     }
 
     /// Create a filter for fetching messages by thread
@@ -411,22 +370,23 @@ public struct Message: Identifiable, Sendable {
     public func with(id: String) -> Self {
         Self(
             id: id,
-            pubkey: pubkey,
-            threadID: threadID,
-            content: content,
-            createdAt: createdAt,
-            replyTo: replyTo,
-            kind: kind,
-            isStreaming: isStreaming,
-            replyCount: replyCount,
-            replyAuthorPubkeys: replyAuthorPubkeys,
-            toolCall: toolCall,
-            isReasoning: isReasoning,
-            branch: branch,
-            phase: phase,
-            pTaggedPubkeys: pTaggedPubkeys,
-            suggestions: suggestions,
-            rawEventJSON: rawEventJSON
+            pubkey: self.pubkey,
+            threadID: self.threadID,
+            content: self.content,
+            createdAt: self.createdAt,
+            replyTo: self.replyTo,
+            kind: self.kind,
+            isStreaming: self.isStreaming,
+            replyCount: self.replyCount,
+            replyAuthorPubkeys: self.replyAuthorPubkeys,
+            toolCall: self.toolCall,
+            isReasoning: self.isReasoning,
+            branch: self.branch,
+            phase: self.phase,
+            pTaggedPubkeys: self.pTaggedPubkeys,
+            suggestions: self.suggestions,
+            rawEventJSON: self.rawEventJSON,
+            projectCoordinate: self.projectCoordinate
         )
     }
 
@@ -437,23 +397,24 @@ public struct Message: Identifiable, Sendable {
     /// - Returns: A new Message with the reply metadata
     public func with(replyCount: Int, replyAuthorPubkeys: [String]) -> Self {
         Self(
-            id: id,
-            pubkey: pubkey,
-            threadID: threadID,
-            content: content,
-            createdAt: createdAt,
-            replyTo: replyTo,
-            kind: kind,
-            isStreaming: isStreaming,
+            id: self.id,
+            pubkey: self.pubkey,
+            threadID: self.threadID,
+            content: self.content,
+            createdAt: self.createdAt,
+            replyTo: self.replyTo,
+            kind: self.kind,
+            isStreaming: self.isStreaming,
             replyCount: replyCount,
             replyAuthorPubkeys: replyAuthorPubkeys,
-            toolCall: toolCall,
-            isReasoning: isReasoning,
-            branch: branch,
-            phase: phase,
-            pTaggedPubkeys: pTaggedPubkeys,
-            suggestions: suggestions,
-            rawEventJSON: rawEventJSON
+            toolCall: self.toolCall,
+            isReasoning: self.isReasoning,
+            branch: self.branch,
+            phase: self.phase,
+            pTaggedPubkeys: self.pTaggedPubkeys,
+            suggestions: self.suggestions,
+            rawEventJSON: self.rawEventJSON,
+            projectCoordinate: self.projectCoordinate
         )
     }
 
@@ -467,6 +428,54 @@ public struct Message: Identifiable, Sendable {
         let pTaggedPubkeys: [String]
         let suggestions: [String]
         let rawEventJSON: String?
+    }
+
+    private static func createThreadRoot(from event: NDKEvent, metadata: EventMetadata) -> Self {
+        Self(
+            id: event.id,
+            pubkey: event.pubkey,
+            threadID: event.id,
+            content: event.content,
+            createdAt: metadata.createdAt,
+            replyTo: nil,
+            kind: UInt16(event.kind),
+            isReasoning: metadata.isReasoning,
+            branch: metadata.branch,
+            phase: metadata.phase,
+            pTaggedPubkeys: metadata.pTaggedPubkeys,
+            suggestions: metadata.suggestions,
+            rawEventJSON: metadata.rawEventJSON,
+            projectCoordinate: event.tagValue("a")
+        )
+    }
+
+    private static func createThreadReply(from event: NDKEvent, metadata: EventMetadata) -> Self? {
+        let threadID: String
+        if let ETag = event.tagValue("E"), !ETag.isEmpty {
+            threadID = ETag
+        } else if let eTag = event.tagValue("e"), !eTag.isEmpty {
+            threadID = eTag
+        } else {
+            return nil
+        }
+
+        return Self(
+            id: event.id,
+            pubkey: event.pubkey,
+            threadID: threadID,
+            content: event.content,
+            createdAt: metadata.createdAt,
+            replyTo: event.tagValue("e"),
+            kind: UInt16(event.kind),
+            toolCall: ToolCall.from(event: event),
+            isReasoning: metadata.isReasoning,
+            branch: metadata.branch,
+            phase: metadata.phase,
+            pTaggedPubkeys: metadata.pTaggedPubkeys,
+            suggestions: metadata.suggestions,
+            rawEventJSON: metadata.rawEventJSON,
+            projectCoordinate: event.tagValue("a")
+        )
     }
 
     private static func extractMetadata(from event: NDKEvent) -> EventMetadata {

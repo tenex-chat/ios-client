@@ -68,13 +68,6 @@ public struct DocumentDetailView: View {
         self.document.tagValue("summary")
     }
 
-    private var authorName: String {
-        guard let author = ndk.getUser(document.pubkey) else {
-            return String(self.document.pubkey.prefix(8)) + "..."
-        }
-        return author.profile?.displayName ?? String(self.document.pubkey.prefix(8)) + "..."
-    }
-
     private var hashtags: [String] {
         self.document.tags(withName: "t")
             .compactMap { $0[safe: 1] }
@@ -117,7 +110,7 @@ public struct DocumentDetailView: View {
         HStack(spacing: 10) {
             NDKUIProfilePicture(ndk: self.ndk, pubkey: self.document.pubkey, size: 40)
             VStack(alignment: .leading, spacing: 2) {
-                Text(self.authorName)
+                NDKUIDisplayName(ndk: self.ndk, pubkey: self.document.pubkey)
                     .font(.subheadline.weight(.medium))
                 self.authorMetadataRow
             }

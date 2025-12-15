@@ -41,13 +41,6 @@ struct FeedEventRow: View {
     private let event: NDKEvent
     private let ndk: NDK
 
-    private var authorName: String {
-        guard let author = ndk.getUser(event.pubkey) else {
-            return String(self.event.pubkey.prefix(8)) + "..."
-        }
-        return author.profile?.displayName ?? String(self.event.pubkey.prefix(8)) + "..."
-    }
-
     private var eventDetails: (icon: String, label: String, title: String) {
         switch self.event.kind {
         case 1: // Text note
@@ -126,7 +119,7 @@ struct FeedEventRow: View {
 
     private var eventHeader: some View {
         HStack(spacing: 6) {
-            Text(self.authorName)
+            NDKUIDisplayName(ndk: self.ndk, pubkey: self.event.pubkey)
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.primary)
 

@@ -49,13 +49,6 @@ struct DocumentRow: View {
         self.document.tagValue("summary")
     }
 
-    private var authorName: String {
-        guard let author = ndk.getUser(document.pubkey) else {
-            return String(self.document.pubkey.prefix(8)) + "..."
-        }
-        return author.profile?.displayName ?? String(self.document.pubkey.prefix(8)) + "..."
-    }
-
     private var hashtags: [String] {
         self.document.tags(withName: "t")
             .compactMap { $0[safe: 1] }
@@ -85,7 +78,7 @@ struct DocumentRow: View {
 
     private var documentHeader: some View {
         HStack(spacing: 6) {
-            Text(self.authorName)
+            NDKUIDisplayName(ndk: self.ndk, pubkey: self.document.pubkey)
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.primary)
 

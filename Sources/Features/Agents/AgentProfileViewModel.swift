@@ -24,17 +24,9 @@ final class AgentProfileViewModel {
 
     private(set) var eventsSubscription: NDKSubscription<NDKEvent>?
 
-    /// Computed properties from profile
+    /// Agent name fallback (shortened pubkey)
     var agentName: String? {
-        self.ndk.getUser(self.pubkey)?.profile?.metadata?.name
-    }
-
-    var agentAbout: String? {
-        self.ndk.getUser(self.pubkey)?.profile?.metadata?.about
-    }
-
-    var agentPicture: String? {
-        self.ndk.getUser(self.pubkey)?.profile?.metadata?.picture
+        String(self.pubkey.prefix(8))
     }
 
     /// Events are already deduplicated and managed by NDKSubscription

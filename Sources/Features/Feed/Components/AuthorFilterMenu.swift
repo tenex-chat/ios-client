@@ -128,9 +128,15 @@ struct AuthorFilterItem: View {
             HStack(spacing: 10) {
                 NDKUIProfilePicture(ndk: self.ndk, pubkey: self.pubkey, size: 20)
 
-                Text(self.displayName)
-                    .font(.subheadline)
-                    .foregroundStyle(.primary)
+                if self.isCurrentUser {
+                    Text("You")
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+                } else {
+                    NDKUIDisplayName(ndk: self.ndk, pubkey: self.pubkey)
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+                }
 
                 Spacer()
 
@@ -153,15 +159,4 @@ struct AuthorFilterItem: View {
     private let isCurrentUser: Bool
     private let ndk: NDK
     private let onSelect: () -> Void
-
-    private var displayName: String {
-        if self.isCurrentUser {
-            return "You"
-        }
-
-        guard let author = ndk.getUser(pubkey) else {
-            return String(self.pubkey.prefix(8)) + "..."
-        }
-        return author.profile?.displayName ?? String(self.pubkey.prefix(8)) + "..."
-    }
 }
