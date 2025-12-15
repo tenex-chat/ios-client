@@ -54,8 +54,8 @@ final class SystemTTSService: TTSService {
     }
 
     func synthesize(text: String, voiceID: String?) async throws -> Data {
-        let utterance = configureUtterance(text: text, voiceID: voiceID)
-        return try await performSynthesis(utterance: utterance)
+        let utterance = self.configureUtterance(text: text, voiceID: voiceID)
+        return try await self.performSynthesis(utterance: utterance)
     }
 
     // MARK: Private
@@ -94,7 +94,7 @@ final class SystemTTSService: TTSService {
                 do {
                     #if os(iOS)
                         let session = AVAudioSession.sharedInstance()
-                        try session.setCategory(.playback, mode: .default)
+                        try session.setCategory(.playAndRecord, mode: .default)
                         try session.setActive(true)
                     #endif
 
@@ -110,8 +110,8 @@ final class SystemTTSService: TTSService {
                         }
                     )
 
-                    synthesizer.delegate = delegate
-                    synthesizer.speak(utterance)
+                    self.synthesizer.delegate = delegate
+                    self.synthesizer.speak(utterance)
 
                     withExtendedLifetime(delegate) {}
                 } catch {
@@ -139,14 +139,14 @@ private class SpeechSynthesizerDelegate: NSObject, AVSpeechSynthesizerDelegate {
     let onError: (Error) -> Void
 
     func speechSynthesizer(_: AVSpeechSynthesizer, didFinish _: AVSpeechUtterance) {
-        onFinish()
+        self.onFinish()
     }
 
     func speechSynthesizer(
         _: AVSpeechSynthesizer,
         didCancel _: AVSpeechUtterance
     ) {
-        onError(AudioError.synthesisFailed(NSError(
+        self.onError(AudioError.synthesisFailed(NSError(
             domain: "SystemTTS",
             code: -1,
             userInfo: [NSLocalizedDescriptionKey: "Speech synthesis cancelled"]

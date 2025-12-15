@@ -34,7 +34,7 @@ final class AudioPlayer: NSObject {
             /// Configure audio session for playback
             let session = AVAudioSession.sharedInstance()
             do {
-                try session.setCategory(.playback, mode: .default)
+                try session.setCategory(.playAndRecord, mode: .default)
                 try session.setActive(true)
             } catch {
                 throw AudioError.playbackFailed(error)
@@ -43,11 +43,11 @@ final class AudioPlayer: NSObject {
 
         // Create audio player
         do {
-            audioPlayer = try AVAudioPlayer(data: audioData)
-            audioPlayer?.delegate = self
-            audioPlayer?.prepareToPlay()
+            self.audioPlayer = try AVAudioPlayer(data: audioData)
+            self.audioPlayer?.delegate = self
+            self.audioPlayer?.prepareToPlay()
 
-            guard audioPlayer?.play() == true else {
+            guard self.audioPlayer?.play() == true else {
                 throw AudioError.playbackFailed(NSError(
                     domain: "AudioPlayer",
                     code: -1,
@@ -55,8 +55,8 @@ final class AudioPlayer: NSObject {
                 ))
             }
 
-            isPlaying = true
-            startProgressTracking()
+            self.isPlaying = true
+            self.startProgressTracking()
 
             // Wait for completion
             await withCheckedContinuation { continuation in
@@ -74,7 +74,7 @@ final class AudioPlayer: NSObject {
             /// Configure audio session for playback
             let session = AVAudioSession.sharedInstance()
             do {
-                try session.setCategory(.playback, mode: .default)
+                try session.setCategory(.playAndRecord, mode: .default)
                 try session.setActive(true)
             } catch {
                 throw AudioError.playbackFailed(error)
@@ -83,11 +83,11 @@ final class AudioPlayer: NSObject {
 
         // Create audio player
         do {
-            audioPlayer = try AVAudioPlayer(contentsOf: url)
-            audioPlayer?.delegate = self
-            audioPlayer?.prepareToPlay()
+            self.audioPlayer = try AVAudioPlayer(contentsOf: url)
+            self.audioPlayer?.delegate = self
+            self.audioPlayer?.prepareToPlay()
 
-            guard audioPlayer?.play() == true else {
+            guard self.audioPlayer?.play() == true else {
                 throw AudioError.playbackFailed(NSError(
                     domain: "AudioPlayer",
                     code: -1,
@@ -95,8 +95,8 @@ final class AudioPlayer: NSObject {
                 ))
             }
 
-            isPlaying = true
-            startProgressTracking()
+            self.isPlaying = true
+            self.startProgressTracking()
 
             // Wait for completion
             await withCheckedContinuation { continuation in
@@ -109,22 +109,22 @@ final class AudioPlayer: NSObject {
 
     /// Pause playback
     func pause() {
-        audioPlayer?.pause()
-        isPlaying = false
-        stopProgressTracking()
+        self.audioPlayer?.pause()
+        self.isPlaying = false
+        self.stopProgressTracking()
     }
 
     /// Stop playback
     func stop() {
-        stopProgressTracking()
-        audioPlayer?.stop()
-        audioPlayer = nil
-        isPlaying = false
-        playbackProgress = 0.0
+        self.stopProgressTracking()
+        self.audioPlayer?.stop()
+        self.audioPlayer = nil
+        self.isPlaying = false
+        self.playbackProgress = 0.0
 
         // Resume continuation if waiting
-        completionContinuation?.resume()
-        completionContinuation = nil
+        self.completionContinuation?.resume()
+        self.completionContinuation = nil
     }
 
     // MARK: Private
@@ -136,7 +136,7 @@ final class AudioPlayer: NSObject {
     // MARK: - Progress Tracking
 
     private func startProgressTracking() {
-        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+        self.progressTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.updateProgress()
             }
@@ -144,23 +144,23 @@ final class AudioPlayer: NSObject {
     }
 
     private func stopProgressTracking() {
-        progressTimer?.invalidate()
-        progressTimer = nil
+        self.progressTimer?.invalidate()
+        self.progressTimer = nil
     }
 
     private func updateProgress() {
         guard let audioPlayer, audioPlayer.isPlaying else {
-            playbackProgress = 0.0
+            self.playbackProgress = 0.0
             return
         }
 
         let duration = audioPlayer.duration
         guard duration > 0 else {
-            playbackProgress = 0.0
+            self.playbackProgress = 0.0
             return
         }
 
-        playbackProgress = audioPlayer.currentTime / duration
+        self.playbackProgress = audioPlayer.currentTime / duration
     }
 }
 
