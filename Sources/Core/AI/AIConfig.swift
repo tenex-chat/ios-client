@@ -229,6 +229,16 @@ public enum VADMode: String, Codable, Sendable, CaseIterable {
     case autoWithHold = "auto-with-hold"
 }
 
+// MARK: - VADMethod
+
+/// Voice Activity Detection implementation method
+public enum VADMethod: String, Codable, Sendable, CaseIterable {
+    /// Energy-based VAD (simple amplitude detection, works on all iOS versions)
+    case energyBased = "energy-based"
+    /// Apple's native speech detection (iOS 18+, more accurate but requires newer OS)
+    case appleSpeech = "apple-speech"
+}
+
 // MARK: - VoiceCallSettings
 
 /// Voice call settings
@@ -237,6 +247,7 @@ public struct VoiceCallSettings: Codable, Sendable, Equatable {
 
     public init(
         vadMode: VADMode = .pushToTalk,
+        vadMethod: VADMethod = .energyBased,
         vadSensitivity: Double = 0.5,
         noiseSuppression: Bool = true,
         echoCancellation: Bool = true,
@@ -246,6 +257,7 @@ public struct VoiceCallSettings: Codable, Sendable, Equatable {
         enableVOD: Bool = true
     ) {
         self.vadMode = vadMode
+        self.vadMethod = vadMethod
         self.vadSensitivity = vadSensitivity
         self.noiseSuppression = noiseSuppression
         self.echoCancellation = echoCancellation
@@ -259,6 +271,8 @@ public struct VoiceCallSettings: Codable, Sendable, Equatable {
 
     /// Voice activity detection mode
     public var vadMode: VADMode
+    /// Voice activity detection method (algorithm used)
+    public var vadMethod: VADMethod
     /// VAD sensitivity (0.0-1.0)
     public var vadSensitivity: Double
     /// Enable noise suppression

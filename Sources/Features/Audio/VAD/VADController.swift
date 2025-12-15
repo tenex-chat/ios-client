@@ -7,6 +7,7 @@
 import AVFoundation
 import Foundation
 import Observation
+import TENEXCore
 
 /// Observable controller managing VAD lifecycle and state
 @MainActor
@@ -17,16 +18,25 @@ public final class VADController {
     /// Initialize VAD controller
     /// - Parameters:
     ///   - audioEngine: Audio engine to monitor
+    ///   - vadMethod: Voice activity detection method to use
     ///   - sensitivity: Initial sensitivity (0.0-1.0)
-    public init(audioEngine: AVAudioEngine, sensitivity: Double = 0.5) {
+    public init(audioEngine: AVAudioEngine, vadMethod: VADMethod = .energyBased, sensitivity: Double = 0.5) {
         self.audioEngine = audioEngine
         self.sensitivity = sensitivity
+        self.vadMethod = vadMethod
 
-        // Select appropriate VAD implementation based on OS version
-        if #available(iOS 18.0, macOS 15.0, *) {
-            service = AppleSpeechDetectorVAD()
-        } else {
+        // Select VAD service based on method
+        switch vadMethod {
+        case .energyBased:
             self.service = EnergyBasedVAD()
+        case .appleSpeech:
+            // Apple Speech VAD is only available on iOS 18+
+            if #available(iOS 18.0, macOS 15.0, *) {
+                self.service = AppleSpeechDetectorVAD()
+            } else {
+                // Fallback to energy-based on older OS versions
+                self.service = EnergyBasedVAD()
+            }
         }
 
         // Set initial sensitivity
@@ -55,16 +65,22 @@ public final class VADController {
 
         self.error = nil
 
-        // Set up VAD callbacks
+        // Set up VAD callbacks (already on MainActor)
         self.service.onSpeechStart = { [weak self] in
-            Task { @MainActor [weak self] in
-                await self?.handleSpeechStart()
+            guard let self else {
+                return
+            }
+            Task {
+                await self.handleSpeechStart()
             }
         }
 
         self.service.onSpeechEnd = { [weak self] in
-            Task { @MainActor [weak self] in
-                await self?.handleSpeechEnd()
+            guard let self else {
+                return
+            }
+            Task {
+                await self.handleSpeechEnd()
             }
         }
 
@@ -137,6 +153,7 @@ public final class VADController {
     // MARK: Private
 
     private let audioEngine: AVAudioEngine
+    private let vadMethod: VADMethod
     private var service: VADService
     private var sensitivity: Double
 

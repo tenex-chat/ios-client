@@ -51,6 +51,7 @@ public struct VoiceCallSettingsView: View {
             self.vadModePicker
 
             if self.settings.vadMode == .auto || self.settings.vadMode == .autoWithHold {
+                self.vadMethodPicker
                 self.vadSensitivitySlider
             }
         } header: {
@@ -67,6 +68,21 @@ public struct VoiceCallSettingsView: View {
             }
         }
         .accessibilityLabel("Voice detection mode")
+    }
+
+    @ViewBuilder private var vadMethodPicker: some View {
+        Picker("Detection Method", selection: self.$settings.vadMethod) {
+            ForEach(VADMethod.allCases, id: \.self) { method in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(method.displayName)
+                    Text(method.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .tag(method)
+            }
+        }
+        .accessibilityLabel("Voice detection method")
     }
 
     @ViewBuilder private var vadSensitivitySlider: some View {
@@ -127,6 +143,28 @@ extension VADMode {
             "Auto-Detect"
         case .autoWithHold:
             "Auto + Hold Override"
+        }
+    }
+}
+
+// MARK: - VADMethod Extensions
+
+extension VADMethod {
+    var displayName: String {
+        switch self {
+        case .energyBased:
+            "Energy-Based"
+        case .appleSpeech:
+            "Apple Speech (iOS 18+)"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .energyBased:
+            "Simple loudness detection, works on all versions"
+        case .appleSpeech:
+            "ML-powered speech detection, more accurate"
         }
     }
 }
