@@ -39,14 +39,22 @@ public struct CallView: View {
 
     public var body: some View {
         ZStack {
-            backgroundGradient
-            contentView
+            self.backgroundGradient
+            self.contentView
         }
         .preferredColorScheme(.dark)
         .task {
             // Start call when view appears
-            if viewModel.state == .idle {
-                await viewModel.startCall()
+            if self.viewModel.state == .idle {
+                await self.viewModel.startCall()
+            }
+        }
+        .onChange(of: self.viewModel.state) { oldState, newState in
+            self.handleStateChange(from: oldState, to: newState)
+        }
+        .onChange(of: self.viewModel.error) { _, error in
+            if error != nil {
+                self.hapticManager.error()
             }
         }
     }
@@ -54,6 +62,8 @@ public struct CallView: View {
     // MARK: Private
 
     @State private var viewModel: CallViewModel
+    @State private var hapticManager = HapticManager()
+    @State private var showHoldHint = false
 
     // Note: NDK instance reserved for future profile picture support
     private let ndk: NDK
@@ -61,7 +71,7 @@ public struct CallView: View {
     private let onDismiss: () -> Void
 
     private var agentInitials: String {
-        let words = viewModel.agent.name.split(separator: " ")
+        let words = self.viewModel.agent.name.split(separator: " ")
         if words.count >= 2 {
             return String(words[0].prefix(1) + words[1].prefix(1)).uppercased()
         } else if let first = words.first {
@@ -71,52 +81,35 @@ public struct CallView: View {
     }
 
     private var agentColor: Color {
-        let hash = viewModel.agent.pubkey.hashValue
+        let hash = self.viewModel.agent.pubkey.hashValue
         let hue = Double(abs(hash) % 360) / 360.0
         return Color(hue: hue, saturation: 0.6, brightness: 0.7)
     }
 
-    private var statusColor: Color {
-        switch viewModel.state {
-        case .idle,
-             .ended:
-            .gray
-        case .connecting:
-            .yellow
-        case .listening,
-             .recording,
-             .processingSTT:
-            .green
-        case .waitingForAgent,
-             .playingResponse:
-            .blue
+    private var micButtonState: MicButtonState {
+        if self.viewModel.isHoldingMic {
+            return .held
         }
-    }
 
-    private var statusText: String {
-        switch viewModel.state {
+        switch self.viewModel.state {
         case .idle:
-            "Not started"
-        case .connecting:
-            "Connecting..."
+            return self.viewModel.vadMode == .auto || self.viewModel.vadMode == .autoWithHold ? .vadListening : .idle
         case .listening:
-            "Listening"
+            return self.viewModel.vadMode == .auto || self.viewModel.vadMode == .autoWithHold ? .vadListening : .idle
         case .recording:
-            "Recording"
+            return .recording
         case .processingSTT:
-            "Processing"
-        case .waitingForAgent:
-            "Waiting for response"
+            return .processing
         case .playingResponse:
-            "Speaking"
-        case .ended:
-            "Call ended"
+            return .playing
+        default:
+            return .idle
         }
     }
 
     private var backgroundGradient: some View {
         LinearGradient(
-            colors: [Color.black, projectColor.opacity(0.3), Color.black],
+            colors: [Color.black, self.projectColor.opacity(0.3), Color.black],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -125,20 +118,20 @@ public struct CallView: View {
 
     private var contentView: some View {
         VStack(spacing: 0) {
-            header
+            self.header
                 .padding(.horizontal)
                 .padding(.top)
 
-            if viewModel.messages.isEmpty {
+            if self.viewModel.messages.isEmpty {
                 Spacer()
-                waitingForCallView
+                self.waitingForCallView
                 Spacer()
             } else {
-                conversationView
+                self.conversationView
                     .padding(.horizontal)
             }
 
-            controlsSection
+            self.controlsSection
                 .padding(.horizontal)
                 .padding(.bottom, 40)
         }
@@ -148,18 +141,18 @@ public struct CallView: View {
 
     private var header: some View {
         HStack {
-            endCallButton
+            self.endCallButton
             Spacer()
-            agentStatusInfo
-            agentAvatar.padding(.leading, 12)
+            self.agentStatusInfo
+            self.agentAvatar.padding(.leading, 12)
         }
     }
 
     private var endCallButton: some View {
         Button {
             Task {
-                await viewModel.endCall()
-                onDismiss()
+                await self.viewModel.endCall()
+                self.onDismiss()
             }
         } label: {
             HStack(spacing: 6) {
@@ -178,27 +171,21 @@ public struct CallView: View {
 
     private var agentStatusInfo: some View {
         VStack(alignment: .trailing, spacing: 4) {
-            Text(viewModel.agent.name)
+            Text(self.viewModel.agent.name)
                 .font(.headline)
                 .foregroundStyle(.white)
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(statusColor)
-                    .frame(width: 8, height: 8)
-                Text(statusText)
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.8))
-            }
+
+            VoiceStateIndicator(state: self.viewModel.state)
         }
     }
 
     private var agentAvatar: some View {
         ZStack {
             Circle()
-                .fill(agentColor)
+                .fill(self.agentColor)
                 .frame(width: 50, height: 50)
 
-            Text(agentInitials)
+            Text(self.agentInitials)
                 .font(.system(size: 18, weight: .semibold))
                 .foregroundStyle(.white)
         }
@@ -210,13 +197,14 @@ public struct CallView: View {
         VStack(spacing: 24) {
             // Animated visualizer
             VoiceVisualizerView(
-                audioLevel: viewModel.audioLevel,
-                isActive: viewModel.state == .connecting || viewModel.state == .playingResponse,
-                color: projectColor,
+                audioLevel: self.viewModel.audioLevel,
+                isActive: self.viewModel.state == .connecting || self.viewModel.state == .playingResponse,
+                color: self.projectColor,
                 size: 120
             )
 
-            Text(viewModel.state == .connecting ? "Connecting to \(viewModel.agent.name)..." : "Ready to start")
+            Text(self.viewModel
+                .state == .connecting ? "Connecting to \(self.viewModel.agent.name)..." : "Ready to start")
                 .font(.title3)
                 .foregroundStyle(.white)
         }
@@ -228,13 +216,13 @@ public struct CallView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 16) {
-                    ForEach(viewModel.messages) { message in
+                    ForEach(self.viewModel.messages) { message in
                         MessageBubble(
                             message: message,
-                            accentColor: projectColor
+                            accentColor: self.projectColor
                         ) {
                             Task {
-                                await viewModel.replayMessage(message.id)
+                                await self.viewModel.replayMessage(message.id)
                             }
                         }
                         .id(message.id)
@@ -242,7 +230,7 @@ public struct CallView: View {
                 }
                 .padding(.vertical, 16)
             }
-            .onChange(of: viewModel.messages.count) { _, _ in
+            .onChange(of: self.viewModel.messages.count) { _, _ in
                 // Auto-scroll to bottom when new message arrives
                 if let lastMessage = viewModel.messages.last {
                     withAnimation {
@@ -256,51 +244,80 @@ public struct CallView: View {
     // MARK: - Controls Section
 
     private var controlsSection: some View {
+        // swiftlint:disable:next closure_body_length
         VStack(spacing: 16) {
             // Current transcript display
-            if !viewModel.currentTranscript.isEmpty {
-                transcriptDisplay
+            if !self.viewModel.currentTranscript.isEmpty {
+                self.transcriptDisplay
             }
 
             // Error display
             if let error = viewModel.error {
-                errorDisplay(error)
+                self.errorDisplay(error)
             }
 
             // Audio visualizer
-            if viewModel.state == .recording {
+            if self.viewModel.state == .recording {
                 VoiceVisualizerView(
-                    audioLevel: viewModel.audioLevel,
+                    audioLevel: self.viewModel.audioLevel,
                     isActive: true,
-                    color: projectColor,
+                    color: self.projectColor,
                     size: 80
                 )
                 .transition(.scale)
             }
 
-            // Control buttons
-            HStack(spacing: 24) {
-                autoTTSButton
-                recordButton
-                sendButton
+            // Control buttons with pulsing rings and hold hint
+            ZStack {
+                // Pulsing rings for VAD listening state
+                if self.micButtonState == .vadListening {
+                    PulsingRings(color: self.projectColor, size: 70)
+                }
+
+                // Control buttons
+                HStack(spacing: 24) {
+                    self.autoTTSButton
+                    self.micButton
+                    self.sendButton
+                }
             }
             .padding(.vertical, 12)
 
+            // Hold hint
+            if self.viewModel.isHoldingMic {
+                HoldHint(isVisible: self.showHoldHint)
+            }
+
             // VOD indicator
-            if viewModel.enableVOD, viewModel.vodRecordingURL != nil {
-                vodIndicator
+            if self.viewModel.enableVOD, self.viewModel.vodRecordingURL != nil {
+                self.vodIndicator
+            }
+        }
+        .onChange(of: self.viewModel.isHoldingMic) { _, isHolding in
+            if isHolding {
+                Task {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    withAnimation {
+                        self.showHoldHint = true
+                    }
+                }
+            } else {
+                withAnimation {
+                    self.showHoldHint = false
+                }
             }
         }
     }
 
     private var autoTTSButton: some View {
         Button {
-            viewModel.toggleAutoTTS()
+            self.hapticManager.settingsToggle()
+            self.viewModel.toggleAutoTTS()
         } label: {
             VStack(spacing: 4) {
-                Image(systemName: viewModel.autoTTS ? "speaker.wave.3.fill" : "speaker.slash.fill")
+                Image(systemName: self.viewModel.autoTTS ? "speaker.wave.3.fill" : "speaker.slash.fill")
                     .font(.system(size: 20))
-                Text(viewModel.autoTTS ? "Auto TTS" : "TTS Off")
+                Text(self.viewModel.autoTTS ? "Auto TTS" : "TTS Off")
                     .font(.caption2)
             }
             .foregroundStyle(.white)
@@ -308,36 +325,37 @@ public struct CallView: View {
         }
     }
 
-    private var recordButton: some View {
-        Button {
-            Task {
-                await viewModel.toggleRecording()
-            }
-        } label: {
-            ZStack {
-                Circle()
-                    .fill(viewModel.state == .recording ? Color.red : projectColor)
-                    .frame(width: 70, height: 70)
-
-                if viewModel.state == .recording {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(.white)
-                        .frame(width: 24, height: 24)
-                } else {
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 28))
-                        .foregroundStyle(.white)
+    private var micButton: some View {
+        MicButton(
+            state: self.micButtonState,
+            audioLevel: self.viewModel.audioLevel,
+            projectColor: self.projectColor,
+            onTap: {
+                Task {
+                    self.handleMicTap()
+                    await self.viewModel.toggleRecording()
+                }
+            },
+            onLongPressStart: {
+                Task {
+                    self.handleLongPressStart()
+                    await self.viewModel.startHoldingMic()
+                }
+            },
+            onLongPressEnd: {
+                Task {
+                    self.handleLongPressEnd()
+                    await self.viewModel.stopHoldingMic()
                 }
             }
-            .shadow(color: (viewModel.state == .recording ? Color.red : projectColor).opacity(0.5), radius: 10)
-        }
-        .disabled(!viewModel.canRecord && viewModel.state != .recording)
+        )
     }
 
     private var sendButton: some View {
         Button {
             Task {
-                await viewModel.sendMessage()
+                self.hapticManager.messageSent()
+                await self.viewModel.sendMessage()
             }
         } label: {
             VStack(spacing: 4) {
@@ -346,10 +364,10 @@ public struct CallView: View {
                 Text("Send")
                     .font(.caption2)
             }
-            .foregroundStyle(viewModel.canSend ? .white : .white.opacity(0.3))
+            .foregroundStyle(self.viewModel.canSend ? .white : .white.opacity(0.3))
             .frame(width: 60)
         }
-        .disabled(!viewModel.canSend)
+        .disabled(!self.viewModel.canSend)
     }
 
     private var transcriptDisplay: some View {
@@ -358,7 +376,7 @@ public struct CallView: View {
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.7))
 
-            Text(viewModel.currentTranscript)
+            Text(self.viewModel.currentTranscript)
                 .font(.body)
                 .foregroundStyle(.white)
                 .padding(12)
@@ -382,7 +400,7 @@ public struct CallView: View {
                         .scaleEffect(1.5)
                         .animation(
                             .easeInOut(duration: 1.0).repeatForever(autoreverses: true),
-                            value: viewModel.isCallActive
+                            value: self.viewModel.isCallActive
                         )
                 }
 
@@ -408,6 +426,33 @@ public struct CallView: View {
         .background(Color.red.opacity(0.3))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    private func handleStateChange(from oldState: CallState, to newState: CallState) {
+        switch newState {
+        case .playingResponse where oldState != .playingResponse:
+            self.hapticManager.ttsStarted()
+        case .listening where oldState == .playingResponse:
+            break
+        default:
+            break
+        }
+    }
+
+    private func handleMicTap() {
+        if self.viewModel.state == .recording {
+            self.hapticManager.recordingStopped()
+        } else {
+            self.hapticManager.recordingStarted()
+        }
+    }
+
+    private func handleLongPressStart() {
+        self.hapticManager.tapHoldBegan()
+    }
+
+    private func handleLongPressEnd() {
+        self.hapticManager.tapHoldReleased()
     }
 }
 

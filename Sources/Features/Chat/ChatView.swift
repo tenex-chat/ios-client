@@ -5,7 +5,9 @@
 //
 
 // swiftformat:disable organizeDeclarations
+// swiftlint:disable file_length
 
+import AVFoundation
 import NDKSwiftCore
 import SwiftUI
 import TENEXCore
@@ -57,11 +59,15 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     // MARK: Private
 
     @Environment(\.ndk) private var ndk
+    @Environment(\.audioService) private var audioService
+    @Environment(\.aiConfigStorage) private var aiConfigStorage
     @Environment(DataStore.self) private var dataStore
     @State private var viewModel: ChatViewModel?
     @State private var focusStack: [Message] = [] // Stack of focused messages for navigation
     @State private var inputViewModel: ChatInputViewModel?
     @State private var isShowingSettings = false
+    @State private var isShowingCallView = false
+    @State private var callViewErrorMessage: String?
 
     // Scroll management state
     @State private var shouldAutoScroll = true
@@ -178,6 +184,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     }
 
     @ViewBuilder
+    // swiftlint:disable:next function_body_length
     private func mainContent(viewModel: ChatViewModel) -> some View {
         @Bindable var bindableViewModel = viewModel
         let displayedMessages = self.messagesForCurrentFocus(viewModel: viewModel)
@@ -193,10 +200,20 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
         .navigationBarBackButtonHidden(self.isShowingFocusedView)
         .toolbar {
             ToolbarItem(placement: .automatic) {
-                Button {
-                    self.isShowingSettings = true
-                } label: {
-                    Image(systemName: "gear")
+                HStack(spacing: 12) {
+                    Button {
+                        self.isShowingCallView = true
+                    } label: {
+                        Image(systemName: "phone.fill")
+                            .foregroundStyle(.blue)
+                    }
+                    .accessibilityLabel("Start voice call")
+
+                    Button {
+                        self.isShowingSettings = true
+                    } label: {
+                        Image(systemName: "gear")
+                    }
                 }
             }
         }
@@ -212,6 +229,22 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                     }
             }
         }
+        // swiftlint:disable:next trailing_closure
+        .sheet(isPresented: self.$isShowingCallView) {
+            if let ndk, let callVM = self.createCallViewModel() {
+                CallView(
+                    viewModel: callVM,
+                    ndk: ndk,
+                    projectColor: .blue,
+                    onDismiss: { self.isShowingCallView = false }
+                )
+            } else {
+                Text("Unable to start call")
+                    .onAppear {
+                        self.isShowingCallView = false
+                    }
+            }
+        }
         .task {
             // Only subscribe to metadata for existing threads
             if !viewModel.isNewThread {
@@ -222,6 +255,15 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
             Button("OK") {}
         } message: {
             if let errorMessage = viewModel.errorMessage {
+                Text(errorMessage)
+            }
+        }
+        .alert("Voice Call Error", isPresented: .constant(self.callViewErrorMessage != nil)) {
+            Button("OK") {
+                self.callViewErrorMessage = nil
+            }
+        } message: {
+            if let errorMessage = callViewErrorMessage {
                 Text(errorMessage)
             }
         }
@@ -523,5 +565,98 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
             .map { "> \($0)" }
             .joined(separator: "\n")
         self.inputViewModel?.inputText = quotedText + "\n\n"
+    }
+
+    /// Create a CallViewModel for the voice call
+    /// - Returns: A configured CallViewModel, or nil if unable to create (no agent, no audio service, etc.)
+    private func createCallViewModel() -> CallViewModel? {
+        // Validate required services
+        guard let audioService else {
+            self.callViewErrorMessage = "Audio service not available"
+            return nil
+        }
+
+        guard let chatViewModel = viewModel else {
+            self.callViewErrorMessage = "Chat not initialized"
+            return nil
+        }
+
+        // Get selected agent
+        guard let agent = selectAgentForCall(chatViewModel: chatViewModel) else {
+            self.callViewErrorMessage = "No agent available. Please select an agent or wait for project to start."
+            return nil
+        }
+
+        // Get voice ID and settings
+        let voiceID = AgentVoiceConfigStorage().config(for: agent.pubkey)?.voiceID
+        let settings = AIConfigStorage().loadConfig().voiceCallSettings
+        let vadController = self.createVADControllerIfNeeded(settings: settings)
+
+        // Create CallViewModel with proper callbacks
+        return CallViewModel(
+            audioService: audioService,
+            projectID: self.projectReference,
+            agent: agent,
+            voiceID: voiceID,
+            onSendMessage: self.createMessageSendHandler(chatViewModel: chatViewModel),
+            enableVOD: true,
+            autoTTS: true,
+            vadController: vadController,
+            vadMode: settings.vadMode
+        )
+    }
+
+    /// Select agent for voice call (most recent responder or first online)
+    private func selectAgentForCall(chatViewModel: ChatViewModel) -> ProjectAgent? {
+        if let agentPubkey = mostRecentAgentPubkey(from: chatViewModel.displayMessages) {
+            return self.onlineAgents.first { $0.pubkey == agentPubkey }
+        }
+        return self.onlineAgents.first
+    }
+
+    /// Create VAD controller if VAD mode requires it
+    private func createVADControllerIfNeeded(settings: VoiceCallSettings) -> VADController? {
+        guard settings.vadMode == .auto || settings.vadMode == .autoWithHold else {
+            return nil
+        }
+        let audioEngine = AVAudioEngine()
+        return VADController(audioEngine: audioEngine, sensitivity: settings.vadSensitivity)
+    }
+
+    /// Create message send handler for CallViewModel
+    private func createMessageSendHandler(
+        chatViewModel: ChatViewModel
+    ) -> (String, String, [[String]]) async throws -> Void {
+        { [weak chatViewModel] text, agentPubkey, tags in
+            guard let chatViewModel else {
+                throw NSError(
+                    domain: "ChatView",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "Chat view model is no longer available"]
+                )
+            }
+
+            // Extract p-tags for mentions
+            let mentions = tags.filter { $0.first == "p" }.compactMap { $0[safe: 1] }
+
+            // Send message via ChatViewModel
+            await chatViewModel.sendMessage(
+                text: text,
+                targetAgentPubkey: agentPubkey,
+                mentionedPubkeys: mentions,
+                replyTo: nil,
+                selectedNudges: [],
+                selectedBranch: nil
+            )
+        }
+    }
+}
+
+// MARK: - Array Safe Subscript
+
+private extension Array {
+    /// Safe array subscript that returns nil instead of crashing
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }

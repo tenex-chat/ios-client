@@ -150,6 +150,8 @@ public final class CallViewModel {
     ///   - voiceID: Voice ID for TTS (from AgentVoiceConfigStorage)
     ///   - enableVOD: Whether to record the call for playback (Video/Voice on Demand)
     ///   - autoTTS: Whether to automatically speak agent responses
+    ///   - vadController: Optional VAD controller for hands-free operation
+    ///   - vadMode: Voice activity detection mode
     ///   - onSendMessage: Callback to send message to agent (messageText, agentPubkey, tags in Nostr format)
     public init(
         audioService: AudioService,
@@ -158,7 +160,9 @@ public final class CallViewModel {
         voiceID: String? = nil,
         onSendMessage: @escaping (String, String, [[String]]) async throws -> Void,
         enableVOD: Bool = true,
-        autoTTS: Bool = true
+        autoTTS: Bool = true,
+        vadController: VADController? = nil,
+        vadMode: VADMode = .pushToTalk
     ) {
         self.audioService = audioService
         self.projectID = projectID
@@ -166,6 +170,8 @@ public final class CallViewModel {
         self.voiceID = voiceID
         self.enableVOD = enableVOD
         self.autoTTS = autoTTS
+        self.vadController = vadController
+        self.vadMode = vadMode
         self.onSendMessage = onSendMessage
     }
 
@@ -200,6 +206,12 @@ public final class CallViewModel {
 
     /// VOD recording URL (if recording is enabled)
     public private(set) var vodRecordingURL: URL?
+
+    /// VAD mode
+    public private(set) var vadMode: VADMode
+
+    /// Whether user is holding the mic (tap-to-hold)
+    public private(set) var isHoldingMic = false
 
     /// Audio level for visualization (0.0 to 1.0)
     public var audioLevel: Double {
@@ -240,6 +252,11 @@ public final class CallViewModel {
             await self.startVODRecording()
         }
 
+        // Start VAD if enabled
+        if self.vadMode == .auto || self.vadMode == .autoWithHold {
+            await self.startVAD()
+        }
+
         // Transition to listening state
         self.state = .listening
 
@@ -277,6 +294,9 @@ public final class CallViewModel {
             await self.audioService.cancelRecording()
         }
 
+        // Stop VAD
+        await self.stopVAD()
+
         // Cancel any ongoing TTS task
         self.ttsTask?.cancel()
         self.ttsTask = nil
@@ -290,6 +310,7 @@ public final class CallViewModel {
         // Update state
         self.state = .ended
         self.currentTranscript = ""
+        self.isHoldingMic = false
 
         // Calculate final duration
         if let startTime = callStartTime {
@@ -472,6 +493,38 @@ public final class CallViewModel {
         }
     }
 
+    // MARK: - Tap-to-Hold
+
+    /// Start holding the mic (disables VAD auto-stop)
+    public func startHoldingMic() async {
+        guard self.vadMode == .autoWithHold, !self.isHoldingMic else {
+            return
+        }
+
+        self.isHoldingMic = true
+        self.vadController?.pause()
+
+        // Start recording if not already recording
+        if self.canRecord {
+            await self.startRecording()
+        }
+    }
+
+    /// Stop holding the mic (re-enables VAD auto-stop)
+    public func stopHoldingMic() async {
+        guard self.isHoldingMic else {
+            return
+        }
+
+        self.isHoldingMic = false
+        self.vadController?.resume()
+
+        // Stop recording if currently recording
+        if self.state == .recording {
+            await self.stopRecording()
+        }
+    }
+
     // MARK: Private
 
     // MARK: - Constants
@@ -486,6 +539,7 @@ public final class CallViewModel {
     private let logger = Logger(subsystem: "com.tenex.ios", category: "CallViewModel")
     private let vodActor = VODRecordingActor()
     private var ttsTask: Task<Void, Never>?
+    private let vadController: VADController?
 
     // MARK: - VOD Directory Management
 
@@ -616,6 +670,59 @@ public final class CallViewModel {
         } catch {
             self.logger.error("Failed to finalize VOD recording: \(error.localizedDescription)")
         }
+    }
+
+    // MARK: - VAD Integration
+
+    /// Start VAD and set up callbacks
+    private func startVAD() async {
+        guard let vadController else {
+            return
+        }
+
+        // Set up VAD callbacks
+        vadController.onSpeechStart = { [weak self] in
+            Task { @MainActor [weak self] in
+                await self?.handleVADSpeechStart()
+            }
+        }
+
+        vadController.onSpeechEnd = { [weak self] in
+            Task { @MainActor [weak self] in
+                await self?.handleVADSpeechEnd()
+            }
+        }
+
+        // Start VAD
+        do {
+            try await vadController.start()
+        } catch {
+            self.logger.error("Failed to start VAD: \(error.localizedDescription)")
+            self.error = "VAD failed to start: \(error.localizedDescription)"
+        }
+    }
+
+    /// Stop VAD
+    private func stopVAD() async {
+        await self.vadController?.stop()
+    }
+
+    /// Handle VAD speech start event
+    private func handleVADSpeechStart() async {
+        guard !self.isHoldingMic else {
+            return
+        }
+
+        await self.startRecording()
+    }
+
+    /// Handle VAD speech end event
+    private func handleVADSpeechEnd() async {
+        guard !self.isHoldingMic else {
+            return
+        }
+
+        await self.stopRecording()
     }
 }
 
