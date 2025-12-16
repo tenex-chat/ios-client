@@ -47,12 +47,16 @@ public struct ThreadsTabContent: View {
                 Text("NDK not available")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                loadingView
             }
         }
         .task {
             guard viewModel == nil, let ndk else {
                 return
             }
+            print("[ThreadsTabContent] Initializing for projectID: \(projectID)")
+            print("[ThreadsTabContent] currentUserPubkey: \(currentUserPubkey ?? "nil")")
             let vm = ThreadListViewModel(
                 ndk: ndk,
                 projectID: projectID,
@@ -61,6 +65,7 @@ public struct ThreadsTabContent: View {
             )
             viewModel = vm
             vm.subscribe()
+            print("[ThreadsTabContent] Subscribed to threads")
         }
     }
 
@@ -89,6 +94,18 @@ public struct ThreadsTabContent: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var loadingView: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+                .controlSize(.large)
+
+            Text("Loading threads...")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

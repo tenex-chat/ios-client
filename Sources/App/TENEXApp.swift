@@ -39,7 +39,9 @@ struct TENEXApp: App {
                             self.handleAuthChange(oldPubkey: oldPubkey, newPubkey: newPubkey)
                         }
                         .environment(self.dataStore)
+                        #if os(macOS)
                         .environment(self.windowManager)
+                        #endif
                 } else {
                     ProgressView("Initializing...")
                 }
@@ -91,7 +93,10 @@ struct TENEXApp: App {
     @State private var aiConfig: AIConfig?
     @State private var aiConfigStorage: AIConfigStorage?
     @State private var audioService: AudioService?
+
+    #if os(macOS)
     @State private var windowManager = WindowManagerStore()
+    #endif
 
     // MARK: - Helpers
 
