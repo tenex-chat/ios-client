@@ -70,8 +70,7 @@ public final class OpenProjectsStore {
     /// Load open projects from UserDefaults
     private static func loadFromUserDefaults() -> [String] {
         if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
-           let projectIDs = try? JSONDecoder().decode([String].self, from: data)
-        {
+           let projectIDs = try? JSONDecoder().decode([String].self, from: data) {
             return projectIDs
         }
         return []
