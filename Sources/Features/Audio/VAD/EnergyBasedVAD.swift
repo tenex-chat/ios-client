@@ -39,7 +39,11 @@ final class EnergyBasedVAD: VADService {
             let session = AVAudioSession.sharedInstance()
             do {
                 // Use .mixWithOthers to allow AVAudioRecorder to work alongside audio engine
-                try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .defaultToSpeaker, .mixWithOthers])
+                try session.setCategory(
+                    .playAndRecord,
+                    mode: .voiceChat,
+                    options: [.allowBluetooth, .defaultToSpeaker, .mixWithOthers]
+                )
                 try session.setActive(true, options: .notifyOthersOnDeactivation)
                 self.logger.info("[start] Audio session configured with mixWithOthers")
             } catch {

@@ -281,3 +281,5 @@ custom_rules:
     severity: warning
 
 reporter: "xcode"
+cyclomatic_complexity:
+  ignores_function_declarations: true
