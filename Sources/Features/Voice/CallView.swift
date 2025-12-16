@@ -52,7 +52,9 @@ public struct CallView: View {
             self.backgroundGradient
             self.contentView
         }
+        #if os(iOS)
         .preferredColorScheme(.dark)
+        #endif
         .task {
             // Request microphone permission first
             #if os(iOS)

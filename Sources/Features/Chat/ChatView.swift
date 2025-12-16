@@ -286,22 +286,17 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
         #else
         .sheet(isPresented: self.$isShowingCallView) {
                     if let ndk, let callVM = self.createCallViewModel() {
-                        ZStack {
-                            Color.black.ignoresSafeArea()
-
-                            CallView(
-                                viewModel: callVM,
-                                ndk: ndk,
-                                projectReference: self.projectReference,
-                                dataStore: self.dataStore,
-                                onDismiss: {
-                                    self.isShowingCallView = false
-                                },
-                                projectColor: .blue,
-                                availableAgents: self.onlineAgents
-                            )
-                            .frame(maxWidth: 390, maxHeight: 844)
-                        }
+                        CallView(
+                            viewModel: callVM,
+                            ndk: ndk,
+                            projectReference: self.projectReference,
+                            dataStore: self.dataStore,
+                            onDismiss: {
+                                self.isShowingCallView = false
+                            },
+                            projectColor: .blue,
+                            availableAgents: self.onlineAgents
+                        )
                     } else {
                         Text("Unable to start call")
                             .onAppear {
