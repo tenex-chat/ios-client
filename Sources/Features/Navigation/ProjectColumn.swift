@@ -110,57 +110,21 @@ public struct ProjectColumn: View {
                 currentUserPubkey: currentUserPubkey
             )
         case .docs:
-            docsTabPlaceholder
+            DocsTabContent(
+                projectID: projectCoordinate,
+                currentUserPubkey: currentUserPubkey
+            )
         case .agents:
-            agentsTabPlaceholder
+            AgentsTabContent(
+                projectID: projectCoordinate,
+                currentUserPubkey: currentUserPubkey
+            )
         case .feed:
-            feedTabPlaceholder
+            FeedTabContent(
+                projectID: projectCoordinate,
+                currentUserPubkey: currentUserPubkey
+            )
         }
-    }
-
-    private var docsTabPlaceholder: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "doc.text")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-            Text("Docs")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-            Text("Documentation will appear here")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var agentsTabPlaceholder: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "person.2")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-            Text("Agents")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-            Text("Agents will appear here")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var feedTabPlaceholder: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "list.bullet")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-            Text("Feed")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-            Text("Activity feed will appear here")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
