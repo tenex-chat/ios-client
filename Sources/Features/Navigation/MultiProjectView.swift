@@ -1,0 +1,230 @@
+//
+// MultiProjectView.swift
+// TENEX iOS Client
+// Copyright (c) 2025 TENEX Team
+//
+
+import NDKSwiftCore
+import SwiftUI
+
+// MARK: - MultiProjectView
+
+/// Main container for the multi-project column interface (macOS only)
+///
+/// Layout: HStack(ProjectsSidebar | ScrollView(ProjectColumns) | ConversationDrawer)
+///
+/// This view manages the state for open projects and conversation windows,
+/// providing them via environment to child views. It displays:
+/// - A sidebar with the projects list (240pt fixed width)
+/// - Multiple project columns side-by-side (320pt each, horizontally scrollable)
+/// - An optional conversation drawer that slides in from the right edge
+///
+/// The drawer overlays the main content area with a slide transition.
+@MainActor
+public struct MultiProjectView: View {
+    // MARK: Lifecycle
+
+    public init() {}
+
+    // MARK: Public
+
+    public var body: some View {
+        ZStack(alignment: .trailing) {
+            // Main content area
+            HStack(spacing: 0) {
+                // Left: Projects sidebar (240pt fixed)
+                projectsSidebar
+                    .frame(width: 240)
+
+                Divider()
+
+                // Center: Project columns (scrollable)
+                projectColumnsArea
+            }
+
+            // Right: Conversation drawer (overlays when active)
+            if windowManager.activeDrawer != nil {
+                conversationDrawer
+                    .transition(.move(edge: .trailing))
+            }
+        }
+        .environment(openProjects)
+        .environment(windowManager)
+    }
+
+    // MARK: Private
+
+    @State private var openProjects = OpenProjectsStore()
+    @State private var windowManager = WindowManagerStore()
+
+    @Environment(DataStore.self) private var dataStore
+
+    // MARK: - Projects Sidebar
+
+    private var projectsSidebar: some View {
+        VStack {
+            Text("Projects Sidebar")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+
+            Text("ProjectsSidebar placeholder")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+
+            // Placeholder: ProjectsSidebar will be implemented in later tasks
+            // It will show:
+            // - List of projects from DataStore
+            // - Blue dot indicator for open projects
+            // - Click to toggle project open/closed
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(nsColor: .controlBackgroundColor))
+    }
+
+    // MARK: - Project Columns Area
+
+    @ViewBuilder
+    private var projectColumnsArea: some View {
+        if openProjects.openProjectIDs.isEmpty {
+            emptyStateView
+        } else {
+            projectColumnsScrollView
+        }
+    }
+
+    private var emptyStateView: some View {
+        ContentUnavailableView(
+            "No Projects Open",
+            systemImage: "folder",
+            description: Text("Select a project from the sidebar to open it in a column")
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(nsColor: .textBackgroundColor))
+    }
+
+    private var projectColumnsScrollView: some View {
+        ScrollView(.horizontal, showsIndicators: true) {
+            HStack(spacing: 0) {
+                ForEach(openProjects.openProjectIDs, id: \.self) { projectID in
+                    projectColumn(for: projectID)
+                        .frame(width: 320)
+
+                    if projectID != openProjects.openProjectIDs.last {
+                        Divider()
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(nsColor: .textBackgroundColor))
+    }
+
+    @ViewBuilder
+    private func projectColumn(for projectID: String) -> some View {
+        if let project = dataStore.projects.first(where: { $0.coordinate == projectID }) {
+            projectColumnContent(for: project, projectID: projectID)
+        } else {
+            projectNotFoundView(for: projectID)
+        }
+    }
+
+    private func projectColumnContent(for project: Project, projectID: String) -> some View {
+        VStack(spacing: 8) {
+            projectColumnHeader(for: project, projectID: projectID)
+            Divider()
+            projectColumnPlaceholder(projectID: projectID)
+        }
+    }
+
+    private func projectColumnHeader(for project: Project, projectID: String) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(project.title)
+                    .font(.headline)
+
+                if let description = project.description {
+                    Text(description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+
+            Spacer()
+
+            Button {
+                openProjects.close(projectID)
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding()
+    }
+
+    private func projectColumnPlaceholder(projectID: String) -> some View {
+        VStack {
+            Text("ProjectColumn placeholder")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+
+            Text("Project ID: \(projectID)")
+                .font(.caption2)
+                .foregroundStyle(.quaternary)
+
+            // Placeholder: ProjectColumn will be implemented in later tasks
+            // It will show:
+            // - Segmented picker for tabs (Threads, Docs, Agents, Feed)
+            // - Tab content area
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func projectNotFoundView(for projectID: String) -> some View {
+        VStack {
+            Text("Project not found")
+                .foregroundStyle(.secondary)
+
+            Button("Close") {
+                openProjects.close(projectID)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    // MARK: - Conversation Drawer
+
+    private var conversationDrawer: some View {
+        VStack {
+            Text("Conversation Drawer")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+
+            Text("ConversationDrawer placeholder")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+
+            if let drawer = windowManager.activeDrawer {
+                Text("Thread ID: \(drawer.threadID)")
+                    .font(.caption2)
+                    .foregroundStyle(.quaternary)
+
+                Button("Close Drawer") {
+                    windowManager.close(drawer.id)
+                }
+                .padding(.top)
+            }
+
+            // Placeholder: ConversationDrawer will be implemented in later tasks
+            // It will show:
+            // - Resize handle on left edge
+            // - Drawer header with back, detach, close buttons
+            // - ChatView for the conversation
+        }
+        .frame(width: windowManager.drawerWidth)
+        .frame(maxHeight: .infinity)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .shadow(color: .black.opacity(0.2), radius: 8, x: -2, y: 0)
+    }
+}
