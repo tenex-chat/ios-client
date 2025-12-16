@@ -136,17 +136,19 @@ public final class ChatViewModel {
 
         var latestMetadata: ConversationMetadata?
 
-        for await event in subscription.events {
-            // Try to parse as ConversationMetadata
-            if let metadata = ConversationMetadata.from(event: event) {
-                // Only use metadata if it's newer than what we already have
-                if let existing = latestMetadata {
-                    guard metadata.createdAt > existing.createdAt else {
-                        continue
+        for await events in subscription.events {
+            for event in events {
+                // Try to parse as ConversationMetadata
+                if let metadata = ConversationMetadata.from(event: event) {
+                    // Only use metadata if it's newer than what we already have
+                    if let existing = latestMetadata {
+                        guard metadata.createdAt > existing.createdAt else {
+                            continue
+                        }
                     }
+                    latestMetadata = metadata
+                    self.threadTitle = metadata.title
                 }
-                latestMetadata = metadata
-                self.threadTitle = metadata.title
             }
         }
     }
@@ -354,13 +356,17 @@ public final class ChatViewModel {
         // Continuous subscriptions - run both in parallel
         await withTaskGroup(of: Void.self) { group in
             group.addTask {
-                for await event in messagesSubscription.events {
-                    await self.conversationState.processEvent(event)
+                for await events in messagesSubscription.events {
+                    for event in events {
+                        await self.conversationState.processEvent(event)
+                    }
                 }
             }
             group.addTask {
-                for await event in ephemeralSubscription.events {
-                    await self.conversationState.processEvent(event)
+                for await events in ephemeralSubscription.events {
+                    for event in events {
+                        await self.conversationState.processEvent(event)
+                    }
                 }
             }
         }

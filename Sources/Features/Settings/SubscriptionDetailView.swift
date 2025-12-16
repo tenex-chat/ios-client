@@ -148,8 +148,8 @@ struct SubscriptionDetailView: View {
                 group.addTask {
                     var events: [NDKEvent] = []
                     let subscription = ndk.subscribe(filter: filter)
-                    for await event in subscription.events {
-                        events.append(event)
+                    for await batch in subscription.events {
+                        events.append(contentsOf: batch)
                     }
                     return events
                 }

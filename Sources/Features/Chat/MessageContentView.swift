@@ -4,6 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftUI
 import SwiftUI
 import TENEXCore
 
@@ -21,13 +22,8 @@ public struct MessageContentView: View {
                 ToolCallView(toolCall: toolCall)
             } else if self.message.isStreaming {
                 self.streamingContent
-            } else if self.message.content.contains("```") {
-                self.codeBlockContent
             } else {
-                Text(self.markdownText)
-                    .font(.callout)
-                    .lineSpacing(1.4)
-                    .foregroundStyle(.primary)
+                NDKMarkdown(content: message.content)
                     .textSelection(.enabled)
             }
         }
@@ -41,7 +37,7 @@ public struct MessageContentView: View {
 
     @State private var cursorVisible = false
 
-    private var markdownText: AttributedString {
+    private var streamingMarkdownText: AttributedString {
         do {
             return try AttributedString(markdown: self.message.content)
         } catch {
@@ -51,7 +47,7 @@ public struct MessageContentView: View {
 
     private var streamingContent: some View {
         HStack(alignment: .bottom, spacing: 2) {
-            Text(self.markdownText)
+            Text(self.streamingMarkdownText)
                 .font(.callout)
                 .lineSpacing(1.4)
                 .foregroundStyle(.primary)
@@ -66,70 +62,5 @@ public struct MessageContentView: View {
                     }
                 }
         }
-    }
-
-    private var codeBlockContent: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ForEach(self.splitByCodeBlocks(), id: \.offset) { item in
-                if item.isCode {
-                    self.codeBlock(item.text)
-                } else if !item.text.isEmpty {
-                    Text(item.text)
-                        .font(.callout)
-                        .lineSpacing(1.4)
-                        .foregroundStyle(.primary)
-                }
-            }
-        }
-        .textSelection(.enabled)
-    }
-
-    private func codeBlock(_ code: String) -> some View {
-        Text(code)
-            .font(.subheadline.monospaced())
-            .foregroundStyle(.primary)
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.secondary.opacity(0.1))
-            .cornerRadius(8)
-    }
-
-    private func splitByCodeBlocks() -> [(text: String, isCode: Bool, offset: Int)] {
-        let pattern = "```[^`]*```"
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]) else {
-            return [(self.message.content, false, 0)]
-        }
-
-        let content = self.message.content
-        let matches = regex.matches(in: content, range: NSRange(location: 0, length: content.utf16.count))
-
-        var result: [(String, Bool, Int)] = []
-        var lastIndex = content.startIndex
-
-        for (offset, match) in matches.enumerated() {
-            guard let matchRange = Range(match.range, in: content) else {
-                continue
-            }
-
-            if lastIndex < matchRange.lowerBound {
-                let text = String(content[lastIndex ..< matchRange.lowerBound])
-                result.append((text, false, offset * 2))
-            }
-
-            let codeBlock = String(content[matchRange])
-            let cleanCode = codeBlock
-                .replacingOccurrences(of: "^```[a-zA-Z]*\n?", with: "", options: .regularExpression)
-                .replacingOccurrences(of: "\n?```$", with: "", options: .regularExpression)
-            result.append((cleanCode, true, offset * 2 + 1))
-
-            lastIndex = matchRange.upperBound
-        }
-
-        if lastIndex < content.endIndex {
-            let text = String(content[lastIndex ..< content.endIndex])
-            result.append((text, false, matches.count * 2))
-        }
-
-        return result
     }
 }

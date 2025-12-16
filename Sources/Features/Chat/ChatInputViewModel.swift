@@ -180,7 +180,9 @@ public final class ChatInputViewModel {
                 try await Task.sleep(nanoseconds: Self.debounceDuration)
 
                 // If task was cancelled during sleep, don't save
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled else {
+                    return
+                }
 
                 // Perform the actual save
                 await performSave()
