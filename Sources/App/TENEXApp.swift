@@ -60,7 +60,7 @@ struct TENEXApp: App {
         /// The windowID (String) uniquely identifies the conversation window and is used to look up
         /// the window's metadata from WindowManagerStore.
         WindowGroup("Conversation", id: "conversation", for: String.self) { $windowID in
-            if let windowID, let authManager, let ndk, let dataStore {
+            if let windowID, let authManager, let ndk, let dataStore, let aiConfigStorage, let audioService {
                 DetachedConversationWindow(
                     windowID: windowID,
                     ndk: ndk,
@@ -69,6 +69,9 @@ struct TENEXApp: App {
                 )
                 .environment(authManager)
                 .environment(\.ndk, ndk)
+                .environment(\.aiConfig, self.aiConfig)
+                .environment(\.aiConfigStorage, aiConfigStorage)
+                .environment(\.audioService, audioService)
                 .environment(dataStore)
                 .environment(self.windowManager)
             }
