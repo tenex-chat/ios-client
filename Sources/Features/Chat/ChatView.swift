@@ -453,18 +453,19 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     /// - Parameter messages: The consecutive messages from the same author
     /// - Returns: An array of MessageGroup items
     ///   - If count <= 2: returns individual .single items for each message
-    ///   - If count > 2: returns a .collapsed group (all but last) and .single for the last message
+    ///   - If count > 2: returns .single for first (with header), .collapsed for middle, .single for last
     private func createGroups(from messages: [Message]) -> [MessageGroup] {
-        guard messages.count > 2, let lastMessage = messages.last else {
+        guard messages.count > 2, let firstMessage = messages.first, let lastMessage = messages.last else {
             // Not enough to collapse, return as individual singles
             return messages.map { .single($0) }
         }
 
-        // More than 2 messages: collapse all but the last
-        let collapsedMessages = Array(messages.dropLast())
+        // More than 2 messages: keep first (with header), collapse middle, keep last
+        let middleMessages = Array(messages.dropFirst().dropLast())
 
         return [
-            .collapsed(collapsedMessages),
+            .single(firstMessage),
+            .collapsed(middleMessages),
             .single(lastMessage),
         ]
     }
