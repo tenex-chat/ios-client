@@ -120,47 +120,56 @@ private struct SidebarProjectRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            // Project avatar with open state indicator
-            ZStack(alignment: .topTrailing) {
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(project.color)
-                    .frame(width: 32, height: 32)
-                    .overlay {
-                        Text(project.title.prefix(1).uppercased())
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.white)
-                    }
-
-                // Open state indicator dot
-                if isOpen {
-                    Circle()
-                        .fill(Color.blue)
-                        .frame(width: 10, height: 10)
-                        .overlay {
-                            Circle()
-                                .stroke(Color(nsColor: .controlBackgroundColor), lineWidth: 2)
-                        }
-                        .offset(x: 3, y: -3)
-                }
-            }
-
-            // Project info
-            VStack(alignment: .leading, spacing: 2) {
-                Text(project.title)
-                    .font(.body)
-                    .lineLimit(1)
-
-                if let description = project.description {
-                    Text(description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-
+            avatarView
+            projectInfo
             Spacer(minLength: 4)
         }
         .padding(.vertical, 4)
+    }
+
+    // MARK: Private
+
+    private var avatarView: some View {
+        ZStack(alignment: .topTrailing) {
+            RoundedRectangle(cornerRadius: 8)
+                .fill(project.color)
+                .frame(width: 32, height: 32)
+                .overlay {
+                    Text(project.title.prefix(1).uppercased())
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+
+            if isOpen {
+                openStateIndicator
+            }
+        }
+    }
+
+    private var openStateIndicator: some View {
+        Circle()
+            .fill(Color.blue)
+            .frame(width: 10, height: 10)
+            .overlay {
+                Circle()
+                    .stroke(Color(nsColor: .controlBackgroundColor), lineWidth: 2)
+            }
+            .offset(x: 3, y: -3)
+    }
+
+    private var projectInfo: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(project.title)
+                .font(.body)
+                .lineLimit(1)
+
+            if let description = project.description {
+                Text(description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+        }
     }
 }
 

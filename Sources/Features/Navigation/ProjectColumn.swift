@@ -4,6 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+#if os(macOS)
 import SwiftUI
 import TENEXCore
 
@@ -152,3 +153,4 @@ private enum ProjectTab: String, CaseIterable, Identifiable {
         }
     }
 }
+#endif

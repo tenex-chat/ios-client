@@ -4,6 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+#if os(macOS)
 import NDKSwiftCore
 import SwiftUI
 import TENEXCore
@@ -174,3 +175,4 @@ private struct CompactThreadRow: View {
 
     private let thread: NostrThread
 }
+#endif

@@ -4,6 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+#if os(macOS)
 import Foundation
 import SwiftUI
 
@@ -292,3 +293,4 @@ extension CGSize: @retroactive Codable {
         try container.encode(height, forKey: .height)
     }
 }
+#endif
