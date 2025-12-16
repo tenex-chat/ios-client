@@ -184,6 +184,8 @@ public struct ConversationDrawer: View {
     // MARK: Public
 
     public var body: some View {
+        @Bindable var windowManager = windowManager
+
         HStack(spacing: 0) {
             ResizeHandle(drawerWidth: $windowManager.drawerWidth, isResizing: $isResizing)
 
@@ -206,7 +208,7 @@ public struct ConversationDrawer: View {
 
     private let window: ConversationWindow
 
-    @Bindable @Environment(WindowManagerStore.self) private var windowManager
+    @Environment(WindowManagerStore.self) private var windowManager
     @Environment(DataStore.self) private var dataStore
     @Environment(NDKAuthManager.self) private var authManager
     @Environment(\.ndk) private var ndk
