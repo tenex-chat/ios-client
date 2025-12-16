@@ -33,14 +33,29 @@ public struct ThreadsTabContent: View {
     // MARK: Public
 
     public var body: some View {
-        Group {
-            if let ndk {
-                contentView(ndk: ndk)
+        if let viewModel {
+            if let errorMessage = viewModel.errorMessage {
+                errorView(message: errorMessage)
+            } else if viewModel.threads.isEmpty {
+                emptyView
             } else {
-                Text("NDK not available")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                threadList(viewModel: viewModel)
             }
+        } else if ndk == nil {
+            Text("NDK not available")
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .task {
+            guard viewModel == nil, let ndk else { return }
+            let vm = ThreadListViewModel(
+                ndk: ndk,
+                projectID: projectID,
+                filtersStore: filtersStore,
+                currentUserPubkey: currentUserPubkey
+            )
+            viewModel = vm
+            vm.subscribe()
         }
     }
 
@@ -57,28 +72,20 @@ public struct ThreadsTabContent: View {
 
     // MARK: - Content
 
-    @ViewBuilder
-    private func contentView(ndk: NDK) -> some View {
-        let vm = viewModel ?? ThreadListViewModel(
-            ndk: ndk,
-            projectID: projectID,
-            filtersStore: filtersStore,
-            currentUserPubkey: currentUserPubkey
-        )
-
-        Group {
-            if vm.threads.isEmpty {
-                emptyView
-            } else {
-                threadList(viewModel: vm)
-            }
+    private func errorView(message: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle")
+                .font(.title)
+                .foregroundStyle(.red)
+            Text("Error Loading Threads")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
         }
-        .task {
-            if viewModel == nil {
-                viewModel = vm
-                vm.subscribe()
-            }
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var emptyView: some View {
