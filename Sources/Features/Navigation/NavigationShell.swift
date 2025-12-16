@@ -12,7 +12,7 @@ import TENEXCore
 // MARK: - NavigationShell
 
 /// Main navigation container for the app
-/// Uses NavigationStack for iPhone, NavigationSplitView for iPad/macOS
+/// Uses NavigationStack for iPhone, NavigationSplitView for iPad, MultiProjectView for macOS
 public struct NavigationShell: View {
     // MARK: Lifecycle
 
@@ -23,11 +23,14 @@ public struct NavigationShell: View {
     public var body: some View {
         Group {
             #if os(macOS)
-                splitViewNavigation
+                // macOS uses the new multi-project tabbed interface
+                MultiProjectView()
             #else
                 if horizontalSizeClass == .regular {
+                    // iPad uses split view navigation
                     splitViewNavigation
                 } else {
+                    // iPhone uses stack navigation
                     stackNavigation
                 }
             #endif
