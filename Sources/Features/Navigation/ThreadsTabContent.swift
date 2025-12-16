@@ -6,6 +6,7 @@
 
 #if os(macOS)
 import NDKSwiftCore
+import os
 import SwiftUI
 import TENEXCore
 
@@ -55,8 +56,8 @@ public struct ThreadsTabContent: View {
             guard viewModel == nil, let ndk else {
                 return
             }
-            print("[ThreadsTabContent] Initializing for projectID: \(projectID)")
-            print("[ThreadsTabContent] currentUserPubkey: \(currentUserPubkey ?? "nil")")
+            Logger().info("[ThreadsTabContent] Initializing for projectID: \(projectID)")
+            Logger().info("[ThreadsTabContent] currentUserPubkey: \(currentUserPubkey ?? "nil")")
             let vm = ThreadListViewModel(
                 ndk: ndk,
                 projectID: projectID,
@@ -65,7 +66,7 @@ public struct ThreadsTabContent: View {
             )
             viewModel = vm
             vm.subscribe()
-            print("[ThreadsTabContent] Subscribed to threads")
+            Logger().info("[ThreadsTabContent] Subscribed to threads")
         }
     }
 
