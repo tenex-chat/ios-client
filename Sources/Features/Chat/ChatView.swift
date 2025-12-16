@@ -364,13 +364,16 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     }
 
     private func messageScrollView(viewModel: ChatViewModel, messages: [Message]) -> some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 0) {
-                self.messageRows(viewModel: viewModel, messages: messages)
-                self.typingIndicatorView(viewModel: viewModel)
-                self.bottomAnchor
+        GeometryReader { geometry in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    self.messageRows(viewModel: viewModel, messages: messages)
+                    self.typingIndicatorView(viewModel: viewModel)
+                    self.bottomAnchor
+                }
+                .padding(.vertical, 16)
             }
-            .padding(.vertical, 16)
+            .environment(\.viewportHeight, geometry.size.height)
         }
     }
 

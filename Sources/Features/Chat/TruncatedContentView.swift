@@ -33,27 +33,24 @@ struct TruncatedContentView<Content: View>: View {
     // MARK: Internal
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            self.content
-                .frame(maxHeight: self.isTruncated ? self.maxHeight : nil, alignment: .top)
-                .clipped()
-                .overlay(alignment: .bottom) {
-                    if self.isTruncated {
+        self.content
+            .background(self.heightReader)
+            .onPreferenceChange(ContentHeightPreferenceKey.self) { height in
+                self.contentHeight = height
+            }
+            .frame(maxHeight: self.isTruncated ? self.maxHeight : nil, alignment: .top)
+            .clipped()
+            .overlay(alignment: .bottom) {
+                if self.isTruncated {
+                    ZStack(alignment: .bottom) {
                         self.fadeGradient
+                        self.showMoreButton
                     }
                 }
-                .background(self.heightReader)
-                .onPreferenceChange(ContentHeightPreferenceKey.self) { height in
-                    self.contentHeight = height
-                }
-
-            if self.isTruncated {
-                self.showMoreButton
             }
-        }
-        .sheet(isPresented: self.$isShowingSheet) {
-            ExpandedMessageSheet(message: self.message)
-        }
+            .sheet(isPresented: self.$isShowingSheet) {
+                ExpandedMessageSheet(message: self.message)
+            }
     }
 
     // MARK: Private
@@ -100,6 +97,8 @@ struct TruncatedContentView<Content: View>: View {
                 .background(Color(uiColor: .systemBackground))
                 .cornerRadius(8)
         }
+        .accessibilityLabel("Expand full message")
+        .accessibilityHint("Opens the complete message in a separate view")
         .padding(.bottom, 8)
     }
 }

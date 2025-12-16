@@ -60,6 +60,7 @@ public struct MessageRow: View {
     // MARK: Private
 
     @Environment(\.ndk) private var ndk
+    @Environment(\.viewportHeight) private var viewportHeight
     @State private var showRawEvent = false
 
     private let message: Message
@@ -88,7 +89,7 @@ public struct MessageRow: View {
 
             TruncatedContentView(
                 content: MessageContentView(message: self.message),
-                maxHeight: UIScreen.main.bounds.height * 0.5,
+                maxHeight: self.viewportHeight * 0.5,
                 message: self.message
             )
 

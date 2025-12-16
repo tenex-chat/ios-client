@@ -41,21 +41,24 @@ public struct ThreadFocusView: View {
 
     public var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    // Parent message context (if any)
-                    if let parent = parentMessage {
-                        parentSection(parent)
-                    }
+            GeometryReader { geometry in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        // Parent message context (if any)
+                        if let parent = parentMessage {
+                            self.parentSection(parent)
+                        }
 
-                    // Focused message (highlighted)
-                    focusedSection
+                        // Focused message (highlighted)
+                        self.focusedSection
 
-                    // Replies
-                    if !replies.isEmpty {
-                        repliesSection
+                        // Replies
+                        if !self.replies.isEmpty {
+                            self.repliesSection
+                        }
                     }
                 }
+                .environment(\.viewportHeight, geometry.size.height)
             }
             .navigationTitle("Thread")
             #if os(iOS)
@@ -63,7 +66,7 @@ public struct ThreadFocusView: View {
             #endif
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("Close", action: onDismiss)
+                        Button("Close", action: self.onDismiss)
                     }
                 }
         }
@@ -79,11 +82,11 @@ public struct ThreadFocusView: View {
 
     private var focusedSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            MessageRow(message: focusedMessage, currentUserPubkey: currentUserPubkey)
+            MessageRow(message: self.focusedMessage, currentUserPubkey: self.currentUserPubkey)
                 .padding(.horizontal, 16)
                 .background(Color.accentColor.opacity(0.05))
 
-            if !replies.isEmpty {
+            if !self.replies.isEmpty {
                 Divider()
                     .padding(.horizontal, 16)
             }
@@ -92,17 +95,17 @@ public struct ThreadFocusView: View {
 
     private var repliesSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("\(replies.count) \(replies.count == 1 ? "reply" : "replies")")
+            Text("\(self.replies.count) \(self.replies.count == 1 ? "reply" : "replies")")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
 
-            ForEach(replies, id: \.id) { reply in
-                MessageRow(message: reply, currentUserPubkey: currentUserPubkey)
+            ForEach(self.replies, id: \.id) { reply in
+                MessageRow(message: reply, currentUserPubkey: self.currentUserPubkey)
                     .padding(.horizontal, 16)
 
-                if reply.id != replies.last?.id {
+                if reply.id != self.replies.last?.id {
                     Divider()
                         .padding(.horizontal, 16)
                 }
@@ -118,7 +121,7 @@ public struct ThreadFocusView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
 
-            MessageRow(message: parent, currentUserPubkey: currentUserPubkey)
+            MessageRow(message: parent, currentUserPubkey: self.currentUserPubkey)
                 .padding(.horizontal, 16)
                 .opacity(0.6)
 
