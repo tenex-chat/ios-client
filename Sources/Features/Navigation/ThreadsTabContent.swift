@@ -33,18 +33,20 @@ public struct ThreadsTabContent: View {
     // MARK: Public
 
     public var body: some View {
-        if let viewModel {
-            if let errorMessage = viewModel.errorMessage {
-                errorView(message: errorMessage)
-            } else if viewModel.threads.isEmpty {
-                emptyView
-            } else {
-                threadList(viewModel: viewModel)
+        Group {
+            if let viewModel {
+                if let errorMessage = viewModel.errorMessage {
+                    errorView(message: errorMessage)
+                } else if viewModel.threads.isEmpty {
+                    emptyView
+                } else {
+                    threadList(viewModel: viewModel)
+                }
+            } else if ndk == nil {
+                Text("NDK not available")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-        } else if ndk == nil {
-            Text("NDK not available")
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .task {
             guard viewModel == nil, let ndk else {
