@@ -106,63 +106,10 @@ public struct MultiProjectView: View {
     @ViewBuilder
     private func projectColumn(for projectID: String) -> some View {
         if let project = dataStore.projects.first(where: { $0.coordinate == projectID }) {
-            projectColumnContent(for: project, projectID: projectID)
+            ProjectColumn(project: project, projectCoordinate: projectID)
         } else {
             projectNotFoundView(for: projectID)
         }
-    }
-
-    private func projectColumnContent(for project: Project, projectID: String) -> some View {
-        VStack(spacing: 8) {
-            projectColumnHeader(for: project, projectID: projectID)
-            Divider()
-            projectColumnPlaceholder(projectID: projectID)
-        }
-    }
-
-    private func projectColumnHeader(for project: Project, projectID: String) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(project.title)
-                    .font(.headline)
-
-                if let description = project.description {
-                    Text(description)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-            }
-
-            Spacer()
-
-            Button {
-                openProjects.close(projectID)
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
-        }
-        .padding()
-    }
-
-    private func projectColumnPlaceholder(projectID: String) -> some View {
-        VStack {
-            Text("ProjectColumn placeholder")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-
-            Text("Project ID: \(projectID)")
-                .font(.caption2)
-                .foregroundStyle(.quaternary)
-
-            // Placeholder: ProjectColumn will be implemented in later tasks
-            // It will show:
-            // - Segmented picker for tabs (Threads, Docs, Agents, Feed)
-            // - Tab content area
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private func projectNotFoundView(for projectID: String) -> some View {
