@@ -102,6 +102,8 @@ public struct CallView: View {
     @State private var agentSelectorVM: AgentSelectorViewModel?
     @State private var showAgentConfig = false
     @State private var configAgent: ProjectAgent?
+    @State private var messageOpacity: Double = 1.0
+    @State private var fadeOutTask: Task<Void, Never>?
 
     @Environment(\.aiConfigStorage) private var aiConfigStorage
 
@@ -390,9 +392,22 @@ public struct CallView: View {
                     Task { await self.viewModel.replayMessage(message.id) }
                 }
             }
+            .opacity(self.messageOpacity)
             .id(message.id)
             .transition(.opacity.combined(with: .scale(scale: 0.98)))
             .animation(.easeInOut(duration: 0.3), value: message.id)
+            .onChange(of: message.id) { _, _ in
+                // Reset opacity when new message appears
+                self.messageOpacity = 1.0
+                self.fadeOutTask?.cancel()
+            }
+            .onChange(of: self.viewModel.state) { oldState, newState in
+                // When TTS finishes (transitions from playingResponse to listening)
+                // start fade-out timer
+                if oldState == .playingResponse, newState == .listening {
+                    self.startFadeOutTimer()
+                }
+            }
         }
     }
 
@@ -625,6 +640,26 @@ public struct CallView: View {
         #if canImport(UIKit)
             self.hapticManager.tapHoldReleased()
         #endif
+    }
+
+    private func startFadeOutTimer() {
+        // Cancel any existing fade-out task
+        self.fadeOutTask?.cancel()
+
+        // Wait 3 seconds, then fade out over 1 second
+        self.fadeOutTask = Task {
+            do {
+                try await Task.sleep(nanoseconds: 3_000_000_000) // 3 seconds delay
+                guard !Task.isCancelled else {
+                    return
+                }
+                withAnimation(.easeOut(duration: 1.0)) {
+                    self.messageOpacity = 0.0
+                }
+            } catch {
+                // Task was cancelled, ignore
+            }
+        }
     }
 }
 

@@ -23,17 +23,9 @@ public struct MessageBubble: View {
     // MARK: Public
 
     public var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            if !self.isUser {
-                Spacer(minLength: 40)
-            }
-
-            self.messageContent
-
-            if self.isUser {
-                Spacer(minLength: 40)
-            }
-        }
+        // Apple Music lyrics style: full-width centered
+        self.messageContent
+            .padding(.horizontal, 32)
     }
 
     // MARK: Internal
@@ -56,17 +48,21 @@ public struct MessageBubble: View {
     }
 
     private var messageContent: some View {
-        VStack(alignment: self.isUser ? .trailing : .leading, spacing: 6) {
-            Text(self.displayName)
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.7))
+        VStack(alignment: .center, spacing: 12) {
+            // Apple Music style: centered text without background
+            Text(self.message.content)
+                .font(.title3)
+                .fontWeight(.semibold)
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+                .lineSpacing(8)
 
-            self.messageWithReplay
-
-            Text(self.formatTimestamp(self.message.createdAt))
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.5))
+            // Replay button below (if available)
+            if !self.isUser, TTSCache.shared.hasCached(messageID: self.message.id) {
+                self.replayButton
+            }
         }
+        .frame(maxWidth: .infinity)
     }
 
     private var messageWithReplay: some View {
