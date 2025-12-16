@@ -39,6 +39,7 @@ struct TENEXApp: App {
                             self.handleAuthChange(oldPubkey: oldPubkey, newPubkey: newPubkey)
                         }
                         .environment(self.dataStore)
+                        .environment(self.windowManager)
                 } else {
                     ProgressView("Initializing...")
                 }
@@ -47,6 +48,35 @@ struct TENEXApp: App {
                 await self.initializeApp()
             }
         }
+
+        // MARK: - Detached Conversation Windows
+
+        /// WindowGroup for detached conversation windows
+        ///
+        /// This WindowGroup creates separate macOS windows for conversations that have been detached
+        /// from the main drawer. Each window displays a ChatView with header controls for reattaching
+        /// or closing the window.
+        ///
+        /// The windowID (String) uniquely identifies the conversation window and is used to look up
+        /// the window's metadata from WindowManagerStore.
+        WindowGroup("Conversation", id: "conversation", for: String.self) { $windowID in
+            if let windowID, let authManager, let ndk, let dataStore, let aiConfigStorage, let audioService {
+                DetachedConversationWindow(
+                    windowID: windowID,
+                    ndk: ndk,
+                    authManager: authManager,
+                    dataStore: dataStore
+                )
+                .environment(authManager)
+                .environment(\.ndk, ndk)
+                .environment(\.aiConfig, self.aiConfig)
+                .environment(\.aiConfigStorage, aiConfigStorage)
+                .environment(\.audioService, audioService)
+                .environment(dataStore)
+                .environment(self.windowManager)
+            }
+        }
+        .defaultSize(width: 800, height: 600)
     }
 
     // MARK: Private
@@ -59,6 +89,7 @@ struct TENEXApp: App {
     @State private var aiConfig: AIConfig?
     @State private var aiConfigStorage: AIConfigStorage?
     @State private var audioService: AudioService?
+    @State private var windowManager = WindowManagerStore()
 
     // MARK: - Helpers
 
