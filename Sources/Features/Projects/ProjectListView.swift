@@ -29,7 +29,7 @@ public struct ProjectListView: View {
                 self.projectList
             }
         }
-        .navigationTitle("Projects")
+        .navigationTitle(self.navigationTitle)
         #if os(iOS)
             .navigationBarTitleDisplayMode(.large)
         #endif
@@ -118,6 +118,10 @@ public struct ProjectListView: View {
 
     private var selectedGroup: ProjectGroup? {
         self.viewModel.groups.first { $0.id == self.viewModel.selectedGroupID }
+    }
+
+    private var navigationTitle: String {
+        self.selectedGroup?.name ?? "Projects"
     }
 
     private var groupFilterMenuLabel: String {
