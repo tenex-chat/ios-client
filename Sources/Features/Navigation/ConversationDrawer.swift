@@ -6,6 +6,7 @@
 
 import AppKit
 import NDKSwiftCore
+import os
 import SwiftUI
 
 // MARK: - ResizeHandle
@@ -278,16 +279,15 @@ public struct ConversationDrawer: View {
         }
 
         isLoading = true
-
         let filter = NDKFilter(ids: [window.threadID])
         let subscription = ndk.subscribe(filter: filter)
 
-        for await event in subscription.events where event.id == window.threadID {
-            threadEvent = event
-            isLoading = false
-            return
+        do {
+            let events = try await subscription.collect(timeout: 5.0, limit: 1)
+            threadEvent = events.first
+        } catch {
+            Logger().error("Failed to load thread event: \(error.localizedDescription)")
         }
-
         isLoading = false
     }
 }
