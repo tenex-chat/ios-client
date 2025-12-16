@@ -34,7 +34,9 @@ private struct ResizeHandle: View {
             .onContinuousHover { phase in
                 switch phase {
                 case .active:
-                    guard NSCursor.current != .resizeLeftRight else { return }
+                    guard NSCursor.current != .resizeLeftRight else {
+                        return
+                    }
                     NSCursor.resizeLeftRight.push()
                 case .ended:
                     NSCursor.pop()
