@@ -62,23 +62,7 @@ public struct MultiProjectView: View {
     // MARK: - Projects Sidebar
 
     private var projectsSidebar: some View {
-        VStack {
-            Text("Projects Sidebar")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-
-            Text("ProjectsSidebar placeholder")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-
-            // Placeholder: ProjectsSidebar will be implemented in later tasks
-            // It will show:
-            // - List of projects from DataStore
-            // - Blue dot indicator for open projects
-            // - Click to toggle project open/closed
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(nsColor: .controlBackgroundColor))
+        ProjectsSidebar()
     }
 
     // MARK: - Project Columns Area
