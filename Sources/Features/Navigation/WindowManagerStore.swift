@@ -192,7 +192,7 @@ public final class WindowManagerStore {
     ///   - windowID: The window ID
     ///   - position: New position
     public func updatePosition(_ windowID: String, position: CGPoint) {
-        guard let index = windows.firstIndex(where: { $0.id == windowID, $0.isDetached }) else {
+        guard let index = windows.firstIndex(where: { $0.id == windowID && $0.isDetached }) else {
             return
         }
 
@@ -204,7 +204,7 @@ public final class WindowManagerStore {
     ///   - windowID: The window ID
     ///   - size: New size
     public func updateSize(_ windowID: String, size: CGSize) {
-        guard let index = windows.firstIndex(where: { $0.id == windowID, $0.isDetached }) else {
+        guard let index = windows.firstIndex(where: { $0.id == windowID && $0.isDetached }) else {
             return
         }
 
