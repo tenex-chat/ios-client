@@ -121,7 +121,6 @@ public final class DataStore {
         self.recentConversationReplies = []
         self.inboxMessages = []
         self.inboxUnreadCount = 0
-        self.inboxEventCache = [:]
         self.userPubkey = nil
 
         self.logger.info("All subscriptions stopped and state cleared")
@@ -207,11 +206,6 @@ public final class DataStore {
     private var nudgesTask: Task<Void, Never>?
     private var recentConversationsTask: Task<Void, Never>?
     private var inboxTask: Task<Void, Never>?
-
-    // MARK: - Inbox Filtering Cache
-
-    /// Cache of event metadata for inbox filtering (eventID -> (authorPubkey, createdAt))
-    private var inboxEventCache: [String: (pubkey: String, createdAt: Date)] = [:]
 }
 
 // MARK: - Subscription Methods
@@ -428,79 +422,31 @@ extension DataStore {
             return true
         }
 
-        if let cached = inboxEventCache[eTag] {
-            return self.checkCachedInboxEvent(cached: cached, userPubkey: userPubkey, eTag: eTag)
-        }
+        // Use NDK's fetchEvent with automatic cache-first behavior
+        let fetched = self.ndk.fetchEvent(eTag)
 
-        return await self.fetchAndCheckReplyToEvent(eTag: eTag, userPubkey: userPubkey, event: event)
-    }
-
-    private func checkCachedInboxEvent(
-        cached: (pubkey: String, createdAt: Date),
-        userPubkey: String,
-        eTag: String
-    ) -> Bool {
-        self.logger.debug("Using cached data for inbox filtering: \(eTag)")
-        guard cached.pubkey == userPubkey else {
-            return true
-        }
-
-        let fiveMinutesAgo = Date().addingTimeInterval(-5 * 60)
-        let shouldInclude = cached.createdAt < fiveMinutesAgo
-        self.logger.debug("Filtering inbox message (cached): \(shouldInclude)")
-        return shouldInclude
-    }
-
-    private func fetchAndCheckReplyToEvent(eTag: String, userPubkey: String, event: NDKEvent) async -> Bool {
-        self.logger.debug("Fetching reply-to event for inbox filtering: \(eTag)")
-        let filter = NDKFilter(ids: [eTag])
-        let subscription = self.ndk.subscribe(filter: filter)
-
-        var replyToEvent: NDKEvent?
-        for await fetchedEvent in subscription.events.prefix(1) {
-            replyToEvent = fetchedEvent
-        }
-
-        guard let replyToEvent else {
+        // Wait for event with timeout (cache hits return immediately)
+        guard let replyToEvent = await self.waitForEvent(fetched, timeout: 5.0) else {
             self.logger.warning("Reply-to event not found, including in inbox: \(eTag)")
             return true
         }
 
-        return self.cacheAndCheckEvent(replyToEvent: replyToEvent, eTag: eTag, userPubkey: userPubkey, event: event)
-    }
-
-    private func cacheAndCheckEvent(replyToEvent: NDKEvent, eTag: String, userPubkey: String, event: NDKEvent) -> Bool {
-        let eventDate = Date(timeIntervalSince1970: TimeInterval(replyToEvent.createdAt))
-        self.inboxEventCache[eTag] = (pubkey: replyToEvent.pubkey, createdAt: eventDate)
-        self.evictOldCacheEntriesIfNeeded()
-
+        // If not replying to user's own message, include it
         guard replyToEvent.pubkey == userPubkey else {
             self.logger.debug("Not a reply to user's message, including in inbox")
             return true
         }
 
-        return self.checkMessageAge(eventDate: eventDate, event: event)
-    }
-
-    private func evictOldCacheEntriesIfNeeded() {
-        if self.inboxEventCache.count > 1000 {
-            let oldestKeys = self.inboxEventCache.keys.prefix(self.inboxEventCache.count - 1000)
-            for key in oldestKeys {
-                self.inboxEventCache.removeValue(forKey: key)
-            }
-            self.logger.debug("Evicted \(oldestKeys.count) entries from inbox event cache")
-        }
-    }
-
-    private func checkMessageAge(eventDate: Date, event: NDKEvent) -> Bool {
+        // Check if the user's message is older than 5 minutes
         let now = Date()
         let fiveMinutesAgo = now.addingTimeInterval(-5 * 60)
-        let timeSinceUserMessage = now.timeIntervalSince(eventDate)
-        let shouldInclude = eventDate < fiveMinutesAgo
+        let replyToDate = Date(timeIntervalSince1970: TimeInterval(replyToEvent.createdAt))
+        let timeSinceUserMessage = now.timeIntervalSince(replyToDate)
+        let shouldInclude = replyToDate < fiveMinutesAgo
 
         self.logger.info("""
         Inbox filtering decision:
-        - User message time: \(eventDate)
+        - User message time: \(replyToDate)
         - Current time: \(now)
         - Time since user message: \(Int(timeSinceUserMessage))s
         - 5 minute threshold: \(fiveMinutesAgo)
@@ -509,5 +455,29 @@ extension DataStore {
         """)
 
         return shouldInclude
+    }
+
+    /// Helper to wait for fetchEvent to complete with timeout
+    /// Returns immediately if event is already cached
+    private func waitForEvent(_ fetched: NDKFetchedEvent, timeout: TimeInterval) async -> NDKEvent? {
+        // If event is already available (cache hit), return immediately
+        if let event = fetched.event {
+            return event
+        }
+
+        // Wait for event to load or timeout
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let event = fetched.event {
+                return event
+            }
+            if !fetched.isLoading {
+                // Loading completed but no event found
+                return nil
+            }
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+
+        return fetched.event
     }
 }

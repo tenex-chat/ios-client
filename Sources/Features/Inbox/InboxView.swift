@@ -16,37 +16,59 @@ public struct InboxView: View {
 
     // MARK: Public
 
-    // MARK: - Body
-
     public var body: some View {
-        self.contentView(dataStore: self.dataStore)
-            .navigationTitle("Inbox")
-            .onAppear {
-                self.viewModel?.markAllRead()
-            }
+        #if os(macOS)
+        macOSBody
+        #else
+        iOSBody
+        #endif
     }
 
     // MARK: Private
-
-    // MARK: - Environment
 
     @Environment(DataStore.self) private var dataStore
     @Environment(NDKAuthManager.self) private var authManager
     @Environment(\.ndk) private var ndk
 
-    // MARK: - State
-
     @State private var viewModel: InboxViewModel?
     @State private var threadCache: [String: NDKEvent] = [:]
-
-    // MARK: - Logger
+    @State private var selectedMessageID: String?
 
     private let logger = Logger(subsystem: "com.tenex.ios", category: "Inbox")
 
     // MARK: - Private Views
 
     @ViewBuilder
-    private func contentView(dataStore: DataStore) -> some View {
+    private var macOSBody: some View {
+        let vm = viewModel ?? InboxViewModel(dataStore: dataStore)
+
+        NavigationSplitView {
+            messageList(viewModel: vm)
+        } detail: {
+            if let selectedMessageID,
+               let message = vm.inboxMessages.first(where: { $0.id == selectedMessageID }) {
+                destinationView(for: message)
+            } else {
+                ContentUnavailableView(
+                    "Select a Notification",
+                    systemImage: "tray",
+                    description: Text("Choose a notification from the list")
+                )
+            }
+        }
+        .navigationTitle("Inbox")
+        .task {
+            if self.viewModel == nil {
+                self.viewModel = vm
+            }
+        }
+        .onAppear {
+            vm.markAllRead()
+        }
+    }
+
+    @ViewBuilder
+    private var iOSBody: some View {
         let vm = self.viewModel ?? InboxViewModel(dataStore: dataStore)
 
         List {
@@ -80,6 +102,35 @@ public struct InboxView: View {
     }
 
     @ViewBuilder
+    private func messageList(viewModel: InboxViewModel) -> some View {
+        List(selection: $selectedMessageID) {
+            if viewModel.inboxMessages.isEmpty {
+                ContentUnavailableView(
+                    "No Notifications",
+                    systemImage: "tray",
+                    description: Text("Agent escalations will appear here")
+                )
+            } else {
+                ForEach(viewModel.inboxMessages) { message in
+                    Button {
+                        selectedMessageID = message.id
+                    } label: {
+                        InboxRow(
+                            message: message,
+                            isUnread: viewModel.isUnread(message),
+                            agentName: viewModel.agentName(for: message.pubkey)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .tag(message.id)
+                    .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
+                }
+            }
+        }
+        .listStyle(.plain)
+    }
+
+    @ViewBuilder
     private func destinationView(for message: Message) -> some View {
         if let threadEvent = threadCache[message.threadID],
            let projectCoordinate = message.projectCoordinate,
@@ -92,7 +143,7 @@ public struct InboxView: View {
         } else {
             ProgressView("Loading thread...")
                 .task {
-                    await self.fetchThread(id: message.threadID)
+                    await fetchThread(id: message.threadID)
                 }
         }
     }
