@@ -7,6 +7,7 @@
 import AVFoundation
 import Foundation
 import Observation
+import OSLog
 
 /// Manages audio recording with real-time level monitoring
 @MainActor
@@ -15,6 +16,10 @@ final class AudioRecorder {
     // MARK: Lifecycle
 
     init() {}
+
+    // MARK: Private
+
+    private let logger = Logger(subsystem: "com.tenex.ios", category: "AudioRecorder")
 
     // MARK: Internal
 
@@ -39,6 +44,8 @@ final class AudioRecorder {
     /// - Returns: URL where recording will be saved
     @discardableResult
     func startRecording() async throws -> URL {
+        self.logger.info("[startRecording] Starting recording")
+
         #if !os(macOS)
             try await self.checkPermissionAndConfigureSession()
         #endif
@@ -56,6 +63,7 @@ final class AudioRecorder {
             self.audioRecorder?.prepareToRecord()
 
             guard self.audioRecorder?.record() == true else {
+                self.logger.error("[startRecording] Failed to start recording")
                 throw AudioError.recordingFailed(NSError(
                     domain: "AudioRecorder",
                     code: -1,
@@ -66,8 +74,10 @@ final class AudioRecorder {
             self.isRecording = true
             self.startMetering()
 
+            self.logger.info("[startRecording] Recording started successfully")
             return fileURL
         } catch {
+            self.logger.error("[startRecording] Error: \(error.localizedDescription)")
             throw AudioError.recordingFailed(error)
         }
     }
@@ -157,21 +167,26 @@ final class AudioRecorder {
             if permission == .undetermined {
                 let granted = await requestPermission()
                 if !granted {
+                    self.logger.error("[checkPermission] Permission denied")
                     throw AudioError.permissionDenied
                 }
             } else if permission != .granted {
+                self.logger.error("[checkPermission] Permission not granted")
                 throw AudioError.permissionDenied
             }
 
             let session = AVAudioSession.sharedInstance()
             do {
+                // Use .mixWithOthers to allow audio engine to continue running
                 try session.setCategory(
                     .playAndRecord,
                     mode: .voiceChat,
-                    options: [.allowBluetooth, .defaultToSpeaker]
+                    options: [.allowBluetooth, .defaultToSpeaker, .mixWithOthers]
                 )
-                try session.setActive(true)
+                try session.setActive(true, options: .notifyOthersOnDeactivation)
+                self.logger.info("[checkPermission] Audio session configured with mixWithOthers")
             } catch {
+                self.logger.error("[checkPermission] Failed to configure session: \(error.localizedDescription)")
                 throw AudioError.recordingFailed(error)
             }
         }

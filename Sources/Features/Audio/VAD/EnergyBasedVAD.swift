@@ -6,6 +6,7 @@
 
 import AVFoundation
 import Foundation
+import OSLog
 
 /// Simple energy/amplitude based Voice Activity Detection
 /// Fallback implementation for iOS 17 and earlier
@@ -15,6 +16,10 @@ final class EnergyBasedVAD: VADService {
 
     init() {}
 
+    // MARK: Private
+
+    private let logger = Logger(subsystem: "com.tenex.ios", category: "EnergyBasedVAD")
+
     // MARK: Internal
 
     var onSpeechStart: (@Sendable () -> Void)?
@@ -23,16 +28,22 @@ final class EnergyBasedVAD: VADService {
 
     func start(audioEngine: AVAudioEngine) async throws {
         guard !self.isActive else {
+            self.logger.warning("[start] Already active, ignoring")
             return
         }
+
+        self.logger.info("[start] Starting VAD")
 
         #if !os(macOS)
             /// Configure audio session for VAD
             let session = AVAudioSession.sharedInstance()
             do {
-                try session.setCategory(.playAndRecord, mode: .default)
-                try session.setActive(true)
+                // Use .mixWithOthers to allow AVAudioRecorder to work alongside audio engine
+                try session.setCategory(.playAndRecord, mode: .voiceChat, options: [.allowBluetooth, .defaultToSpeaker, .mixWithOthers])
+                try session.setActive(true, options: .notifyOthersOnDeactivation)
+                self.logger.info("[start] Audio session configured with mixWithOthers")
             } catch {
+                self.logger.error("[start] Failed to configure audio session: \(error.localizedDescription)")
                 throw VADError.initializationFailed(error)
             }
         #endif
@@ -43,6 +54,11 @@ final class EnergyBasedVAD: VADService {
         let inputNode = audioEngine.inputNode
         let format = inputNode.outputFormat(forBus: 0)
 
+        self.logger
+            .info(
+                "[start] Installing tap - sampleRate=\(format.sampleRate), channels=\(format.channelCount)"
+            )
+
         inputNode.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
             Task { @MainActor [weak self] in
                 self?.processAudioBuffer(buffer)
@@ -51,13 +67,20 @@ final class EnergyBasedVAD: VADService {
 
         // Start the audio engine to begin processing audio
         do {
-            try audioEngine.start()
+            if !audioEngine.isRunning {
+                try audioEngine.start()
+                self.logger.info("[start] Audio engine started")
+            } else {
+                self.logger.info("[start] Audio engine already running")
+            }
         } catch {
+            self.logger.error("[start] Failed to start audio engine: \(error.localizedDescription)")
             throw VADError.initializationFailed(error)
         }
 
         self.isActive = true
         self.isSpeaking = false
+        self.logger.info("[start] VAD started successfully")
     }
 
     func stop() async {
@@ -106,15 +129,32 @@ final class EnergyBasedVAD: VADService {
     // Tunable parameters (adjusted by sensitivity)
     private var speechThreshold: Float = 0.02 // Amplitude threshold for speech
     private var silenceThreshold: Float = 0.01 // Amplitude threshold for silence
-    private let silenceDuration: TimeInterval = 1.5 // Time of silence before stopping
+    private let silenceDuration: TimeInterval = 0.8 // Time of silence before stopping (reduced from 1.5s)
 
     private func processAudioBuffer(_ buffer: AVAudioPCMBuffer) {
+        // Check if audio engine is still running
+        guard let audioEngine = self.audioEngine, audioEngine.isRunning else {
+            self.logger.warning("[processAudioBuffer] Audio engine not running, attempting restart")
+            // Try to restart the engine
+            if let audioEngine = self.audioEngine, !audioEngine.isRunning {
+                do {
+                    try audioEngine.start()
+                    self.logger.info("[processAudioBuffer] Audio engine restarted")
+                } catch {
+                    self.logger.error("[processAudioBuffer] Failed to restart audio engine: \(error.localizedDescription)")
+                }
+            }
+            return
+        }
+
         guard let channelData = buffer.floatChannelData else {
+            self.logger.warning("[processAudioBuffer] No channel data")
             return
         }
 
         let frameLength = Int(buffer.frameLength)
         guard frameLength > 0 else {
+            self.logger.warning("[processAudioBuffer] Empty buffer")
             return
         }
 
@@ -129,15 +169,28 @@ final class EnergyBasedVAD: VADService {
         let rms = sqrt(sum / Float(frameLength))
         self.currentLevel = rms
 
+        // Log audio levels when speaking
+        if self.isSpeaking || rms > self.speechThreshold {
+            self.logger
+                .debug(
+                    "[processAudioBuffer] rms=\(String(format: "%.4f", rms)), speechThreshold=\(String(format: "%.4f", self.speechThreshold)), silenceThreshold=\(String(format: "%.4f", self.silenceThreshold)), isSpeaking=\(self.isSpeaking)"
+                )
+        }
+
         // Check for speech activity based on thresholds
         if !self.isSpeaking, rms > self.speechThreshold {
             // Speech detected - start speaking
+            self.logger.info("[processAudioBuffer] Speech START detected")
             self.handleSpeechStart()
         } else if self.isSpeaking, rms < self.silenceThreshold {
             // Silence detected while speaking - start silence timer
+            self.logger.info("[processAudioBuffer] Silence detected, starting timer")
             self.startSilenceTimer()
         } else if self.isSpeaking, rms > self.speechThreshold {
             // Still speaking - cancel silence timer
+            if self.silenceTimer != nil {
+                self.logger.info("[processAudioBuffer] Speech continues, cancelling silence timer")
+            }
             self.cancelSilenceTimer()
         }
     }
@@ -172,6 +225,7 @@ final class EnergyBasedVAD: VADService {
             return
         }
 
+        self.logger.info("[handleSilenceTimeout] Speech END detected (silence timeout)")
         self.isSpeaking = false
         self.silenceTimer = nil
         self.onSpeechEnd?()
