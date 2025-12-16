@@ -120,14 +120,29 @@ private struct SidebarProjectRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            // Blue dot indicator for open state
-            Circle()
-                .fill(isOpen ? Color.blue : Color.clear)
-                .frame(width: 8, height: 8)
-                .overlay(
+            // Project avatar with open state indicator
+            ZStack(alignment: .topTrailing) {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(project.color)
+                    .frame(width: 32, height: 32)
+                    .overlay {
+                        Text(project.title.prefix(1).uppercased())
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+
+                // Open state indicator dot
+                if isOpen {
                     Circle()
-                        .strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
-                )
+                        .fill(Color.blue)
+                        .frame(width: 10, height: 10)
+                        .overlay {
+                            Circle()
+                                .stroke(Color(nsColor: .controlBackgroundColor), lineWidth: 2)
+                        }
+                        .offset(x: 3, y: -3)
+                }
+            }
 
             // Project info
             VStack(alignment: .leading, spacing: 2) {
@@ -155,3 +170,4 @@ private struct SidebarProjectRow: View {
     Text("ProjectsSidebar Preview")
         .frame(width: 240, height: 600)
 }
+#endif
