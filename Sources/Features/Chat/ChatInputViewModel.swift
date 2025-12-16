@@ -6,6 +6,7 @@
 
 import Foundation
 import Observation
+import OSLog
 import TENEXCore
 
 // MARK: - ChatInputViewModel
@@ -18,9 +19,21 @@ public final class ChatInputViewModel {
     // MARK: Lifecycle
 
     /// Initialize the chat input view model
-    /// - Parameter isNewThread: Whether this is a new thread (requires agent selection)
-    public init(isNewThread: Bool = false) {
+    /// - Parameters:
+    ///   - conversationID: The conversation/thread ID (or project reference if new thread)
+    ///   - isNewThread: Whether this is a new thread (requires agent selection)
+    ///   - draftStorage: Storage for persisting drafts (optional, defaults to UserDefaults)
+    public init(
+        conversationID: String,
+        isNewThread: Bool = false,
+        draftStorage: ChatDraftStorage = UserDefaultsChatDraftStorage()
+    ) {
+        self.conversationID = conversationID
         self.isNewThread = isNewThread
+        self.draftStorage = draftStorage
+
+        // Restore draft if one exists
+        self.restoreDraft()
     }
 
     // MARK: Public
@@ -47,7 +60,24 @@ public final class ChatInputViewModel {
     public var isNewThread = false
 
     /// The current input text
-    public var inputText = ""
+    public var inputText = "" {
+        didSet {
+            // Auto-save draft when text changes (debounced)
+            debouncedSaveDraft()
+        }
+    }
+
+    /// Error that occurred during draft save/restore operations
+    public private(set) var draftSaveError: Error?
+
+    /// The conversation/thread ID for this input
+    private let conversationID: String
+
+    /// Storage for persisting drafts
+    private let draftStorage: ChatDraftStorage
+
+    /// Task for debounced save operation
+    private var debounceSaveTask: Task<Void, Never>?
 
     /// Whether an agent is required to send (computed from isNewThread)
     public var requiresAgent: Bool {
@@ -122,5 +152,104 @@ public final class ChatInputViewModel {
         self.mentionedPubkeys = []
         self.selectedNudges = []
         self.replyToMessage = nil
+
+        // Delete draft when input is cleared (e.g., after sending)
+        deleteDraft()
+    }
+
+    // MARK: - Draft Management
+
+    private static let logger = Logger(subsystem: "com.tenex.client", category: "ChatInputViewModel")
+    private static let debounceDuration: UInt64 = 500_000_000 // 500ms in nanoseconds
+
+    /// Debounced save that waits for user to pause typing
+    private func debouncedSaveDraft() {
+        // Cancel any existing debounce task
+        debounceSaveTask?.cancel()
+
+        // Don't save empty drafts - delete immediately
+        guard !inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            deleteDraft()
+            return
+        }
+
+        // Create new debounce task
+        debounceSaveTask = Task {
+            do {
+                // Wait for debounce duration
+                try await Task.sleep(nanoseconds: Self.debounceDuration)
+
+                // If task was cancelled during sleep, don't save
+                guard !Task.isCancelled else { return }
+
+                // Perform the actual save
+                await performSave()
+            } catch {
+                // Task was cancelled or sleep failed - this is normal
+            }
+        }
+    }
+
+    /// Perform the actual save operation
+    private func performSave() async {
+        let draft = ChatDraft(
+            conversationID: conversationID,
+            text: inputText,
+            selectedAgent: selectedAgent,
+            selectedBranch: selectedBranch,
+            selectedNudges: selectedNudges,
+            mentionedPubkeys: mentionedPubkeys,
+            lastModified: Date()
+        )
+
+        do {
+            try await draftStorage.saveDraft(draft)
+            // Clear error on successful save
+            self.draftSaveError = nil
+        } catch {
+            // Store error for UI to display
+            self.draftSaveError = error
+            Self.logger.error("Failed to save draft: \(error.localizedDescription)")
+        }
+    }
+
+    /// Restore draft from storage if one exists
+    private func restoreDraft() {
+        Task {
+            do {
+                if let draft = try await draftStorage.loadDraft(for: conversationID) {
+                    // Restore all draft state
+                    self.inputText = draft.text
+                    self.selectedAgent = draft.selectedAgent
+                    self.selectedBranch = draft.selectedBranch
+                    self.selectedNudges = draft.selectedNudges
+                    self.mentionedPubkeys = draft.mentionedPubkeys
+                    // Clear any previous errors
+                    self.draftSaveError = nil
+                }
+            } catch {
+                // Store error for UI to display
+                self.draftSaveError = error
+                Self.logger.error("Failed to restore draft: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// Delete the draft for this conversation
+    private func deleteDraft() {
+        // Cancel any pending save
+        debounceSaveTask?.cancel()
+
+        Task {
+            do {
+                try await draftStorage.deleteDraft(for: conversationID)
+                // Clear error on successful delete
+                self.draftSaveError = nil
+            } catch {
+                // Store error for UI to display
+                self.draftSaveError = error
+                Self.logger.error("Failed to delete draft: \(error.localizedDescription)")
+            }
+        }
     }
 }

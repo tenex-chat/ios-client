@@ -195,7 +195,12 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                     self.viewModel = vm
                 }
                 if self.inputViewModel == nil {
-                    self.inputViewModel = ChatInputViewModel(isNewThread: vm.isNewThread)
+                    // Use thread ID if available, otherwise use project reference for new threads
+                    let conversationID = vm.threadID ?? self.projectReference
+                    self.inputViewModel = ChatInputViewModel(
+                        conversationID: conversationID,
+                        isNewThread: vm.isNewThread
+                    )
                 }
             }
             .onChange(of: vm.threadEvent) { _, newThreadEvent in

@@ -235,6 +235,7 @@ public struct ChatInputView: View {
             }
             self.branchButton
             Spacer()
+            self.draftSaveErrorIndicator
             self.expandButton
         }
         .sheet(isPresented: self.$showAgentConfig) {
@@ -248,6 +249,17 @@ public struct ChatInputView: View {
                     ndk: self.ndk
                 )
             }
+        }
+    }
+
+    @ViewBuilder
+    private var draftSaveErrorIndicator: some View {
+        if viewModel.draftSaveError != nil {
+            Image(systemName: "exclamationmark.icloud")
+                .font(.subheadline)
+                .foregroundStyle(.red)
+                .help("Draft failed to save")
+                .accessibilityLabel("Draft save error")
         }
     }
 
