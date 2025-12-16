@@ -4,6 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+#if os(macOS)
 import AppKit
 import NDKSwiftCore
 import os
@@ -248,3 +249,4 @@ public struct DetachedConversationWindow: View {
         isLoading = false
     }
 }
+#endif

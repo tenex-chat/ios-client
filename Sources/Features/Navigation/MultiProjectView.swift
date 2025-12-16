@@ -4,6 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+#if os(macOS)
 import NDKSwiftCore
 import SwiftUI
 
@@ -138,3 +139,4 @@ public struct MultiProjectView: View {
         }
     }
 }
+#endif

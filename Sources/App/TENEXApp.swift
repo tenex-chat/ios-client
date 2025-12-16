@@ -49,6 +49,7 @@ struct TENEXApp: App {
             }
         }
 
+        #if os(macOS)
         // MARK: - Detached Conversation Windows
 
         /// WindowGroup for detached conversation windows
@@ -77,6 +78,7 @@ struct TENEXApp: App {
             }
         }
         .defaultSize(width: 800, height: 600)
+        #endif
     }
 
     // MARK: Private
