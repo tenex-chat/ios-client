@@ -7,6 +7,7 @@
 import Foundation
 import NDKSwiftCore
 import Observation
+import os
 import TENEXCore
 import TENEXShared
 
@@ -52,6 +53,11 @@ public final class ThreadListViewModel {
         let threadEvents = self.threadEventsSubscription?.data ?? []
         let metadataEvents = self.metadataSubscription?.data ?? []
         let messageEvents = self.messagesSubscription?.data ?? []
+
+        Logger()
+            .info(
+                "[ThreadListViewModel] Building threads - threadEvents: \(threadEvents.count), metadataEvents: \(metadataEvents.count), messageEvents: \(messageEvents.count)"
+            )
 
         // Build threads from kind:11 events
         var threadsByID: [String: NostrThread] = [:]
@@ -132,8 +138,11 @@ public final class ThreadListViewModel {
 
     /// Subscribe to all thread-related events
     public func subscribe() {
+        Logger().info("[ThreadListViewModel] subscribe() called for projectID: \(self.projectID)")
+
         // Subscribe to thread events (kind:11)
         let threadFilter = NostrThread.filter(for: self.projectID)
+        Logger().info("[ThreadListViewModel] Thread filter: kinds=[11], tags=[a:\(self.projectID)]")
         self.threadEventsSubscription = self.ndk.subscribe(filter: threadFilter)
 
         // Subscribe to metadata events (kind:513)
@@ -146,6 +155,8 @@ public final class ThreadListViewModel {
             tags: ["a": Set([projectID])]
         )
         self.messagesSubscription = self.ndk.subscribe(filter: messagesFilter)
+
+        Logger().info("[ThreadListViewModel] All subscriptions created")
     }
 
     /// Restart all subscriptions (useful when they get stuck)
