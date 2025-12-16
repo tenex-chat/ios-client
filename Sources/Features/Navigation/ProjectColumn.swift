@@ -28,9 +28,11 @@ public struct ProjectColumn: View {
     /// - Parameters:
     ///   - project: The project to display
     ///   - projectCoordinate: The project coordinate string (kind:pubkey:dTag)
-    public init(project: Project, projectCoordinate: String) {
+    ///   - currentUserPubkey: The current user's pubkey (for thread interactions)
+    public init(project: Project, projectCoordinate: String, currentUserPubkey: String?) {
         self.project = project
         self.projectCoordinate = projectCoordinate
+        self.currentUserPubkey = currentUserPubkey
     }
 
     // MARK: Public
@@ -50,6 +52,7 @@ public struct ProjectColumn: View {
 
     private let project: Project
     private let projectCoordinate: String
+    private let currentUserPubkey: String?
 
     @State private var selectedTab: ProjectTab = .threads
     @Environment(OpenProjectsStore.self) private var openProjects
@@ -102,7 +105,10 @@ public struct ProjectColumn: View {
     private var tabContent: some View {
         switch selectedTab {
         case .threads:
-            threadsTabPlaceholder
+            ThreadsTabContent(
+                projectID: projectCoordinate,
+                currentUserPubkey: currentUserPubkey
+            )
         case .docs:
             docsTabPlaceholder
         case .agents:
@@ -110,21 +116,6 @@ public struct ProjectColumn: View {
         case .feed:
             feedTabPlaceholder
         }
-    }
-
-    private var threadsTabPlaceholder: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "bubble.left.and.bubble.right")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-            Text("Threads")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-            Text("Thread list will appear here")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var docsTabPlaceholder: some View {

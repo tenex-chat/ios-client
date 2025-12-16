@@ -58,6 +58,7 @@ public struct MultiProjectView: View {
     @State private var windowManager = WindowManagerStore()
 
     @Environment(DataStore.self) private var dataStore
+    @Environment(NDKAuthManager.self) private var authManager
 
     // MARK: - Projects Sidebar
 
@@ -106,7 +107,11 @@ public struct MultiProjectView: View {
     @ViewBuilder
     private func projectColumn(for projectID: String) -> some View {
         if let project = dataStore.projects.first(where: { $0.coordinate == projectID }) {
-            ProjectColumn(project: project, projectCoordinate: projectID)
+            ProjectColumn(
+                project: project,
+                projectCoordinate: projectID,
+                currentUserPubkey: authManager.currentUser?.hexadecimalPublicKey
+            )
         } else {
             projectNotFoundView(for: projectID)
         }
