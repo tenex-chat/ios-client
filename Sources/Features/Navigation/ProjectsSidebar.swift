@@ -91,7 +91,7 @@ public struct ProjectsSidebar: View {
     private var projectsList: some View {
         List {
             ForEach(dataStore.projects, id: \.id) { project in
-                ProjectRow(
+                SidebarProjectRow(
                     project: project,
                     isOpen: openProjects.isOpen(project.coordinate)
                 )
@@ -108,10 +108,10 @@ public struct ProjectsSidebar: View {
     }
 }
 
-// MARK: - ProjectRow
+// MARK: - SidebarProjectRow
 
 /// A single row displaying a project with open state indicator
-private struct ProjectRow: View {
+private struct SidebarProjectRow: View {
     // MARK: Internal
 
     let project: Project
