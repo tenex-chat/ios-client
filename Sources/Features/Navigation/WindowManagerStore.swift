@@ -70,8 +70,9 @@ public final class WindowManagerStore {
 
     /// Initialize the store and load persisted state
     public init() {
-        windows = Self.loadFromUserDefaults()
-        nextZIndex = (windows.map(\.zIndex).max() ?? 0) + 1
+        let loadedWindows = Self.loadFromUserDefaults()
+        windows = loadedWindows
+        nextZIndex = (loadedWindows.map(\.zIndex).max() ?? 0) + 1
     }
 
     // MARK: Public
