@@ -131,36 +131,10 @@ public struct MultiProjectView: View {
 
     // MARK: - Conversation Drawer
 
+    @ViewBuilder
     private var conversationDrawer: some View {
-        VStack {
-            Text("Conversation Drawer")
-                .font(.headline)
-                .foregroundStyle(.secondary)
-
-            Text("ConversationDrawer placeholder")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-
-            if let drawer = windowManager.activeDrawer {
-                Text("Thread ID: \(drawer.threadID)")
-                    .font(.caption2)
-                    .foregroundStyle(.quaternary)
-
-                Button("Close Drawer") {
-                    windowManager.close(drawer.id)
-                }
-                .padding(.top)
-            }
-
-            // Placeholder: ConversationDrawer will be implemented in later tasks
-            // It will show:
-            // - Resize handle on left edge
-            // - Drawer header with back, detach, close buttons
-            // - ChatView for the conversation
+        if let drawer = windowManager.activeDrawer {
+            ConversationDrawer(window: drawer)
         }
-        .frame(width: windowManager.drawerWidth)
-        .frame(maxHeight: .infinity)
-        .background(Color(nsColor: .controlBackgroundColor))
-        .shadow(color: .black.opacity(0.2), radius: 8, x: -2, y: 0)
     }
 }

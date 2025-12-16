@@ -47,7 +47,9 @@ public struct ThreadsTabContent: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .task {
-            guard viewModel == nil, let ndk else { return }
+            guard viewModel == nil, let ndk else {
+                return
+            }
             let vm = ThreadListViewModel(
                 ndk: ndk,
                 projectID: projectID,
