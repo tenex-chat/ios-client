@@ -31,10 +31,12 @@ private struct ResizeHandle: View {
             .frame(width: 8)
             .contentShape(Rectangle())
             .gesture(dragGesture)
-            .onHover { hovering in
-                if hovering {
+            .onContinuousHover { phase in
+                switch phase {
+                case .active:
+                    guard NSCursor.current != .resizeLeftRight else { return }
                     NSCursor.resizeLeftRight.push()
-                } else {
+                case .ended:
                     NSCursor.pop()
                 }
             }
