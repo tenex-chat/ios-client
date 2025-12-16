@@ -152,8 +152,9 @@ function_parameter_count:
   error: 8
 
 cyclomatic_complexity:
-  warning: 10
+  warning: 15
   error: 20
+  ignores_function_declarations: false
 
 nesting:
   type_level: 2
@@ -281,5 +282,3 @@ custom_rules:
     severity: warning
 
 reporter: "xcode"
-cyclomatic_complexity:
-  ignores_function_declarations: true
