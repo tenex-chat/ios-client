@@ -206,7 +206,7 @@ public struct ConversationDrawer: View {
 
     private let window: ConversationWindow
 
-    @Environment(WindowManagerStore.self) private var windowManager
+    @Bindable @Environment(WindowManagerStore.self) private var windowManager
     @Environment(DataStore.self) private var dataStore
     @Environment(NDKAuthManager.self) private var authManager
     @Environment(\.ndk) private var ndk
@@ -231,7 +231,7 @@ public struct ConversationDrawer: View {
 
     @ViewBuilder
     private var contentView: some View {
-        if let threadEvent, let userPubkey = authManager.currentUser?.hexadecimalPublicKey {
+        if let threadEvent, let userPubkey = authManager.activeSession?.pubkey {
             ChatView(
                 threadEvent: threadEvent,
                 projectReference: window.projectID,

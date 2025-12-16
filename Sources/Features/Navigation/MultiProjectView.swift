@@ -110,7 +110,7 @@ public struct MultiProjectView: View {
             ProjectColumn(
                 project: project,
                 projectCoordinate: projectID,
-                currentUserPubkey: authManager.currentUser?.hexadecimalPublicKey
+                currentUserPubkey: authManager.activeSession?.pubkey
             )
         } else {
             projectNotFoundView(for: projectID)

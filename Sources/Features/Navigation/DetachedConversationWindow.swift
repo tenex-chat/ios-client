@@ -188,7 +188,7 @@ public struct DetachedConversationWindow: View {
 
     @ViewBuilder
     private func contentView(for window: ConversationWindow) -> some View {
-        if let threadEvent, let userPubkey = authManager.currentUser?.hexadecimalPublicKey {
+        if let threadEvent, let userPubkey = authManager.activeSession?.pubkey {
             ChatView(
                 threadEvent: threadEvent,
                 projectReference: window.projectID,
