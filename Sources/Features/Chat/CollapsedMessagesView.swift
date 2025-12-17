@@ -8,6 +8,7 @@ import SwiftUI
 import TENEXCore
 
 /// View that displays a collapsed summary of multiple consecutive messages
+/// Maintains the visual thread connection by using the same layout as MessageRow
 public struct CollapsedMessagesView: View {
     // MARK: Lifecycle
 
@@ -28,27 +29,16 @@ public struct CollapsedMessagesView: View {
                 self.isExpanded.toggle()
             }
         } label: {
-            HStack(spacing: 8) {
-                Image(systemName: self.isExpanded ? "chevron.down" : "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Text("\(self.messages.count) message\(self.messages.count == 1 ? "" : "s") collapsed")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
+            HStack(alignment: .top, spacing: 12) {
+                self.threadColumnView
+                self.collapsedContent
                 Spacer()
             }
+            .padding(.vertical, 2)
             .padding(.horizontal, 16)
-            .padding(.vertical, 8)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        #if os(iOS)
-            .background(Color(uiColor: .systemGray6))
-        #else
-            .background(Color(nsColor: .controlBackgroundColor))
-        #endif
     }
 
     // MARK: Private
@@ -56,4 +46,33 @@ public struct CollapsedMessagesView: View {
     @Binding private var isExpanded: Bool
 
     private let messages: [Message]
+
+    /// Thread continuity column - matches MessageRow avatar column width
+    private var threadColumnView: some View {
+        VStack(spacing: 0) {
+            // Line above
+            Rectangle()
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: 2)
+                .frame(maxHeight: .infinity)
+        }
+        .frame(width: 36, height: 24)
+    }
+
+    private var collapsedContent: some View {
+        HStack(spacing: 6) {
+            Image(systemName: self.isExpanded ? "chevron.down" : "chevron.right")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+
+            Text("\(self.messages.count) message\(self.messages.count == 1 ? "" : "s")")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Text("Click to expand")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, 4)
+    }
 }
