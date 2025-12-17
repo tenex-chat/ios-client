@@ -30,7 +30,6 @@ struct ProjectConversationStoreTests {
         #expect(store.threadSummaries.isEmpty)
         #expect(store.activeThreadID == nil)
         #expect(store.activeThreadMessages.isEmpty)
-        #expect(store.streamingContent.isEmpty)
     }
 
     // MARK: - Thread Event Processing (kind:11)
@@ -507,7 +506,6 @@ struct ProjectConversationStoreTests {
         // Then: Active state is cleared
         #expect(store.activeThreadID == nil)
         #expect(store.activeThreadMessages.isEmpty)
-        #expect(store.streamingContent.isEmpty)
     }
 
     // MARK: - Subscription Lifecycle
@@ -560,7 +558,6 @@ struct ProjectConversationStoreTests {
         #expect(store.threadSummaries.isEmpty)
         #expect(store.activeThreadID == nil)
         #expect(store.activeThreadMessages.isEmpty)
-        #expect(store.streamingContent.isEmpty)
         #expect(store.subscription == nil)
     }
 }
