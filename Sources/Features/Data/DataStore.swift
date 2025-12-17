@@ -53,6 +53,9 @@ public final class DataStore {
     /// Unread inbox count
     public private(set) var inboxUnreadCount = 0
 
+    /// Active operations: eventId -> Set of agent pubkeys currently working
+    public private(set) var activeOperations: [String: Set<String>] = [:]
+
     /// Whether projects are currently loading
     public private(set) var isLoadingProjects = false
 
@@ -88,6 +91,7 @@ public final class DataStore {
         self.nudgesTask = Task { await self.subscribeToNudges() }
         self.recentConversationsTask = Task { await self.subscribeToRecentConversations() }
         self.inboxTask = Task { await self.subscribeToInbox(userPubkey: userPubkey) }
+        self.operationsTask = Task { await self.subscribeToOperationsStatus(userPubkey: userPubkey) }
 
         self.logger.info("All subscriptions started")
     }
@@ -103,6 +107,7 @@ public final class DataStore {
         self.nudgesTask?.cancel()
         self.recentConversationsTask?.cancel()
         self.inboxTask?.cancel()
+        self.operationsTask?.cancel()
 
         self.projectsTask = nil
         self.agentsTask = nil
@@ -111,6 +116,7 @@ public final class DataStore {
         self.nudgesTask = nil
         self.recentConversationsTask = nil
         self.inboxTask = nil
+        self.operationsTask = nil
 
         // Clear state
         self.projects = []
@@ -121,6 +127,7 @@ public final class DataStore {
         self.recentConversationReplies = []
         self.inboxMessages = []
         self.inboxUnreadCount = 0
+        self.activeOperations = [:]
         self.userPubkey = nil
 
         self.logger.info("All subscriptions stopped and state cleared")
@@ -206,6 +213,7 @@ public final class DataStore {
     private var nudgesTask: Task<Void, Never>?
     private var recentConversationsTask: Task<Void, Never>?
     private var inboxTask: Task<Void, Never>?
+    private var operationsTask: Task<Void, Never>?
 }
 
 // MARK: - Subscription Methods
@@ -493,5 +501,48 @@ extension DataStore {
         }
 
         return fetched.event
+    }
+
+    private func subscribeToOperationsStatus(userPubkey: String) async {
+        // Subscribe to kind 24133 events where the user is tagged with uppercase P
+        let filter = NDKFilter(
+            kinds: [24_133],
+            tags: ["P": Set([userPubkey])]
+        )
+
+        let subscription = self.ndk.subscribe(filter: filter)
+
+        for await events in subscription.events {
+            for event in events {
+                self.handleOperationsStatus(event)
+            }
+        }
+    }
+
+    private func handleOperationsStatus(_ event: NDKEvent) {
+        // Get the event ID this operation status is about
+        guard let eventId = event.tagValue("e") else {
+            return
+        }
+
+        // Collect all agent pubkeys from p tags (lowercase)
+        let agentPubkeys = Set(
+            event.tags(withName: "p").compactMap { tag -> String? in
+                guard tag.count > 1 else {
+                    return nil
+                }
+                return tag[1]
+            }
+        )
+
+        // Update the active operations map
+        // Remove entry if no agents are working, otherwise update
+        if agentPubkeys.isEmpty {
+            self.activeOperations.removeValue(forKey: eventId)
+            self.logger.debug("Operations cleared for event \(eventId)")
+        } else {
+            self.activeOperations[eventId] = agentPubkeys
+            self.logger.debug("Operations status updated for event \(eventId): \(agentPubkeys.count) agents")
+        }
     }
 }

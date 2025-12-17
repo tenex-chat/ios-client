@@ -108,6 +108,37 @@ public final class MessagePublisher {
         return event
     }
 
+    // MARK: - Stop Command
+
+    /// Publish a stop command (kind:24134) to halt agent operations
+    /// - Parameters:
+    ///   - ndk: NDK instance for publishing
+    ///   - projectRef: Project reference coordinate
+    ///   - eventId: The event ID to stop operations for
+    ///   - agentPubkey: Optional specific agent to stop (nil = stop all agents)
+    /// - Returns: The published event
+    @discardableResult
+    public func publishStopCommand(
+        ndk: NDK,
+        projectRef: String,
+        eventId: String,
+        agentPubkey: String? = nil
+    ) async throws -> NDKEvent {
+        var builder = NDKEventBuilder(ndk: ndk)
+            .kind(24_134)
+            .content("")
+            .tag(["a", projectRef])
+            .tag(["e", eventId])
+
+        // Target specific agent if provided
+        if let agentPubkey {
+            builder = builder.tag(["p", agentPubkey])
+        }
+
+        let (event, _) = try await ndk.publish { _ in builder }
+        return event
+    }
+
     // MARK: Private
 
     // MARK: - Private Tag Building
