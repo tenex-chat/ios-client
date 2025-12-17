@@ -4,6 +4,8 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftCore
+import NDKSwiftUI
 import SwiftUI
 
 // MARK: - AgentOverlayState
@@ -21,16 +23,16 @@ struct AgentSpeakingOverlay: View {
     // MARK: Lifecycle
 
     init(
+        ndk: NDK,
+        agentPubkey: String,
         agentName: String,
-        agentColor: Color,
-        agentInitials: String,
         state: AgentOverlayState,
         onTap: @escaping () -> Void,
         onLongPress: @escaping () -> Void
     ) {
+        self.ndk = ndk
+        self.agentPubkey = agentPubkey
         self.agentName = agentName
-        self.agentColor = agentColor
-        self.agentInitials = agentInitials
         self.state = state
         self.onTap = onTap
         self.onLongPress = onLongPress
@@ -90,9 +92,9 @@ struct AgentSpeakingOverlay: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private let ndk: NDK
+    private let agentPubkey: String
     private let agentName: String
-    private let agentColor: Color
-    private let agentInitials: String
     private let state: AgentOverlayState
     private let onTap: () -> Void
     private let onLongPress: () -> Void
@@ -128,7 +130,7 @@ struct AgentSpeakingOverlay: View {
     @ViewBuilder private var speakingRipples: some View {
         ForEach(0 ..< 3, id: \.self) { index in
             Circle()
-                .stroke(self.agentColor.opacity(self.rippleOpacity[index]), lineWidth: 2)
+                .stroke(Color.purple.opacity(self.rippleOpacity[index]), lineWidth: 2)
                 .frame(
                     width: self.avatarSize + CGFloat(index + 1) * 30,
                     height: self.avatarSize + CGFloat(index + 1) * 30
@@ -171,16 +173,8 @@ struct AgentSpeakingOverlay: View {
     }
 
     private var avatarCircle: some View {
-        ZStack {
-            Circle()
-                .fill(self.agentColor)
-                .frame(width: self.avatarSize, height: self.avatarSize)
-                .shadow(color: self.agentColor.opacity(0.5), radius: 20)
-
-            Text(self.agentInitials)
-                .font(.largeTitle.weight(.semibold))
-                .foregroundStyle(.white)
-        }
+        NDKUIProfilePicture(ndk: self.ndk, pubkey: self.agentPubkey, size: self.avatarSize)
+            .shadow(color: .purple.opacity(0.5), radius: 20)
     }
 
     private var pauseOverlay: some View {
@@ -199,11 +193,13 @@ struct AgentSpeakingOverlay: View {
 // MARK: - Preview
 
 #Preview {
+    // Mock NDK instance for preview
+    let ndk = NDK(relayURLs: ["wss://relay.damus.io"])
     VStack(spacing: 0) {
         AgentSpeakingOverlay(
+            ndk: ndk,
+            agentPubkey: "npub1test",
             agentName: "Luna",
-            agentColor: .purple,
-            agentInitials: "LU",
             state: .speaking,
             onTap: {},
             onLongPress: {}
@@ -213,11 +209,12 @@ struct AgentSpeakingOverlay: View {
 }
 
 #Preview("Processing") {
+    let ndk = NDK(relayURLs: ["wss://relay.damus.io"])
     VStack(spacing: 0) {
         AgentSpeakingOverlay(
+            ndk: ndk,
+            agentPubkey: "npub1test",
             agentName: "Luna",
-            agentColor: .blue,
-            agentInitials: "LU",
             state: .processing,
             onTap: {},
             onLongPress: {}
@@ -227,11 +224,12 @@ struct AgentSpeakingOverlay: View {
 }
 
 #Preview("Paused") {
+    let ndk = NDK(relayURLs: ["wss://relay.damus.io"])
     VStack(spacing: 0) {
         AgentSpeakingOverlay(
+            ndk: ndk,
+            agentPubkey: "npub1test",
             agentName: "Luna",
-            agentColor: .green,
-            agentInitials: "LU",
             state: .paused,
             onTap: {},
             onLongPress: {}

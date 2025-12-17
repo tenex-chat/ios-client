@@ -5,6 +5,7 @@
 //
 
 import NDKSwiftCore
+import NDKSwiftUI
 import SwiftUI
 import TENEXCore
 
@@ -184,34 +185,7 @@ public struct VoiceModeView: View {
     }
 
     private func agentAvatar(for agent: ProjectAgent) -> some View {
-        ZStack {
-            // Avatar circle
-            Circle()
-                .fill(self.agentColor(for: agent.pubkey))
-                .frame(width: 80, height: 80)
-
-            // Agent initials
-            Text(self.agentInitials(agent.name))
-                .font(.title.weight(.semibold))
-                .foregroundStyle(.white)
-        }
-    }
-
-    private func agentInitials(_ name: String) -> String {
-        let words = name.split(separator: " ")
-        if words.count >= 2 {
-            return String(words[0].prefix(1) + words[1].prefix(1)).uppercased()
-        } else if let first = words.first {
-            return String(first.prefix(2)).uppercased()
-        }
-        return "?"
-    }
-
-    private func agentColor(for pubkey: String) -> Color {
-        // Deterministic color from pubkey hash
-        let hash = pubkey.hashValue
-        let hue = Double(abs(hash) % 360) / 360.0
-        return Color(hue: hue, saturation: 0.6, brightness: 0.7)
+        NDKUIProfilePicture(ndk: self.ndk, pubkey: agent.pubkey, size: 80)
     }
 }
 

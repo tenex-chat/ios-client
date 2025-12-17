@@ -4,6 +4,8 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftCore
+import NDKSwiftUI
 import SwiftUI
 import TENEXShared
 
@@ -16,14 +18,17 @@ public struct ReplyIndicatorView: View {
 
     /// Initialize the reply indicator
     /// - Parameters:
+    ///   - ndk: NDK instance for profile pictures
     ///   - replyCount: Number of replies
     ///   - authorPubkeys: Pubkeys of reply authors (max 3 displayed)
     ///   - onTap: Action when tapped
     public init(
+        ndk: NDK,
         replyCount: Int,
         authorPubkeys: [String],
         onTap: @escaping () -> Void
     ) {
+        self.ndk = ndk
         self.replyCount = replyCount
         self.authorPubkeys = authorPubkeys
         self.onTap = onTap
@@ -49,6 +54,7 @@ public struct ReplyIndicatorView: View {
 
     // MARK: Private
 
+    private let ndk: NDK
     private let replyCount: Int
     private let authorPubkeys: [String]
     private let onTap: () -> Void
@@ -60,14 +66,7 @@ public struct ReplyIndicatorView: View {
     private var avatarStack: some View {
         HStack(spacing: -8) {
             ForEach(Array(self.authorPubkeys.prefix(3).enumerated()), id: \.offset) { index, pubkey in
-                Circle()
-                    .fill(Color.deterministicColor(for: pubkey))
-                    .frame(width: 20, height: 20)
-                    .overlay {
-                        Text(pubkey.prefix(1).uppercased())
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white)
-                    }
+                NDKUIProfilePicture(ndk: self.ndk, pubkey: pubkey, size: 20)
                     .overlay {
                         Circle()
                             .stroke(.background, lineWidth: 1.5)
@@ -81,18 +80,22 @@ public struct ReplyIndicatorView: View {
 // MARK: - Preview
 
 #Preview {
+    let ndk = NDK(relayURLs: ["wss://relay.damus.io"])
     VStack(spacing: 20) {
         ReplyIndicatorView(
+            ndk: ndk,
             replyCount: 1,
             authorPubkeys: ["alice"]
         ) {}
 
         ReplyIndicatorView(
+            ndk: ndk,
             replyCount: 3,
             authorPubkeys: ["alice", "bob", "charlie"]
         ) {}
 
         ReplyIndicatorView(
+            ndk: ndk,
             replyCount: 15,
             authorPubkeys: ["alice", "bob", "charlie"]
         ) {}
