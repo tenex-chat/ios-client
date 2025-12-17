@@ -137,8 +137,8 @@ struct ProjectConversationStoreTests {
 
     // MARK: - Metadata Event Processing (kind:513)
 
-    @Test("Processes metadata event and creates summary if thread doesn't exist")
-    func processesMetadataEventNewThread() async {
+    @Test("Metadata event is ignored if thread doesn't exist")
+    func metadataIgnoredForNonExistentThread() async {
         // Given: A store with no threads
         let ndk = NDK(relayURLs: [])
         let store = ProjectConversationStore(ndk: ndk, projectCoordinate: Self.testProjectCoordinate)
@@ -156,12 +156,11 @@ struct ProjectConversationStoreTests {
             createdAt: 1_700_000_000
         )
 
-        // When: Processing the metadata event
+        // When: Processing the metadata event without a corresponding thread
         store.processEvent(metadataEvent)
 
-        // Then: Thread summary is created
-        #expect(store.threadSummaries.count == 1)
-        #expect(store.threadSummaries[threadID]?.title == "Thread from Metadata")
+        // Then: No thread summary is created (prevents orphan summaries)
+        #expect(store.threadSummaries.isEmpty)
     }
 
     @Test("Metadata event updates existing thread title")

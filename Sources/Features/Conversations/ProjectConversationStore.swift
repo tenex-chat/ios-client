@@ -62,9 +62,6 @@ public final class ProjectConversationStore {
     /// Messages for the currently active thread
     public private(set) var activeThreadMessages: [Message] = []
 
-    /// Streaming content keyed by message ID
-    public private(set) var streamingContent: [String: String] = [:]
-
     /// The active subscription (nil if not subscribed)
     public private(set) var subscription: NDKSubscription<NDKEvent>?
 
@@ -114,7 +111,6 @@ public final class ProjectConversationStore {
     public func closeThread() {
         activeThreadID = nil
         activeThreadMessages = []
-        streamingContent = [:]
     }
 
     // MARK: - Subscription Lifecycle
@@ -136,7 +132,6 @@ public final class ProjectConversationStore {
         sortedThreads = []
         activeThreadID = nil
         activeThreadMessages = []
-        streamingContent = [:]
         messageEvents = [:]
     }
 
