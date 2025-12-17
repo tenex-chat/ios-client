@@ -69,34 +69,30 @@ public struct ActiveAgentsView: View {
         Button {
             Task { await self.stopAgent(agent.pubkey) }
         } label: {
-            ZStack {
-                // Agent avatar circle
-                Circle()
-                    .fill(Color.blue.opacity(0.2))
-                    .frame(width: 32, height: 32)
-                    .overlay {
-                        Text(self.agentInitial(agent))
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.blue)
-                    }
-
-                // X overlay for stop indication
-                Circle()
-                    .fill(Color.red.opacity(0.8))
-                    .frame(width: 32, height: 32)
-                    .overlay {
-                        Image(systemName: "xmark")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundStyle(.white)
-                    }
-                    .opacity(0)
-                    .animation(.easeInOut(duration: 0.15), value: self.activeAgentPubkeys)
-            }
+            // Agent avatar with pulsing indicator
+            Circle()
+                .fill(Color.blue.opacity(0.2))
+                .frame(width: 32, height: 32)
+                .overlay {
+                    Text(self.agentInitial(agent))
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.blue)
+                }
+                .overlay(alignment: .topTrailing) {
+                    // Small pulsing dot to indicate active/stoppable
+                    Circle()
+                        .fill(Color.green)
+                        .frame(width: 10, height: 10)
+                        .overlay {
+                            Circle()
+                                .stroke(Color.white, lineWidth: 1.5)
+                        }
+                        .offset(x: 2, y: -2)
+                }
         }
         .buttonStyle(.plain)
-        .help("Stop \(agent.name)")
+        .accessibilityLabel("Stop \(agent.name)")
     }
 
     private var stopAllButton: some View {

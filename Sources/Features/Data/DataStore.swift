@@ -536,9 +536,13 @@ extension DataStore {
         )
 
         // Update the active operations map
-        // Empty set means no agents are working (clears the UI)
-        self.activeOperations[eventId] = agentPubkeys
-
-        self.logger.debug("Operations status updated for event \(eventId): \(agentPubkeys.count) agents")
+        // Remove entry if no agents are working, otherwise update
+        if agentPubkeys.isEmpty {
+            self.activeOperations.removeValue(forKey: eventId)
+            self.logger.debug("Operations cleared for event \(eventId)")
+        } else {
+            self.activeOperations[eventId] = agentPubkeys
+            self.logger.debug("Operations status updated for event \(eventId): \(agentPubkeys.count) agents")
+        }
     }
 }
