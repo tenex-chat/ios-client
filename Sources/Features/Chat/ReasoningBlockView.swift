@@ -62,7 +62,7 @@ public struct ReasoningBlockView: View {
         HStack(spacing: 2) {
             ForEach(0 ..< 3) { index in
                 Circle()
-                    .fill(Color.tertiary)
+                    .fill(Color.secondary.opacity(0.5))
                     .frame(width: 2, height: 2)
                     .opacity(self.cursorVisible ? 1 : 0.3)
                     .animation(

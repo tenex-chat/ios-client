@@ -148,7 +148,7 @@ public struct ThreadsTabContent: View {
 private struct CompactThreadRow: View {
     // MARK: Lifecycle
 
-    init(thread: NostrThread) {
+    init(thread: ThreadSummary) {
         self.thread = thread
     }
 
@@ -191,6 +191,6 @@ private struct CompactThreadRow: View {
 
     // MARK: Private
 
-    private let thread: NostrThread
+    private let thread: ThreadSummary
 }
 #endif
