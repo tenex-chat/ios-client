@@ -71,10 +71,8 @@ public final class ProjectConversationStore {
     /// Thread events for navigation (keyed by thread ID)
     public private(set) var threadEvents: [String: NDKEvent] = [:]
 
-    /// Sorted list of threads (newest first)
-    public var sortedThreads: [ThreadSummary] {
-        threadSummaries.values.sorted { $0.createdAt > $1.createdAt }
-    }
+    /// Sorted list of threads (newest first) - cached to avoid O(n log n) on every access
+    public private(set) var sortedThreads: [ThreadSummary] = []
 
     /// All message events (for filtering by activity/needs-response)
     public var allMessages: [NDKEvent] {
@@ -135,11 +133,11 @@ public final class ProjectConversationStore {
         subscription = nil
         threadSummaries = [:]
         threadEvents = [:]
+        sortedThreads = []
         activeThreadID = nil
         activeThreadMessages = []
         streamingContent = [:]
         messageEvents = [:]
-        processedMessageIDs = []
     }
 
     // MARK: Private
@@ -150,8 +148,10 @@ public final class ProjectConversationStore {
     /// Stored message events keyed by thread ID
     private var messageEvents: [String: [NDKEvent]] = [:]
 
-    /// Processed message IDs for deduplication
-    private var processedMessageIDs: Set<String> = []
+    /// Update the sorted threads cache
+    private func updateSortedThreads() {
+        sortedThreads = threadSummaries.values.sorted { $0.createdAt > $1.createdAt }
+    }
 
     private func processThreadEvent(_ event: NDKEvent) {
         // Extract title from tags
@@ -190,6 +190,7 @@ public final class ProjectConversationStore {
 
         threadSummaries[event.id] = threadSummary
         threadEvents[event.id] = event
+        updateSortedThreads()
     }
 
     private func parseSummary(from content: String) -> String? {
@@ -229,32 +230,23 @@ public final class ProjectConversationStore {
         // Convert timestamp to Date
         let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
 
-        // Update existing thread or create new summary
-        if let existing = threadSummaries[threadID] {
-            threadSummaries[threadID] = ThreadSummary(
-                id: threadID,
-                pubkey: existing.pubkey,
-                projectCoordinate: projectCoordinate,
-                title: title,
-                summary: summary ?? existing.summary,
-                phase: phase,
-                replyCount: existing.replyCount,
-                lastActivity: existing.lastActivity,
-                createdAt: existing.createdAt
-            )
-        } else {
-            threadSummaries[threadID] = ThreadSummary(
-                id: threadID,
-                pubkey: event.pubkey,
-                projectCoordinate: projectCoordinate,
-                title: title,
-                summary: summary,
-                phase: phase,
-                replyCount: 0,
-                lastActivity: createdAt,
-                createdAt: createdAt
-            )
+        // Only update existing threads - don't create orphan summaries without threadEvents
+        guard let existing = threadSummaries[threadID] else {
+            return
         }
+
+        threadSummaries[threadID] = ThreadSummary(
+            id: threadID,
+            pubkey: existing.pubkey,
+            projectCoordinate: projectCoordinate,
+            title: title,
+            summary: summary ?? existing.summary,
+            phase: phase,
+            replyCount: existing.replyCount,
+            lastActivity: existing.lastActivity,
+            createdAt: existing.createdAt
+        )
+        updateSortedThreads()
     }
 
     private func processMessageEvent(_ event: NDKEvent) {
@@ -277,9 +269,6 @@ public final class ProjectConversationStore {
             messageEvents[threadID] = []
         }
         messageEvents[threadID]?.append(event)
-
-        // Track message IDs for deduplication
-        processedMessageIDs.insert(event.id)
 
         // Only update thread summary if thread exists
         guard let existing = threadSummaries[threadID] else {
