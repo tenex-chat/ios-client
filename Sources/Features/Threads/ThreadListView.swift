@@ -30,7 +30,7 @@ public struct ThreadListView: View {
     public var body: some View {
         Group {
             if let ndk {
-                self.contentView(ndk: ndk)
+                contentView(ndk: ndk)
             } else {
                 Text("NDK not available")
             }
@@ -64,23 +64,23 @@ public struct ThreadListView: View {
 
     @ViewBuilder
     private func contentView(ndk: NDK) -> some View {
-        let vm = self.viewModel ?? ThreadListViewModel(
+        let vm = viewModel ?? ThreadListViewModel(
             ndk: ndk,
-            projectID: self.projectID,
-            filtersStore: self.filtersStore,
-            currentUserPubkey: self.userPubkey
+            projectID: projectID,
+            filtersStore: filtersStore,
+            currentUserPubkey: userPubkey
         )
 
         Group {
             if vm.threads.isEmpty {
-                self.emptyView
+                emptyView
             } else {
-                self.threadList(viewModel: vm)
+                threadList(viewModel: vm)
             }
         }
         .task {
-            if self.viewModel == nil {
-                self.viewModel = vm
+            if viewModel == nil {
+                viewModel = vm
                 vm.subscribe()
             }
         }
@@ -104,7 +104,7 @@ public struct ThreadListView: View {
                         NavigationLink {
                             ChatView(
                                 threadEvent: threadEvent,
-                                projectReference: thread.projectID,
+                                projectReference: thread.projectCoordinate,
                                 currentUserPubkey: userPubkey
                             )
                         } label: {
@@ -115,7 +115,7 @@ public struct ThreadListView: View {
                     }
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    self.archiveButton(for: thread, viewModel: viewModel)
+                    archiveButton(for: thread, viewModel: viewModel)
                 }
             }
         }
@@ -129,7 +129,7 @@ public struct ThreadListView: View {
         #endif
     }
 
-    private func archiveButton(for thread: NostrThread, viewModel: ThreadListViewModel) -> some View {
+    private func archiveButton(for thread: ThreadSummary, viewModel: ThreadListViewModel) -> some View {
         Button(role: .destructive) {
             Task { await viewModel.archiveThread(id: thread.id) }
         } label: {
@@ -145,7 +145,7 @@ public struct ThreadListView: View {
 struct ThreadRow: View {
     // MARK: Lifecycle
 
-    init(thread: NostrThread) {
+    init(thread: ThreadSummary) {
         self.thread = thread
     }
 
@@ -154,7 +154,7 @@ struct ThreadRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             // Thread title
-            Text(self.thread.title)
+            Text(thread.title)
                 .font(.headline)
                 .fontWeight(.semibold)
                 .foregroundStyle(.primary)
@@ -170,7 +170,7 @@ struct ThreadRow: View {
             // Thread metadata
             HStack(spacing: 8) {
                 // Reply count
-                Label("\(self.thread.replyCount)", systemImage: "bubble.left.fill")
+                Label("\(thread.replyCount)", systemImage: "bubble.left.fill")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
 
@@ -189,7 +189,7 @@ struct ThreadRow: View {
                 Spacer()
 
                 // Creation date
-                Text(self.thread.createdAt, style: .relative)
+                Text(thread.createdAt, style: .relative)
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
@@ -200,11 +200,11 @@ struct ThreadRow: View {
             .hoverEffect(.highlight)
         #endif
             .accessibilityElement(children: .combine)
-            .accessibilityLabel(self.thread.title)
-            .accessibilityHint("\(self.thread.replyCount) replies. \(self.thread.summary ?? "Open thread")")
+            .accessibilityLabel(thread.title)
+            .accessibilityHint("\(thread.replyCount) replies. \(thread.summary ?? "Open thread")")
     }
 
     // MARK: Private
 
-    private let thread: NostrThread
+    private let thread: ThreadSummary
 }

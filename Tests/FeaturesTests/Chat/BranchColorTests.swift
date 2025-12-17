@@ -5,7 +5,7 @@
 //
 
 import SwiftUI
-@testable import TENEX_iOS_Client
+@testable import TENEXFeatures
 import Testing
 
 struct BranchColorTests {

@@ -22,7 +22,7 @@ private enum MessageGroup: Identifiable {
     var id: String {
         switch self {
         case let .single(message):
-            message.id
+            return message.id
         case let .collapsed(messages):
             // Use the first message ID as stable identifier
             // This preserves expanded state even when messages are added/removed from the group

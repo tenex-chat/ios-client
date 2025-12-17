@@ -44,8 +44,6 @@ private extension Color {
 
 // MARK: - ChatInputView
 
-// swiftlint:disable type_body_length
-
 /// Multi-line text input for composing chat messages
 /// Integrates AgentSelector, MentionAutocomplete, Nudges, and Branch selection
 public struct ChatInputView: View {
@@ -428,5 +426,3 @@ public struct ChatInputView: View {
         self.mentionVM.hide()
     }
 }
-
-// swiftlint:enable type_body_length

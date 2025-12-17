@@ -19,7 +19,13 @@ struct ThreadListViewModelTests {
     @Test("ThreadListViewModel starts with empty threads list")
     func startsWithEmptyThreads() async throws {
         let ndk = NDK(relayURLs: [])
-        let viewModel = ThreadListViewModel(ndk: ndk, projectID: "test-project")
+        let filtersStore = ThreadFiltersStore()
+        let viewModel = ThreadListViewModel(
+            ndk: ndk,
+            projectID: "test-project",
+            filtersStore: filtersStore,
+            currentUserPubkey: nil
+        )
 
         #expect(viewModel.threads.isEmpty)
     }
@@ -27,13 +33,26 @@ struct ThreadListViewModelTests {
     @Test("ThreadListViewModel starts with not loading state")
     func startsNotLoading() async throws {
         let ndk = NDK(relayURLs: [])
-        let viewModel = ThreadListViewModel(ndk: ndk, projectID: "test-project")
+        let filtersStore = ThreadFiltersStore()
+        let viewModel = ThreadListViewModel(
+            ndk: ndk,
+            projectID: "test-project",
+            filtersStore: filtersStore,
+            currentUserPubkey: nil
+        )
+        _ = viewModel // silence unused warning
     }
 
     @Test("ThreadListViewModel starts with no error")
     func startsWithNoError() async throws {
         let ndk = NDK(relayURLs: [])
-        let viewModel = ThreadListViewModel(ndk: ndk, projectID: "test-project")
+        let filtersStore = ThreadFiltersStore()
+        let viewModel = ThreadListViewModel(
+            ndk: ndk,
+            projectID: "test-project",
+            filtersStore: filtersStore,
+            currentUserPubkey: nil
+        )
 
         #expect(viewModel.errorMessage == nil)
     }
@@ -43,7 +62,13 @@ struct ThreadListViewModelTests {
     @Test("ThreadListViewModel loads threads successfully")
     func loadsThreads() async throws {
         let ndk = NDK(relayURLs: [])
-        let viewModel = ThreadListViewModel(ndk: ndk, projectID: "test-project")
+        let filtersStore = ThreadFiltersStore()
+        let viewModel = ThreadListViewModel(
+            ndk: ndk,
+            projectID: "test-project",
+            filtersStore: filtersStore,
+            currentUserPubkey: nil
+        )
 
         #expect(viewModel.threads.isEmpty)
         #expect(viewModel.errorMessage == nil)
@@ -54,7 +79,14 @@ struct ThreadListViewModelTests {
     @Test("ThreadListViewModel stops loading after successful fetch")
     func stopsLoadingAfterSuccess() async throws {
         let ndk = NDK(relayURLs: [])
-        let viewModel = ThreadListViewModel(ndk: ndk, projectID: "test-project")
+        let filtersStore = ThreadFiltersStore()
+        let viewModel = ThreadListViewModel(
+            ndk: ndk,
+            projectID: "test-project",
+            filtersStore: filtersStore,
+            currentUserPubkey: nil
+        )
+        _ = viewModel // silence unused warning
     }
 
     // MARK: - Refresh Tests
@@ -62,7 +94,13 @@ struct ThreadListViewModelTests {
     @Test("ThreadListViewModel refresh reloads threads")
     func refreshReloadsThreads() async throws {
         let ndk = NDK(relayURLs: [])
-        let viewModel = ThreadListViewModel(ndk: ndk, projectID: "test-project")
+        let filtersStore = ThreadFiltersStore()
+        let viewModel = ThreadListViewModel(
+            ndk: ndk,
+            projectID: "test-project",
+            filtersStore: filtersStore,
+            currentUserPubkey: nil
+        )
 
         #expect(viewModel.threads.isEmpty)
 

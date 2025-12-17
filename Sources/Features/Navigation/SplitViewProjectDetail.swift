@@ -158,7 +158,7 @@ struct SplitViewThreadList: View {
 
 /// Thread row for split view selection
 struct SplitViewThreadRow: View {
-    let thread: NostrThread
+    let thread: ThreadSummary
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
