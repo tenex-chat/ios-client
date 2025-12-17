@@ -126,7 +126,8 @@ public final class RecentConversationsViewModel {
         let subscription = self.ndk.subscribe(filter: filter)
 
         var eventFound = false
-        for await event in subscription.events.prefix(1) {
+        for await events in subscription.events.prefix(1) {
+            guard let event = events.first else { continue }
             eventFound = true
 
             self.threadEventCache[id] = event
@@ -162,7 +163,8 @@ public final class RecentConversationsViewModel {
         let subscription = self.ndk.subscribe(filter: filter)
 
         var eventFound = false
-        for await event in subscription.events.prefix(1) {
+        for await events in subscription.events.prefix(1) {
+            guard let event = events.first else { continue }
             eventFound = true
 
             if let metadata = ConversationMetadata.from(event: event) {

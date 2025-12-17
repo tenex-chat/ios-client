@@ -4,8 +4,8 @@
 // Copyright (c) 2025 TENEX Team
 //
 
-@testable import TENEXFeatures
 import Foundation
+@testable import TENEXFeatures
 import Testing
 
 @MainActor
@@ -167,9 +167,9 @@ struct ChatDraftStorageTests {
 
         // When: Saving multiple drafts concurrently
         await withTaskGroup(of: Void.self) { group in
-            for i in 1...10 {
+            for index in 1 ... 10 {
                 group.addTask {
-                    let draft = ChatDraft(conversationID: "conv-\(i)", text: "Text \(i)")
+                    let draft = ChatDraft(conversationID: "conv-\(index)", text: "Text \(index)")
                     try? await storage.saveDraft(draft)
                 }
             }
@@ -178,8 +178,8 @@ struct ChatDraftStorageTests {
         // Then: All drafts should be saved correctly
         let allDrafts = try await storage.loadAllDrafts()
         #expect(allDrafts.count == 10)
-        for i in 1...10 {
-            #expect(allDrafts["conv-\(i)"]?.text == "Text \(i)")
+        for index in 1 ... 10 {
+            #expect(allDrafts["conv-\(index)"]?.text == "Text \(index)")
         }
     }
 }

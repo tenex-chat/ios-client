@@ -90,14 +90,6 @@ public struct DocumentDetailView: View {
         return "nostr:nevent1\(self.document.id)"
     }
 
-    private var markdownText: AttributedString {
-        do {
-            return try AttributedString(markdown: self.document.content)
-        } catch {
-            return AttributedString(self.document.content)
-        }
-    }
-
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             self.authorInfoRow
@@ -147,34 +139,9 @@ public struct DocumentDetailView: View {
     }
 
     private var contentSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if self.document.content.contains("```") {
-                self.codeBlockContent
-            } else {
-                Text(self.markdownText)
-                    .font(.callout)
-                    .lineSpacing(6)
-                    .foregroundStyle(.primary)
-                    .textSelection(.enabled)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var codeBlockContent: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            ForEach(self.splitByCodeBlocks(), id: \.offset) { item in
-                if item.isCode {
-                    self.codeBlock(item.text)
-                } else if !item.text.isEmpty {
-                    Text(self.parseMarkdown(item.text))
-                        .font(.callout)
-                        .lineSpacing(6)
-                        .foregroundStyle(.primary)
-                }
-            }
-        }
-        .textSelection(.enabled)
+        NDKMarkdown(content: document.content)
+            .textSelection(.enabled)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func hashtagPill(_ tag: String) -> some View {
@@ -188,63 +155,6 @@ public struct DocumentDetailView: View {
         .padding(.vertical, 4)
         .background(Color.secondary.opacity(0.1))
         .cornerRadius(12)
-    }
-
-    private func codeBlock(_ code: String) -> some View {
-        Text(code)
-            .font(.subheadline.monospaced())
-            .foregroundStyle(.primary)
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.secondary.opacity(0.1))
-            .cornerRadius(8)
-    }
-
-    private func parseMarkdown(_ text: String) -> AttributedString {
-        do {
-            return try AttributedString(markdown: text)
-        } catch {
-            return AttributedString(text)
-        }
-    }
-
-    private func splitByCodeBlocks() -> [(text: String, isCode: Bool, offset: Int)] {
-        let pattern = "```[^`]*```"
-        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators]) else {
-            return [(self.document.content, false, 0)]
-        }
-
-        let content = self.document.content
-        let matches = regex.matches(in: content, range: NSRange(location: 0, length: content.utf16.count))
-
-        var result: [(String, Bool, Int)] = []
-        var lastIndex = content.startIndex
-
-        for (offset, match) in matches.enumerated() {
-            guard let matchRange = Range(match.range, in: content) else {
-                continue
-            }
-
-            if lastIndex < matchRange.lowerBound {
-                let text = String(content[lastIndex ..< matchRange.lowerBound])
-                result.append((text, false, offset * 2))
-            }
-
-            let codeBlock = String(content[matchRange])
-            let cleanCode = codeBlock
-                .replacingOccurrences(of: "^```[a-zA-Z]*\n?", with: "", options: .regularExpression)
-                .replacingOccurrences(of: "\n?```$", with: "", options: .regularExpression)
-            result.append((cleanCode, true, offset * 2 + 1))
-
-            lastIndex = matchRange.upperBound
-        }
-
-        if lastIndex < content.endIndex {
-            let text = String(content[lastIndex ..< content.endIndex])
-            result.append((text, false, matches.count * 2))
-        }
-
-        return result
     }
 }
 

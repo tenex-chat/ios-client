@@ -160,7 +160,8 @@ public struct InboxView: View {
         let subscription = ndk.subscribe(filter: filter)
 
         var eventFound = false
-        for await event in subscription.events.prefix(1) {
+        for await events in subscription.events.prefix(1) {
+            guard let event = events.first else { continue }
             eventFound = true
             self.threadCache[id] = event
             self.logger.debug("Successfully cached thread for inbox: \(id)")

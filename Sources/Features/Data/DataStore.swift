@@ -220,13 +220,15 @@ extension DataStore {
 
         let subscription = self.ndk.subscribe(filter: Project.filter(for: userPubkey))
 
-        for await event in subscription.events {
-            if let project = Project.from(event: event) {
-                if projectsByID[project.id] == nil {
-                    projectOrder.append(project.id)
+        for await events in subscription.events {
+            for event in events {
+                if let project = Project.from(event: event) {
+                    if projectsByID[project.id] == nil {
+                        projectOrder.append(project.id)
+                    }
+                    projectsByID[project.id] = project
+                    self.projects = projectOrder.compactMap { projectsByID[$0] }
                 }
-                projectsByID[project.id] = project
-                self.projects = projectOrder.compactMap { projectsByID[$0] }
             }
         }
     }
@@ -239,10 +241,12 @@ extension DataStore {
         let subscription = self.ndk.subscribe(filter: filter)
         var agentsByID: [String: AgentDefinition] = [:]
 
-        for await event in subscription.events {
-            if let agent = AgentDefinition.from(event: event) {
-                agentsByID[agent.id] = agent
-                self.agents = Array(agentsByID.values)
+        for await events in subscription.events {
+            for event in events {
+                if let agent = AgentDefinition.from(event: event) {
+                    agentsByID[agent.id] = agent
+                    self.agents = Array(agentsByID.values)
+                }
             }
         }
     }
@@ -255,10 +259,12 @@ extension DataStore {
         let subscription = self.ndk.subscribe(filter: filter)
         var toolsByID: [String: MCPTool] = [:]
 
-        for await event in subscription.events {
-            if let tool = MCPTool.from(event: event) {
-                toolsByID[tool.id] = tool
-                self.tools = Array(toolsByID.values)
+        for await events in subscription.events {
+            for event in events {
+                if let tool = MCPTool.from(event: event) {
+                    toolsByID[tool.id] = tool
+                    self.tools = Array(toolsByID.values)
+                }
             }
         }
     }
@@ -267,15 +273,17 @@ extension DataStore {
         let filter = ProjectStatus.filter(for: userPubkey)
         let subscription = self.ndk.subscribe(filter: filter)
 
-        for await event in subscription.events {
-            if let status = ProjectStatus.from(event: event) {
-                // Only keep if newer than existing
-                if let existing = projectStatuses[status.projectCoordinate] {
-                    guard status.createdAt > existing.createdAt else {
-                        continue
+        for await events in subscription.events {
+            for event in events {
+                if let status = ProjectStatus.from(event: event) {
+                    // Only keep if newer than existing
+                    if let existing = projectStatuses[status.projectCoordinate] {
+                        guard status.createdAt > existing.createdAt else {
+                            continue
+                        }
                     }
+                    self.projectStatuses[status.projectCoordinate] = status
                 }
-                self.projectStatuses[status.projectCoordinate] = status
             }
         }
     }
@@ -288,10 +296,12 @@ extension DataStore {
         let subscription = self.ndk.subscribe(filter: filter)
         var nudgesByID: [String: Nudge] = [:]
 
-        for await event in subscription.events {
-            if let nudge = Nudge.from(event: event) {
-                nudgesByID[nudge.id] = nudge
-                self.nudges = Array(nudgesByID.values).sorted { $0.createdAt > $1.createdAt }
+        for await events in subscription.events {
+            for event in events {
+                if let nudge = Nudge.from(event: event) {
+                    nudgesByID[nudge.id] = nudge
+                    self.nudges = Array(nudgesByID.values).sorted { $0.createdAt > $1.createdAt }
+                }
             }
         }
     }
@@ -330,16 +340,18 @@ extension DataStore {
             let subscription = self.ndk.subscribe(filter: filter)
             var messagesByID: [String: Message] = [:]
 
-            for await event in subscription.events {
+            for await events in subscription.events {
                 // Check if projects changed (break to restart subscription immediately)
                 if self.projects.map(\.coordinate) != currentProjectCoordinates {
                     break
                 }
 
-                if let message = Message.from(event: event) {
-                    messagesByID[message.id] = message
-                    self.recentConversationReplies = Array(messagesByID.values)
-                        .sorted { $0.createdAt > $1.createdAt }
+                for event in events {
+                    if let message = Message.from(event: event) {
+                        messagesByID[message.id] = message
+                        self.recentConversationReplies = Array(messagesByID.values)
+                            .sorted { $0.createdAt > $1.createdAt }
+                    }
                 }
             }
 
@@ -382,7 +394,7 @@ extension DataStore {
             let subscription = self.ndk.subscribe(filter: filter)
             var messagesByID: [String: Message] = [:]
 
-            for await event in subscription.events {
+            for await events in subscription.events {
                 // Check if agent set changed (break to restart subscription immediately)
                 let currentAgents = Set(
                     projectStatuses.values.flatMap { status in
@@ -393,21 +405,23 @@ extension DataStore {
                     break
                 }
 
-                if let message = Message.from(event: event) {
-                    // Apply smart filtering
-                    if await self.shouldIncludeInInbox(event: event, userPubkey: userPubkey) {
-                        messagesByID[message.id] = message
+                for event in events {
+                    if let message = Message.from(event: event) {
+                        // Apply smart filtering
+                        if await self.shouldIncludeInInbox(event: event, userPubkey: userPubkey) {
+                            messagesByID[message.id] = message
 
-                        // Sort: ask-tagged first, then by timestamp
-                        self.inboxMessages = Array(messagesByID.values).sorted { msg1, msg2 in
-                            if msg1.hasAskTag != msg2.hasAskTag {
-                                return msg1.hasAskTag
+                            // Sort: ask-tagged first, then by timestamp
+                            self.inboxMessages = Array(messagesByID.values).sorted { msg1, msg2 in
+                                if msg1.hasAskTag != msg2.hasAskTag {
+                                    return msg1.hasAskTag
+                                }
+                                return msg1.createdAt > msg2.createdAt
                             }
-                            return msg1.createdAt > msg2.createdAt
-                        }
 
-                        // Update unread count
-                        self.inboxUnreadCount = self.inboxMessages.count { $0.createdAt > self.lastInboxVisit }
+                            // Update unread count
+                            self.inboxUnreadCount = self.inboxMessages.count { $0.createdAt > self.lastInboxVisit }
+                        }
                     }
                 }
             }

@@ -772,14 +772,16 @@ public final class CallViewModel {
         // Process streaming events (21111) - show processing indicator
         if let streamingSub = self.streamingSubscription {
             self.streamingSubscriptionTask = Task {
-                for await event in streamingSub.events {
-                    guard !Task.isCancelled else {
-                        return
-                    }
-                    // Agent started generating response
-                    if event.pubkey != self.userPubkey {
-                        self.agentIsProcessing = true
-                        self.logger.info("[subscribeToConversation] Agent is processing (21111 received)")
+                for await events in streamingSub.events {
+                    for event in events {
+                        guard !Task.isCancelled else {
+                            return
+                        }
+                        // Agent started generating response
+                        if event.pubkey != self.userPubkey {
+                            self.agentIsProcessing = true
+                            self.logger.info("[subscribeToConversation] Agent is processing (21111 received)")
+                        }
                     }
                 }
             }
@@ -791,21 +793,23 @@ public final class CallViewModel {
         }
 
         self.subscriptionTask = Task {
-            for await event in subscription.events {
-                guard !Task.isCancelled else {
-                    return
-                }
+            for await events in subscription.events {
+                for event in events {
+                    guard !Task.isCancelled else {
+                        return
+                    }
 
-                guard let message = Message.from(event: event) else {
-                    continue
-                }
+                    guard let message = Message.from(event: event) else {
+                        continue
+                    }
 
-                // Process event in ConversationState
-                self.conversationState?.processEvent(event)
+                    // Process event in ConversationState
+                    self.conversationState?.processEvent(event)
 
-                // Queue for TTS if from agent and autoTTS is enabled
-                if message.pubkey != self.userPubkey, self.autoTTS {
-                    self.ttsQueue?.processMessages([message])
+                    // Queue for TTS if from agent and autoTTS is enabled
+                    if message.pubkey != self.userPubkey, self.autoTTS {
+                        self.ttsQueue?.processMessages([message])
+                    }
                 }
             }
         }
