@@ -60,6 +60,7 @@ struct DeveloperToolsView: View {
             self.nostrDBStatsLink
             self.subscriptionMetricsLink
             self.projectStatusLink
+            self.conversationStoreLink
         }
     }
 
@@ -103,6 +104,17 @@ struct DeveloperToolsView: View {
                 title: "Project Status",
                 subtitle: "Online agents and backend status",
                 color: .orange
+            )
+        }
+    }
+
+    private var conversationStoreLink: some View {
+        NavigationLink(destination: ConversationStoreDebugSelector()) {
+            ToolRow(
+                icon: "bubble.left.and.bubble.right",
+                title: "Conversation Store",
+                subtitle: "Thread and message statistics",
+                color: .teal
             )
         }
     }
