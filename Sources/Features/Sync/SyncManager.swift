@@ -26,6 +26,18 @@ public final class SyncManager {
 
     // MARK: Public
 
+    /// Event kinds to sync for each project
+    public static let syncEventKinds: [Int] = [11, 513, 1111, 21_111]
+
+    /// Maximum number of events to fetch per project
+    public static let maxEventsPerProject = 500
+
+    /// Timeout for collecting events from a subscription
+    public static let subscriptionTimeout: TimeInterval = 30.0
+
+    /// Maximum number of sync history entries to keep
+    public static let maxHistoryCount = 50
+
     /// All sync runs (most recent first)
     public private(set) var syncHistory: [SyncRun] = []
 
@@ -60,14 +72,27 @@ public final class SyncManager {
                 eventsByKind: [:]
             )
 
-            let result = await syncProject(project)
-            projectResults.append(result)
+            do {
+                let result = try await syncProject(project)
+                projectResults.append(result)
 
-            logger.info("""
-            Completed sync for project: \(project.title)
-            - Events: \(result.totalEvents)
-            - Duration: \(String(format: "%.2f", result.duration))s
-            """)
+                logger.info("""
+                Completed sync for project: \(project.title)
+                - Events: \(result.totalEvents)
+                - Duration: \(String(format: "%.2f", result.duration))s
+                """)
+            } catch {
+                logger.error("Failed to sync project \(project.title): \(error.localizedDescription)")
+                // Create empty result for failed sync
+                projectResults.append(ProjectSyncResult(
+                    projectCoordinate: project.coordinate,
+                    projectName: project.title,
+                    totalEvents: 0,
+                    eventsByKind: [:],
+                    startTime: Date(),
+                    endTime: Date()
+                ))
+            }
         }
 
         // Create sync run record
@@ -78,8 +103,11 @@ public final class SyncManager {
             projectResults: projectResults
         )
 
-        // Add to history (most recent first)
+        // Add to history (most recent first) with memory limit
         syncHistory.insert(syncRun, at: 0)
+        if syncHistory.count > Self.maxHistoryCount {
+            syncHistory.removeLast()
+        }
 
         // Clear progress
         currentProgress = nil
@@ -93,14 +121,13 @@ public final class SyncManager {
     private let logger = Logger(subsystem: "com.tenex.ios", category: "SyncManager")
 
     /// Sync a single project using negentropy
-    private func syncProject(_ project: Project) async -> ProjectSyncResult {
+    private func syncProject(_ project: Project) async throws -> ProjectSyncResult {
         let projectStartTime = Date()
 
         // Filter for all event kinds related to this project
-        // kinds: 11 (threads), 513 (thread updates), 1111 (messages), 21111 (agent messages)
         let filter = NDKFilter(
-            kinds: [11, 513, 1111, 21_111],
-            limit: 500,
+            kinds: Self.syncEventKinds,
+            limit: Self.maxEventsPerProject,
             tags: ["a": Set([project.coordinate])]
         )
 
@@ -111,24 +138,26 @@ public final class SyncManager {
         let subscription = ndk.subscribe(filter: filter)
 
         // Collect events with timeout
-        let events = await subscription.collect(timeout: 30.0, limit: 500)
+        let events = await subscription.collect(
+            timeout: Self.subscriptionTimeout,
+            limit: Self.maxEventsPerProject
+        )
 
-        // Process collected events
+        // Process all collected events at once
         for event in events {
             totalEvents += 1
             eventsByKind[event.kind, default: 0] += 1
+        }
 
-            // Update progress in real-time
-            if var progress = currentProgress {
-                progress = SyncProgress(
-                    currentProjectIndex: progress.currentProjectIndex,
-                    totalProjects: progress.totalProjects,
-                    currentProject: progress.currentProject,
-                    eventsReceived: totalEvents,
-                    eventsByKind: eventsByKind
-                )
-                currentProgress = progress
-            }
+        // Update progress once after collection completes
+        if let progress = currentProgress {
+            currentProgress = SyncProgress(
+                currentProjectIndex: progress.currentProjectIndex,
+                totalProjects: progress.totalProjects,
+                currentProject: progress.currentProject,
+                eventsReceived: totalEvents,
+                eventsByKind: eventsByKind
+            )
         }
 
         return ProjectSyncResult(

@@ -201,11 +201,15 @@ private struct SyncRunRow: View {
         }
     }
 
-    private func formatDate(_ date: Date) -> String {
+    private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .short
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    private func formatDate(_ date: Date) -> String {
+        Self.dateFormatter.string(from: date)
     }
 }
 
@@ -268,11 +272,15 @@ private struct SyncRunDetailView: View {
         }
     }
 
-    private func formatDateTime(_ date: Date) -> String {
+    private static let dateTimeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .medium
-        return formatter.string(from: date)
+        return formatter
+    }()
+
+    private func formatDateTime(_ date: Date) -> String {
+        Self.dateTimeFormatter.string(from: date)
     }
 }
 
