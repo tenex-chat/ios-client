@@ -155,19 +155,20 @@ struct TENEXApp: App {
         }
 
         // Wait for projects to load (with timeout)
-        let maxWaitTime = 10.0
+        let maxWaitTime: TimeInterval = 10.0
+        let pollInterval: TimeInterval = 0.5
         let startTime = Date()
 
         while dataStore.projects.isEmpty {
             if Date().timeIntervalSince(startTime) > maxWaitTime {
-                Logger().warning("Timed out waiting for projects to load")
+                Logger().info("No projects loaded after timeout, skipping initial sync")
                 return
             }
-            try? await Task.sleep(for: .milliseconds(500))
+            try? await Task.sleep(for: .seconds(pollInterval))
         }
 
         // Trigger initial sync
-        Logger().info("Performing initial sync on app launch")
+        Logger().info("Performing initial sync on app launch for \(dataStore.projects.count) projects")
         hasPerformedInitialSync = true
         await syncManager.syncAllProjects(dataStore.projects)
     }
