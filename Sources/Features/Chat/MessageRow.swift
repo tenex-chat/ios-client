@@ -88,8 +88,9 @@ public struct MessageRow: View {
 
             MessageContentView(message: self.message)
 
-            if self.message.replyCount > 0, let onReplyTap {
+            if self.message.replyCount > 0, let onReplyTap, let ndk {
                 ReplyIndicatorView(
+                    ndk: ndk,
                     replyCount: self.message.replyCount,
                     authorPubkeys: self.message.replyAuthorPubkeys,
                     onTap: onReplyTap

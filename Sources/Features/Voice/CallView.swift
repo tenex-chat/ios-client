@@ -6,6 +6,7 @@
 
 import AVFoundation
 import NDKSwiftCore
+import NDKSwiftUI
 import SwiftUI
 import TENEXCore
 
@@ -141,21 +142,6 @@ public struct CallView: View {
         return conversationState.displayMessages.filter {
             $0.createdAt >= startTime
         }
-    }
-
-    private var agentInitials: String {
-        let words = self.viewModel.agent.name.split(separator: " ")
-        if words.count >= 2 {
-            return String(words[0].prefix(1) + words[1].prefix(1)).uppercased()
-        } else if let first = words.first {
-            return String(first.prefix(2)).uppercased()
-        }
-        return "?"
-    }
-
-    private var agentColor: Color {
-        let hash = self.viewModel.agent.pubkey.hashValue
-        return Color(hue: Double(abs(hash) % 360) / 360.0, saturation: 0.6, brightness: 0.7)
     }
 
     private var micButtonState: MicButtonState {
@@ -318,15 +304,7 @@ public struct CallView: View {
     }
 
     private var agentAvatar: some View {
-        ZStack {
-            Circle()
-                .fill(self.agentColor)
-                .frame(width: 50, height: 50)
-
-            Text(self.agentInitials)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(.white)
-        }
+        NDKUIProfilePicture(ndk: self.ndk, pubkey: self.viewModel.agent.pubkey, size: 50)
     }
 
     // MARK: - Center Visualization
@@ -334,9 +312,9 @@ public struct CallView: View {
     @ViewBuilder private var centerVisualization: some View {
         if self.shouldShowAgentInCenter {
             CenterAgentAvatar(
+                ndk: self.ndk,
+                agentPubkey: self.viewModel.agent.pubkey,
                 agentName: self.viewModel.agent.name,
-                agentColor: self.agentColor,
-                agentInitials: self.agentInitials,
                 isSpeaking: self.viewModel.state == .playingResponse,
                 isProcessing: self.viewModel.state == .waitingForAgent || self.viewModel.agentIsProcessing,
                 isPaused: self.viewModel.isPaused,

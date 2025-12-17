@@ -45,6 +45,8 @@ struct NostrDBStatsView: View {
     @State private var inMemoryCount = 0
     @State private var isLoading = true
     @State private var error: String?
+    @State private var showDeleteConfirmation = false
+    @State private var cacheDeleted = false
 
     @ViewBuilder private var contentSection: some View {
         if self.isLoading {
@@ -56,6 +58,7 @@ struct NostrDBStatsView: View {
             self.eventsByKindSection(stats)
             self.databaseIndexesSection(stats)
             self.storageDetailsSection
+            self.dangerZoneSection
         } else {
             self.notAvailableSection
         }
@@ -112,6 +115,29 @@ struct NostrDBStatsView: View {
                     Label("Copy Path", systemImage: "doc.on.doc")
                 }
             }
+        }
+    }
+
+    private var dangerZoneSection: some View {
+        Section {
+            if self.cacheDeleted {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Text("Cache deleted. Restart app to rebuild.")
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                Button(role: .destructive) {
+                    self.showDeleteConfirmation = true
+                } label: {
+                    Label("Delete NostrDB Cache", systemImage: "trash")
+                }
+            }
+        } header: {
+            Text("Danger Zone")
+        } footer: {
+            Text("Deleting the cache removes all cached events. Restart the app to rebuild.")
         }
     }
 
@@ -202,6 +228,14 @@ struct NostrDBStatsView: View {
         #endif
             .task { await self.loadStats(ndk: ndk) }
             .refreshable { await self.loadStats(ndk: ndk) }
+            .alert("Delete NostrDB Cache?", isPresented: self.$showDeleteConfirmation) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete", role: .destructive) {
+                    self.deleteCache()
+                }
+            } message: {
+                Text("All cached events will be deleted. Restart the app to rebuild from relays.")
+            }
     }
 
     private func loadStats(ndk: NDK) async {
@@ -228,6 +262,27 @@ struct NostrDBStatsView: View {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
         #endif
+    }
+
+    private func deleteCache() {
+        guard let documentsPath = FileManager.default.urls(
+            for: .documentDirectory,
+            in: .userDomainMask
+        ).first else {
+            return
+        }
+
+        let dbPath = documentsPath.appendingPathComponent("tenex-nostrdb")
+
+        do {
+            try FileManager.default.removeItem(at: dbPath)
+            self.cacheDeleted = true
+            self.stats = nil
+            self.databaseSize = 0
+            self.inMemoryCount = 0
+        } catch {
+            self.error = "Failed to delete cache: \(error.localizedDescription)"
+        }
     }
 }
 

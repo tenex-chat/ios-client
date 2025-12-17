@@ -9,6 +9,40 @@ import NDKSwiftCore
 import Observation
 import TENEXCore
 
+// MARK: - ConversationStoreDebugStats
+
+/// Debug statistics for ProjectConversationStore
+public struct ConversationStoreDebugStats: Sendable {
+    /// Number of threads in the store
+    public let threadCount: Int
+    /// Total number of messages across all threads
+    public let totalMessageCount: Int
+    /// Message count per thread (threadID -> count)
+    public let messagesPerThread: [String: Int]
+    /// Number of threads that have at least one message
+    public let threadsWithMessages: Int
+    /// Number of orphaned messages (messages for threads that don't exist in threadSummaries)
+    public let orphanedMessageCount: Int
+    /// Orphaned messages by thread ID (threadID -> count) for threads not in threadSummaries
+    public let orphanedMessagesByThread: [String: Int]
+    /// Oldest thread creation date
+    public let oldestThread: Date?
+    /// Newest thread creation date
+    public let newestThread: Date?
+    /// Most recent activity across all threads
+    public let lastActivityOverall: Date?
+    /// Whether the subscription is active
+    public let subscriptionActive: Bool
+    /// The project coordinate this store is for
+    public let projectCoordinate: String
+    /// Number of thread events stored
+    public let threadEventCount: Int
+    /// Currently active thread ID (if any)
+    public let activeThreadID: String?
+    /// Number of messages in the active thread
+    public let activeThreadMessageCount: Int
+}
+
 // MARK: - ThreadSummary
 
 /// Lightweight summary of a thread for list display
@@ -35,8 +69,8 @@ public struct ThreadSummary: Identifiable, Sendable {
 
 // MARK: - ProjectConversationStore
 
-/// Centralized store for all conversation data within a project
-/// Single subscription for kinds: [11, 513, 1111, 21111] with #a tag
+/// Thin UI layer for conversation state
+/// All heavy processing delegated to ConversationProcessor actor
 @MainActor
 @Observable
 public final class ProjectConversationStore {
@@ -49,47 +83,104 @@ public final class ProjectConversationStore {
     public init(ndk: NDK, projectCoordinate: String) {
         self.ndk = ndk
         self.projectCoordinate = projectCoordinate
+        self.processor = ConversationProcessor(projectCoordinate: projectCoordinate)
+        self.state = .empty(projectCoordinate: projectCoordinate)
+    }
+
+    deinit {
+        subscriptionTask?.cancel()
     }
 
     // MARK: Public
 
-    /// Thread summaries for list display (keyed by thread ID)
-    public private(set) var threadSummaries: [String: ThreadSummary] = [:]
+    /// Current state snapshot (immutable)
+    public private(set) var state: ConversationStoreState
 
-    /// Currently active (open) thread ID
-    public private(set) var activeThreadID: String?
-
-    /// Messages for the currently active thread
-    public private(set) var activeThreadMessages: [Message] = []
-
-    /// The active subscription (nil if not subscribed)
+    /// NDK subscription for monitoring
     public private(set) var subscription: NDKSubscription<NDKEvent>?
 
-    /// Thread events for navigation (keyed by thread ID)
-    public private(set) var threadEvents: [String: NDKEvent] = [:]
-
-    /// Sorted list of threads (newest first) - cached to avoid O(n log n) on every access
-    public private(set) var sortedThreads: [ThreadSummary] = []
-
-    /// All message events (for filtering by activity/needs-response)
-    public var allMessages: [NDKEvent] {
-        messageEvents.values.flatMap { $0 }
+    /// Thread summaries (convenience accessor)
+    public var threadSummaries: [String: ThreadSummary] {
+        state.threadSummaries
     }
 
-    // MARK: - Event Processing
+    /// Sorted threads by last activity
+    public var sortedThreads: [ThreadSummary] {
+        state.sortedThreadIDs.compactMap { state.threadSummaries[$0] }
+    }
 
-    /// Process an incoming event and update state accordingly
-    /// - Parameter event: The event to process
-    public func processEvent(_ event: NDKEvent) {
-        switch event.kind {
-        case 11:
-            processThreadEvent(event)
-        case 513:
-            processMetadataEvent(event)
-        case 1111:
-            processMessageEvent(event)
-        default:
-            break
+    /// Currently active thread ID
+    public private(set) var activeThreadID: String?
+
+    /// Messages for the active thread
+    public private(set) var activeThreadMessages: [Message] = []
+
+    /// Debug statistics for developer tools
+    public var debugStats: ConversationStoreDebugStats {
+        let sortedByCreation = state.threadSummaries.values.sorted { $0.createdAt < $1.createdAt }
+        let oldestThread = sortedByCreation.first?.createdAt
+        let newestThread = sortedByCreation.last?.createdAt
+        let lastActivity = state.threadSummaries.values.map(\.lastActivity).max()
+        let threadsWithMessages = state.messageCounts.values.filter { $0 > 0 }.count
+        let orphanedCount = state.orphanedMessagesByThread.values.reduce(0, +)
+
+        return ConversationStoreDebugStats(
+            threadCount: state.threadSummaries.count,
+            totalMessageCount: state.totalMessageCount,
+            messagesPerThread: state.messageCounts,
+            threadsWithMessages: threadsWithMessages,
+            orphanedMessageCount: orphanedCount,
+            orphanedMessagesByThread: state.orphanedMessagesByThread,
+            oldestThread: oldestThread,
+            newestThread: newestThread,
+            lastActivityOverall: lastActivity,
+            subscriptionActive: subscription != nil,
+            projectCoordinate: projectCoordinate,
+            threadEventCount: state.threadSummaries.count,
+            activeThreadID: activeThreadID,
+            activeThreadMessageCount: activeThreadMessages.count
+        )
+    }
+
+    // MARK: - Subscription Management
+
+    /// Subscribe to project events
+    public func subscribe() {
+        let filter = NDKFilter(
+            kinds: [11, 513, 1111, 21_111],
+            tags: ["a": Set([projectCoordinate])]
+        )
+
+        let sub = ndk.subscribe(filter: filter)
+        subscription = sub
+
+        subscriptionTask = Task { [weak self] in
+            for await batch in sub.events {
+                guard let self else { break }
+
+                // Process batch in background actor
+                let newState = await self.processor.processBatch(batch)
+
+                // Single UI update per batch
+                self.state = newState
+
+                // Update active thread messages if needed
+                if let activeID = self.activeThreadID {
+                    await self.refreshActiveThreadMessages(activeID)
+                }
+            }
+        }
+    }
+
+    /// Restart subscriptions and clear state
+    public func restartSubscriptions() {
+        subscriptionTask?.cancel()
+        subscription = nil
+
+        Task {
+            await processor.reset()
+            state = .empty(projectCoordinate: projectCoordinate)
+            subscribe()
         }
     }
 
@@ -97,14 +188,9 @@ public final class ProjectConversationStore {
 
     /// Open a thread and load its messages
     /// - Parameter threadID: The thread ID to open
-    public func openThread(_ threadID: String) {
+    public func openThread(_ threadID: String) async {
         activeThreadID = threadID
-
-        // Load messages for this thread from stored events
-        let events = messageEvents[threadID] ?? []
-        activeThreadMessages = events
-            .compactMap { Message.from(event: $0) }
-            .sorted { $0.createdAt < $1.createdAt }
+        await refreshActiveThreadMessages(threadID)
     }
 
     /// Close the currently active thread
@@ -113,175 +199,39 @@ public final class ProjectConversationStore {
         activeThreadMessages = []
     }
 
-    // MARK: - Subscription Lifecycle
-
-    /// Subscribe to project events
-    public func subscribe() {
-        let filter = NDKFilter(
-            kinds: [11, 513, 1111, 21_111],
-            tags: ["a": Set([projectCoordinate])]
-        )
-        subscription = ndk.subscribe(filter: filter)
-    }
-
-    /// Unsubscribe and clear all state
-    public func unsubscribe() {
-        subscription = nil
-        threadSummaries = [:]
-        threadEvents = [:]
-        sortedThreads = []
-        activeThreadID = nil
-        activeThreadMessages = []
-        messageEvents = [:]
+    /// Get thread event for navigation
+    public func getThreadEvent(for threadID: String) async -> NDKEvent? {
+        await processor.getThreadEvent(for: threadID)
     }
 
     // MARK: Private
 
     private let ndk: NDK
     private let projectCoordinate: String
+    private let processor: ConversationProcessor
+    private nonisolated(unsafe) var subscriptionTask: Task<Void, Never>?
 
-    /// Stored message events keyed by thread ID
-    private var messageEvents: [String: [NDKEvent]] = [:]
-
-    /// Update the sorted threads cache
-    private func updateSortedThreads() {
-        sortedThreads = threadSummaries.values.sorted { $0.createdAt > $1.createdAt }
+    private func refreshActiveThreadMessages(_ threadID: String) async {
+        let processedMessages = await processor.getMessages(for: threadID)
+        activeThreadMessages = processedMessages
+            .map { Message.from(processed: $0) }
+            .sorted { $0.createdAt < $1.createdAt }
     }
+}
 
-    private func processThreadEvent(_ event: NDKEvent) {
-        // Extract title from tags
-        guard let titleTag = event.tags(withName: "title").first,
-              titleTag.count > 1
-        else {
-            return
-        }
-        let title = titleTag[1]
+// MARK: - Message Extension
 
-        // Extract optional phase
-        let phase = event.tags(withName: "phase").first?[safe: 1]
-
-        // Extract optional summary from JSON content
-        let summary = parseSummary(from: event.content)
-
-        // Convert timestamp to Date
-        let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
-
-        // Preserve reply count if updating existing thread
-        let existingReplyCount = threadSummaries[event.id]?.replyCount ?? 0
-        let existingLastActivity = threadSummaries[event.id]?.lastActivity ?? createdAt
-
-        // Create or update thread summary
-        let threadSummary = ThreadSummary(
-            id: event.id,
-            pubkey: event.pubkey,
-            projectCoordinate: projectCoordinate,
-            title: title,
-            summary: summary,
-            phase: phase,
-            replyCount: existingReplyCount,
-            lastActivity: existingLastActivity,
-            createdAt: createdAt
-        )
-
-        threadSummaries[event.id] = threadSummary
-        threadEvents[event.id] = event
-        updateSortedThreads()
-    }
-
-    private func parseSummary(from content: String) -> String? {
-        guard let data = content.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let summary = json["summary"] as? String,
-              !summary.isEmpty
-        else {
-            return nil
-        }
-        return summary
-    }
-
-    private func processMetadataEvent(_ event: NDKEvent) {
-        // Get thread ID from E tag
-        guard let eTag = event.tags(withName: "E").first,
-              eTag.count > 1
-        else {
-            return
-        }
-        let threadID = eTag[1]
-
-        // Extract title
-        guard let titleTag = event.tags(withName: "title").first,
-              titleTag.count > 1
-        else {
-            return
-        }
-        let title = titleTag[1]
-
-        // Extract optional phase
-        let phase = event.tags(withName: "phase").first?[safe: 1]
-
-        // Extract optional summary
-        let summary = event.tags(withName: "summary").first?[safe: 1]
-
-        // Convert timestamp to Date
-        let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
-
-        // Only update existing threads - don't create orphan summaries without threadEvents
-        guard let existing = threadSummaries[threadID] else {
-            return
-        }
-
-        threadSummaries[threadID] = ThreadSummary(
-            id: threadID,
-            pubkey: existing.pubkey,
-            projectCoordinate: projectCoordinate,
-            title: title,
-            summary: summary ?? existing.summary,
-            phase: phase,
-            replyCount: existing.replyCount,
-            lastActivity: existing.lastActivity,
-            createdAt: existing.createdAt
-        )
-        updateSortedThreads()
-    }
-
-    private func processMessageEvent(_ event: NDKEvent) {
-        // Get thread ID from E tag (thread root reference)
-        guard let eTag = event.tags(withName: "E").first,
-              eTag.count > 1
-        else {
-            return
-        }
-        let threadID = eTag[1]
-
-        // Deduplicate: Check if we already have this message
-        if let existingMessages = messageEvents[threadID],
-           existingMessages.contains(where: { $0.id == event.id }) {
-            return
-        }
-
-        // Store the message event
-        if messageEvents[threadID] == nil {
-            messageEvents[threadID] = []
-        }
-        messageEvents[threadID]?.append(event)
-
-        // Only update thread summary if thread exists
-        guard let existing = threadSummaries[threadID] else {
-            return
-        }
-
-        // Update reply count and last activity
-        let messageTime = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
-        threadSummaries[threadID] = ThreadSummary(
-            id: existing.id,
-            pubkey: existing.pubkey,
-            projectCoordinate: existing.projectCoordinate,
-            title: existing.title,
-            summary: existing.summary,
-            phase: existing.phase,
-            replyCount: existing.replyCount + 1,
-            lastActivity: messageTime > existing.lastActivity ? messageTime : existing.lastActivity,
-            createdAt: existing.createdAt
+extension Message {
+    /// Create a Message from a ProcessedMessage
+    static func from(processed: ProcessedMessage) -> Message {
+        Message(
+            id: processed.id,
+            pubkey: processed.pubkey,
+            threadID: processed.threadID,
+            content: processed.content,
+            createdAt: processed.createdAt,
+            replyTo: processed.replyToMessageID,
+            kind: 1111
         )
     }
 }

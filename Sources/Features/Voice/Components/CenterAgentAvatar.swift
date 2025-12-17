@@ -4,14 +4,16 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftCore
+import NDKSwiftUI
 import SwiftUI
 
 struct CenterAgentAvatar: View {
     // MARK: Internal
 
+    let ndk: NDK
+    let agentPubkey: String
     let agentName: String
-    let agentColor: Color
-    let agentInitials: String
     let isSpeaking: Bool
     let isProcessing: Bool
     let isPaused: Bool
@@ -94,7 +96,7 @@ struct CenterAgentAvatar: View {
     @ViewBuilder private var speakingRipples: some View {
         ForEach(0 ..< 3, id: \.self) { index in
             Circle()
-                .stroke(self.agentColor.opacity(0.4 - Double(index) * 0.1), lineWidth: 2)
+                .stroke(Color.purple.opacity(0.4 - Double(index) * 0.1), lineWidth: 2)
                 .frame(
                     width: self.avatarSize + CGFloat(index + 1) * 30,
                     height: self.avatarSize + CGFloat(index + 1) * 30
@@ -115,16 +117,8 @@ struct CenterAgentAvatar: View {
     }
 
     private var avatarCircle: some View {
-        ZStack {
-            Circle()
-                .fill(self.agentColor)
-                .frame(width: self.avatarSize, height: self.avatarSize)
-                .shadow(color: self.agentColor.opacity(0.5), radius: 20)
-
-            Text(self.agentInitials)
-                .font(.largeTitle.weight(.semibold))
-                .foregroundStyle(.white)
-        }
+        NDKUIProfilePicture(ndk: self.ndk, pubkey: self.agentPubkey, size: self.avatarSize)
+            .shadow(color: .purple.opacity(0.5), radius: 20)
     }
 
     private var pauseOverlay: some View {

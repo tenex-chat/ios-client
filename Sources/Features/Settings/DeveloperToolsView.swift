@@ -60,6 +60,7 @@ struct DeveloperToolsView: View {
             self.nostrDBStatsLink
             self.subscriptionMetricsLink
             self.projectStatusLink
+            self.conversationStoreLink
         }
     }
 
@@ -107,6 +108,17 @@ struct DeveloperToolsView: View {
         }
     }
 
+    private var conversationStoreLink: some View {
+        NavigationLink(destination: ConversationStoreDebugSelector()) {
+            ToolRow(
+                icon: "bubble.left.and.bubble.right",
+                title: "Conversation Store",
+                subtitle: "Thread and message statistics",
+                color: .teal
+            )
+        }
+    }
+
     private var infoSection: some View {
         Section("Info") {
             LabeledContent("NDK Log Level") {
@@ -148,11 +160,6 @@ struct DeveloperToolsView: View {
                     self.isNetworkLoggingEnabled ? "Disable Network Logging" : "Enable Network Logging",
                     systemImage: self.isNetworkLoggingEnabled ? "wifi.slash" : "wifi"
                 )
-            }
-            if let pubkey = signerPubkey {
-                Button { self.copyPubkey(pubkey) } label: {
-                    Label("Copy Pubkey", systemImage: "doc.on.doc")
-                }
             }
         }
     }
@@ -203,15 +210,6 @@ struct DeveloperToolsView: View {
     private func toggleNetworkLogging() {
         self.isNetworkLoggingEnabled.toggle()
         NDKLogger.setLogNetworkTraffic(self.isNetworkLoggingEnabled)
-    }
-
-    private func copyPubkey(_ pubkey: String) {
-        #if os(iOS)
-            UIPasteboard.general.string = pubkey
-        #else
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(pubkey, forType: .string)
-        #endif
     }
 }
 

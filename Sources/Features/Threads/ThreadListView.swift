@@ -99,13 +99,12 @@ public struct ThreadListView: View {
         List {
             ForEach(viewModel.threads) { thread in
                 Group {
-                    if let threadEvent = viewModel.threadEvents[thread.id],
-                       let userPubkey {
+                    if let userPubkey {
                         NavigationLink {
-                            ChatView(
-                                threadEvent: threadEvent,
-                                projectReference: thread.projectCoordinate,
-                                currentUserPubkey: userPubkey
+                            ThreadChatDestination(
+                                viewModel: viewModel,
+                                thread: thread,
+                                userPubkey: userPubkey
                             )
                         } label: {
                             ThreadRow(thread: thread)
@@ -207,4 +206,32 @@ struct ThreadRow: View {
     // MARK: Private
 
     private let thread: ThreadSummary
+}
+
+// MARK: - ThreadChatDestination
+
+/// Async destination view that loads thread event before showing ChatView
+private struct ThreadChatDestination: View {
+    let viewModel: ThreadListViewModel
+    let thread: ThreadSummary
+    let userPubkey: String
+
+    @State private var threadEvent: NDKEvent?
+
+    var body: some View {
+        Group {
+            if let threadEvent {
+                ChatView(
+                    threadEvent: threadEvent,
+                    projectReference: thread.projectCoordinate,
+                    currentUserPubkey: userPubkey
+                )
+            } else {
+                ProgressView("Loading thread...")
+            }
+        }
+        .task {
+            threadEvent = await viewModel.getThreadEvent(for: thread.id)
+        }
+    }
 }
