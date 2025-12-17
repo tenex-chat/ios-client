@@ -149,11 +149,6 @@ struct DeveloperToolsView: View {
                     systemImage: self.isNetworkLoggingEnabled ? "wifi.slash" : "wifi"
                 )
             }
-            if let pubkey = signerPubkey {
-                Button { self.copyPubkey(pubkey) } label: {
-                    Label("Copy Pubkey", systemImage: "doc.on.doc")
-                }
-            }
         }
     }
 
@@ -203,15 +198,6 @@ struct DeveloperToolsView: View {
     private func toggleNetworkLogging() {
         self.isNetworkLoggingEnabled.toggle()
         NDKLogger.setLogNetworkTraffic(self.isNetworkLoggingEnabled)
-    }
-
-    private func copyPubkey(_ pubkey: String) {
-        #if os(iOS)
-            UIPasteboard.general.string = pubkey
-        #else
-            NSPasteboard.general.clearContents()
-            NSPasteboard.general.setString(pubkey, forType: .string)
-        #endif
     }
 }
 
