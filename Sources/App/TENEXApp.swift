@@ -39,9 +39,13 @@ struct TENEXApp: App {
                             self.handleAuthChange(oldPubkey: oldPubkey, newPubkey: newPubkey)
                         }
                         .environment(self.dataStore)
+                        .environment(self.syncManager)
                         #if os(macOS)
                         .environment(self.windowManager)
                         #endif
+                        .task {
+                            await self.performInitialSyncIfNeeded()
+                        }
                 } else {
                     ProgressView("Initializing...")
                 }
@@ -90,9 +94,11 @@ struct TENEXApp: App {
     @State private var ndk: NDK?
     @State private var authManager: NDKAuthManager?
     @State private var dataStore: DataStore?
+    @State private var syncManager: SyncManager?
     @State private var aiConfig: AIConfig?
     @State private var aiConfigStorage: AIConfigStorage?
     @State private var audioService: AudioService?
+    @State private var hasPerformedInitialSync = false
 
     #if os(macOS)
     @State private var windowManager = WindowManagerStore()
@@ -118,6 +124,11 @@ struct TENEXApp: App {
             self.dataStore = DataStore(ndk: ndk)
         }
 
+        // Initialize SyncManager with NDK
+        if self.syncManager == nil {
+            self.syncManager = SyncManager(ndk: ndk)
+        }
+
         // Initialize auth manager (restores sessions and sets ndk.signer automatically)
         await authManager.initialize()
 
@@ -128,6 +139,37 @@ struct TENEXApp: App {
         if authManager.isAuthenticated, let pubkey = authManager.activePubkey {
             self.dataStore?.startSubscriptions(for: pubkey)
         }
+    }
+
+    private func performInitialSyncIfNeeded() async {
+        guard let authManager, authManager.isAuthenticated else {
+            return
+        }
+
+        guard !hasPerformedInitialSync else {
+            return
+        }
+
+        guard let dataStore, let syncManager else {
+            return
+        }
+
+        // Wait for projects to load (with timeout)
+        let maxWaitTime = 10.0
+        let startTime = Date()
+
+        while dataStore.projects.isEmpty {
+            if Date().timeIntervalSince(startTime) > maxWaitTime {
+                Logger().warning("Timed out waiting for projects to load")
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(500))
+        }
+
+        // Trigger initial sync
+        Logger().info("Performing initial sync on app launch")
+        hasPerformedInitialSync = true
+        await syncManager.syncAllProjects(dataStore.projects)
     }
 
     private func initializeNDK() async {

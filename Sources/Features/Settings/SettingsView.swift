@@ -21,37 +21,9 @@ public struct SettingsView: View {
     public var body: some View {
         List {
             self.accountSection
-
-            Section("General") {
-                NavigationLink(destination: self.aiSettingsView) {
-                    SettingsRow(
-                        icon: "brain",
-                        title: "AI Settings",
-                        subtitle: "Configure LLM, TTS, and STT providers",
-                        color: .blue
-                    )
-                }
-
-                NavigationLink(destination: self.voiceCallSettingsView) {
-                    SettingsRow(
-                        icon: "phone.fill",
-                        title: "Voice Call",
-                        subtitle: "Voice detection, audio processing, and call behavior",
-                        color: .green
-                    )
-                }
-            }
-
-            Section("Developer") {
-                NavigationLink(destination: DeveloperToolsView()) {
-                    SettingsRow(
-                        icon: "wrench.and.screwdriver",
-                        title: "Developer Tools",
-                        subtitle: "Debugging and diagnostics",
-                        color: .gray
-                    )
-                }
-            }
+            self.generalSection
+            self.dataSection
+            self.developerSection
         }
         .navigationTitle("Settings")
         #if os(iOS)
@@ -72,7 +44,10 @@ public struct SettingsView: View {
 
     // MARK: Private
 
+    @Environment(\.ndk) private var ndk
     @Environment(NDKAuthManager.self) private var authManager
+    @Environment(DataStore.self) private var dataStore
+    @Environment(SyncManager.self) private var syncManager
     @State private var showingSignOutConfirmation = false
 
     private var npub: String? {
@@ -106,6 +81,54 @@ public struct SettingsView: View {
         }
     }
 
+    private var generalSection: some View {
+        Section("General") {
+            NavigationLink(destination: self.aiSettingsView) {
+                SettingsRow(
+                    icon: "brain",
+                    title: "AI Settings",
+                    subtitle: "Configure LLM, TTS, and STT providers",
+                    color: .blue
+                )
+            }
+
+            NavigationLink(destination: self.voiceCallSettingsView) {
+                SettingsRow(
+                    icon: "phone.fill",
+                    title: "Voice Call",
+                    subtitle: "Voice detection, audio processing, and call behavior",
+                    color: .green
+                )
+            }
+        }
+    }
+
+    private var dataSection: some View {
+        Section("Data") {
+            NavigationLink(destination: self.syncView) {
+                SettingsRow(
+                    icon: "arrow.triangle.2.circlepath",
+                    title: "Sync",
+                    subtitle: "Sync projects and view history",
+                    color: .purple
+                )
+            }
+        }
+    }
+
+    private var developerSection: some View {
+        Section("Developer") {
+            NavigationLink(destination: DeveloperToolsView()) {
+                SettingsRow(
+                    icon: "wrench.and.screwdriver",
+                    title: "Developer Tools",
+                    subtitle: "Debugging and diagnostics",
+                    color: .gray
+                )
+            }
+        }
+    }
+
     @ViewBuilder private var aiSettingsView: some View {
         let keychain = KeychainStorage(service: "com.tenex.ai")
         let storage = UserDefaultsAIConfigStorage(keychain: keychain)
@@ -118,6 +141,10 @@ public struct SettingsView: View {
         let keychain = KeychainStorage(service: "com.tenex.ai")
         let storage = UserDefaultsAIConfigStorage(keychain: keychain)
         VoiceCallSettingsViewWrapper(storage: storage)
+    }
+
+    @ViewBuilder private var syncView: some View {
+        SyncHistoryView(syncManager: syncManager, projects: dataStore.projects)
     }
 }
 
