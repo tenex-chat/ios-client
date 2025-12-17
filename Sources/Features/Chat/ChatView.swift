@@ -24,7 +24,16 @@ private enum MessageGroup: Identifiable {
         case let .single(message):
             message.id
         case let .collapsed(messages):
-            messages.map(\.id).joined(separator: "-")
+            // Use the first message ID as stable identifier
+            // This preserves expanded state even when messages are added/removed from the group
+            guard let first = messages.first else {
+                // Empty collapsed group should never occur - this is a programming error
+                assertionFailure("Collapsed message group cannot be empty")
+                return "collapsed-empty-\(UUID().uuidString)"
+            }
+            // Format: "collapsed-{pubkey}-{messageID}"
+            // Using first message ensures stability across group membership changes
+            return "collapsed-\(first.pubkey)-\(first.id)"
         }
     }
 }
@@ -579,7 +588,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                     currentUserPubkey: self.currentUserPubkey,
                     isConsecutive: isConsecutive,
                     hasNextConsecutive: hasNextConsecutive,
-                    onReplyTap: message.replyCount > 0 ? { self.focusOnMessage(message) } : nil,
+                    onReplyTap: { self.replyToMessage(message) },
                     onAgentTap: message.pubkey != self.currentUserPubkey ? {} : nil,
                     onQuote: { self.quoteMessage(message, viewModel: viewModel) },
                     onPlayTTS: TTSCache.shared
@@ -710,6 +719,17 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     /// Navigate into a message's replies
     private func focusOnMessage(_ message: Message) {
         self.focusStack.append(message)
+    }
+
+    /// Handle reply action - if message has replies, navigate to thread; otherwise set as reply target
+    private func replyToMessage(_ message: Message) {
+        if message.replyCount > 0 {
+            // Message has replies, navigate to the thread view
+            self.focusOnMessage(message)
+        } else {
+            // Message has no replies, set it as the reply target
+            self.inputViewModel?.setReplyTo(message)
+        }
     }
 
     /// Navigate back to parent
