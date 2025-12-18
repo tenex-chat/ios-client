@@ -78,8 +78,8 @@ public struct ToolGroupItem: Identifiable, Sendable {
     public let hasNextConsecutive: Bool
 
     public var id: String {
-        // Use first tool's ID as stable identifier
-        "tool_group-\(tools.first?.id ?? UUID().uuidString)"
+        // Use first tool's ID, or first thinking message ID for thinking-only groups
+        "tool_group-\(tools.first?.id ?? thinking.first?.id ?? "empty")"
     }
 
     /// All tool calls from the messages
