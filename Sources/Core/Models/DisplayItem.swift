@@ -77,9 +77,12 @@ public struct ToolGroupItem: Identifiable, Sendable {
     /// Whether the next message is from the same author
     public let hasNextConsecutive: Bool
 
+    /// Stable fallback ID generated at init time (used only if both tools and thinking are empty)
+    private let fallbackID: String
+
     public var id: String {
         // Use first tool's ID, or first thinking message ID for thinking-only groups
-        "tool_group-\(tools.first?.id ?? thinking.first?.id ?? "empty")"
+        "tool_group-\(tools.first?.id ?? thinking.first?.id ?? fallbackID)"
     }
 
     /// All tool calls from the messages
@@ -104,6 +107,7 @@ public struct ToolGroupItem: Identifiable, Sendable {
         self.isActive = isActive
         self.isConsecutive = isConsecutive
         self.hasNextConsecutive = hasNextConsecutive
+        self.fallbackID = UUID().uuidString
     }
 }
 

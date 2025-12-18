@@ -219,9 +219,15 @@ public struct ToolGroupView: View {
     }
 
     private func formatArgsAsJSON(_ args: [String: AnySendable]) -> String {
-        // Convert to JSON-serializable dictionary
+        // Convert to JSON-serializable dictionary, handling non-serializable values
         let jsonDict = args.reduce(into: [String: Any]()) { result, pair in
-            result[pair.key] = pair.value.value
+            let value = pair.value.value
+            // Check if value is JSON-serializable, otherwise convert to string representation
+            if JSONSerialization.isValidJSONObject([pair.key: value]) {
+                result[pair.key] = value
+            } else {
+                result[pair.key] = String(describing: value)
+            }
         }
 
         guard let data = try? JSONSerialization.data(withJSONObject: jsonDict, options: [.prettyPrinted, .sortedKeys]),
