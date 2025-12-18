@@ -62,6 +62,9 @@ public struct AgentConfigSheet: View {
                         }
                     }
                 }
+                .task {
+                    self.profile = await self.ndk.profileManager.loadMetadata(for: self.agent.pubkey)
+                }
         }
     }
 
@@ -71,6 +74,8 @@ public struct AgentConfigSheet: View {
     @State private var selectedModel: String
     @State private var selectedTools: Set<String>
     @State private var expandedGroups: Set<String> = []
+    @State private var profile: NDKUserMetadata?
+    @State private var showRawProfileData = false
 
     private let agent: ProjectAgent
     private let availableModels: [String]
@@ -80,20 +85,63 @@ public struct AgentConfigSheet: View {
 
     private var agentSection: some View {
         Section("Agent") {
-            HStack {
-                Image(systemName: "person.circle.fill")
-                    .font(.largeTitle)
-                    .foregroundStyle(.blue)
+            Button {
+                self.showRawProfileData = true
+            } label: {
+                HStack {
+                    self.profilePicture
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(self.agent.name)
-                        .font(.headline)
-                    Text(self.agent.pubkey.prefix(16) + "...")
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(self.profile?.bestDisplayName ?? self.agent.name)
+                            .font(.headline)
+                        Text(self.agent.pubkey.prefix(16) + "...")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
+            .buttonStyle(.plain)
         }
+        .sheet(isPresented: self.$showRawProfileData) {
+            RawProfileDataSheet(profile: self.profile, pubkey: self.agent.pubkey)
+        }
+    }
+
+    @ViewBuilder
+    private var profilePicture: some View {
+        if let pictureURLString = profile?.picture,
+           let pictureURL = URL(string: pictureURLString) {
+            AsyncImage(url: pictureURL) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                case .failure:
+                    self.fallbackIcon
+                case .empty:
+                    ProgressView()
+                @unknown default:
+                    self.fallbackIcon
+                }
+            }
+            .frame(width: 44, height: 44)
+            .clipShape(Circle())
+        } else {
+            self.fallbackIcon
+        }
+    }
+
+    private var fallbackIcon: some View {
+        Image(systemName: "person.circle.fill")
+            .font(.largeTitle)
+            .foregroundStyle(.secondary)
     }
 
     private var modelSection: some View {
@@ -361,5 +409,126 @@ private struct ToolGroupRow: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - RawProfileDataSheet
+
+/// Sheet displaying raw profile metadata for debugging
+private struct RawProfileDataSheet: View {
+    let profile: NDKUserMetadata?
+    let pubkey: String
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    self.pubkeySection
+                    self.metadataSection
+                }
+                .padding()
+            }
+            .navigationTitle("Raw Profile Data")
+            #if !os(macOS)
+                .navigationBarTitleDisplayMode(.inline)
+            #endif
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            self.dismiss()
+                        }
+                    }
+                }
+        }
+    }
+
+    private var pubkeySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Pubkey")
+                .font(.headline)
+            Text(self.pubkey)
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+                .textSelection(.enabled)
+        }
+    }
+
+    private var metadataSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Metadata")
+                .font(.headline)
+
+            if let profile {
+                if let metadata = profile.metadata {
+                    self.metadataContent(metadata)
+                } else {
+                    Text("No metadata dictionary available")
+                        .foregroundStyle(.secondary)
+                }
+
+                Divider()
+                    .padding(.vertical, 8)
+
+                self.parsedFieldsSection(profile)
+            } else {
+                Text("Profile not loaded")
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func metadataContent(_ metadata: [String: Any]) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            let options: JSONSerialization.WritingOptions = [.prettyPrinted, .sortedKeys]
+            if let jsonData = try? JSONSerialization.data(withJSONObject: metadata, options: options),
+               let jsonString = String(data: jsonData, encoding: .utf8) {
+                Text(jsonString)
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                    .padding(12)
+                    #if os(iOS)
+                        .background(Color(.secondarySystemBackground))
+                    #else
+                        .background(Color(nsColor: .controlBackgroundColor))
+                    #endif
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+        }
+    }
+
+    private func parsedFieldsSection(_ profile: NDKUserMetadata) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Parsed Fields")
+                .font(.headline)
+
+            self.fieldRow("name", profile.name)
+            self.fieldRow("displayName", profile.displayName)
+            self.fieldRow("bestDisplayName", profile.bestDisplayName)
+            self.fieldRow("picture", profile.picture)
+            self.fieldRow("banner", profile.banner)
+            self.fieldRow("about", profile.about)
+            self.fieldRow("website", profile.website)
+            self.fieldRow("nip05", profile.nip05)
+            self.fieldRow("lud16", profile.lud16)
+            self.fieldRow("eventId", profile.eventId)
+            self.fieldRow("updatedAt", "\(profile.updatedAt)")
+        }
+    }
+
+    private func fieldRow(_ label: String, _ value: String?) -> some View {
+        HStack(alignment: .top) {
+            Text(label)
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+                .frame(width: 100, alignment: .trailing)
+
+            Text(value ?? "nil")
+                .font(.caption.monospaced())
+                .foregroundStyle(value != nil ? .primary : .tertiary)
+                .textSelection(.enabled)
+        }
     }
 }
