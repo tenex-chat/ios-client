@@ -19,6 +19,8 @@ public actor ConversationProcessor {
     private var processedMessageIDs: Set<String> = []
     /// Last reply time per author per thread (threadID -> authorPubkey -> Date)
     private var lastReplyByThreadAndAuthor: [String: [String: Date]] = [:]
+    /// Pending metadata for threads that haven't arrived yet (threadID -> metadata)
+    private var pendingMetadata: [String: (title: String, summary: String?, phase: String?)] = [:]
 
     // MARK: - Initialization
 
@@ -59,11 +61,16 @@ public actor ConversationProcessor {
         else {
             return
         }
-        let title = titleTag[1]
+        var title = titleTag[1]
+        var phase = event.tags(withName: "phase").first?[safe: 1]
+        var summary = parseSummary(from: event.content)
 
-        let phase = event.tags(withName: "phase").first?[safe: 1]
-
-        let summary = parseSummary(from: event.content)
+        // Apply pending metadata if it arrived before the thread
+        if let pending = pendingMetadata.removeValue(forKey: event.id) {
+            title = pending.title
+            summary = pending.summary ?? summary
+            phase = pending.phase ?? phase
+        }
 
         let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
 
@@ -93,7 +100,7 @@ public actor ConversationProcessor {
     }
 
     private func processMetadataEvent(_ event: NDKEvent) {
-        guard let eTag = event.tags(withName: "E").first,
+        guard let eTag = event.tags(withName: "e").first,
               eTag.count > 1
         else {
             return
@@ -111,21 +118,23 @@ public actor ConversationProcessor {
 
         let summary = parseSummary(from: event.content)
 
-        guard let existing = threadSummaries[threadID] else {
-            return
+        // If thread exists, update it directly
+        if let existing = threadSummaries[threadID] {
+            threadSummaries[threadID] = ThreadSummary(
+                id: existing.id,
+                pubkey: existing.pubkey,
+                projectCoordinate: existing.projectCoordinate,
+                title: title,
+                summary: summary ?? existing.summary,
+                phase: phase ?? existing.phase,
+                replyCount: existing.replyCount,
+                lastActivity: existing.lastActivity,
+                createdAt: existing.createdAt
+            )
+        } else {
+            // Thread hasn't arrived yet, store metadata for later
+            pendingMetadata[threadID] = (title: title, summary: summary, phase: phase)
         }
-
-        threadSummaries[threadID] = ThreadSummary(
-            id: existing.id,
-            pubkey: existing.pubkey,
-            projectCoordinate: existing.projectCoordinate,
-            title: title,
-            summary: summary ?? existing.summary,
-            phase: phase ?? existing.phase,
-            replyCount: existing.replyCount,
-            lastActivity: existing.lastActivity,
-            createdAt: existing.createdAt
-        )
     }
 
     private func processMessageEvent(_ event: NDKEvent) {
@@ -243,5 +252,6 @@ public actor ConversationProcessor {
         messagesByThread = [:]
         processedMessageIDs = []
         lastReplyByThreadAndAuthor = [:]
+        pendingMetadata = [:]
     }
 }
