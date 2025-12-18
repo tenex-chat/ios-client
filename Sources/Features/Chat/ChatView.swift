@@ -12,32 +12,6 @@ import NDKSwiftCore
 import SwiftUI
 import TENEXCore
 
-// MARK: - MessageGroup
-
-/// Represents a group of messages for collapsing logic
-private enum MessageGroup: Identifiable {
-    case single(Message)
-    case collapsed([Message])
-
-    var id: String {
-        switch self {
-        case let .single(message):
-            return message.id
-        case let .collapsed(messages):
-            // Use the first message ID as stable identifier
-            // This preserves expanded state even when messages are added/removed from the group
-            guard let first = messages.first else {
-                // Empty collapsed group should never occur - this is a programming error
-                assertionFailure("Collapsed message group cannot be empty")
-                return "collapsed-empty-\(UUID().uuidString)"
-            }
-            // Format: "collapsed-{pubkey}-{messageID}"
-            // Using first message ensures stability across group membership changes
-            return "collapsed-\(first.pubkey)-\(first.id)"
-        }
-    }
-}
-
 // MARK: - ScrollOffsetPreferenceKey
 
 /// Preference key for tracking scroll offset to detect user scroll position
@@ -101,9 +75,6 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     // Scroll management state
     @State private var shouldAutoScroll = true
     @State private var lastMessageCount = 0
-
-    /// Message collapsing state - tracks which groups are expanded
-    @State private var expandedGroupIDs: Set<String> = []
 
     private let threadEvent: NDKEvent?
     private let projectReference: String
@@ -428,71 +399,6 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    /// Group messages based on consecutive messages from the same author
-    /// - Parameter messages: The messages to group
-    /// - Returns: An array of MessageGroup representing collapsed or single messages
-    private func groupMessages(_ messages: [Message]) -> [MessageGroup] {
-        var groups: [MessageGroup] = []
-        var currentGroup: [Message] = []
-        var currentPubkey: String?
-
-        for message in messages {
-            // Messages with p-tags should not be collapsed and act as separators
-            if !message.pTaggedPubkeys.isEmpty {
-                // Finalize current group if exists
-                if !currentGroup.isEmpty {
-                    groups.append(contentsOf: self.createGroups(from: currentGroup))
-                    currentGroup = []
-                    currentPubkey = nil
-                }
-                // Add separator message as single
-                groups.append(.single(message))
-                continue
-            }
-
-            // Check if message is from same author as current group
-            if message.pubkey == currentPubkey {
-                currentGroup.append(message)
-            } else {
-                // Different author - finalize current group
-                if !currentGroup.isEmpty {
-                    groups.append(contentsOf: self.createGroups(from: currentGroup))
-                }
-                // Start new group
-                currentGroup = [message]
-                currentPubkey = message.pubkey
-            }
-        }
-
-        // Finalize last group
-        if !currentGroup.isEmpty {
-            groups.append(contentsOf: self.createGroups(from: currentGroup))
-        }
-
-        return groups
-    }
-
-    /// Create MessageGroups from consecutive messages from the same author
-    /// - Parameter messages: The consecutive messages from the same author
-    /// - Returns: An array of MessageGroup items
-    ///   - If count <= 2: returns individual .single items for each message
-    ///   - If count > 2: returns .single for first (with header), .collapsed for middle, .single for last
-    private func createGroups(from messages: [Message]) -> [MessageGroup] {
-        guard messages.count > 2, let firstMessage = messages.first, let lastMessage = messages.last else {
-            // Not enough to collapse, return as individual singles
-            return messages.map { .single($0) }
-        }
-
-        // More than 2 messages: keep first (with header), collapse middle, keep last
-        let middleMessages = Array(messages.dropFirst().dropLast())
-
-        return [
-            .single(firstMessage),
-            .collapsed(middleMessages),
-            .single(lastMessage),
-        ]
-    }
-
     /// Filter messages based on conversation settings
     private func filterMessages(_ messages: [Message], settings: ConversationSettings) -> [Message] {
         messages.filter { message in
@@ -509,113 +415,73 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     @ViewBuilder
     private func messageRows(viewModel: ChatViewModel, messages: [Message]) -> some View {
         let filteredMessages = self.filterMessages(messages, settings: viewModel.conversationSettings)
-        let messageGroups = self.groupMessages(filteredMessages)
+        let displayItems = DisplayModelBuilder.createDisplayModel(from: filteredMessages)
 
-        ForEach(messageGroups) { group in
-            switch group {
-            case let .single(message):
-                self.singleMessageView(
+        ForEach(Array(displayItems.enumerated()), id: \.element.id) { index, item in
+            let isLastItem = index == displayItems.count - 1
+
+            switch item {
+            case let .visible(visibleItem):
+                self.visibleMessageView(
                     viewModel: viewModel,
-                    message: message,
-                    filteredMessages: filteredMessages
+                    visibleItem: visibleItem,
+                    isLastMessage: isLastItem
                 )
 
-            case let .collapsed(collapsedMessages):
-                self.collapsedGroupView(
-                    viewModel: viewModel,
-                    groupID: group.id,
-                    collapsedMessages: collapsedMessages,
-                    filteredMessages: filteredMessages
+            case let .toolGroup(groupItem):
+                ToolGroupView(
+                    group: groupItem,
+                    isConsecutive: groupItem.isConsecutive,
+                    hasNextConsecutive: groupItem.hasNextConsecutive
                 )
+
+            case .metadata:
+                // Metadata items (phase changes) - currently not rendered
+                EmptyView()
             }
         }
     }
 
     @ViewBuilder
-    private func singleMessageView(
+    private func visibleMessageView(
         viewModel: ChatViewModel,
-        message: Message,
-        filteredMessages: [Message]
+        visibleItem: VisibleItem,
+        isLastMessage: Bool
     ) -> some View {
-        if let index = filteredMessages.firstIndex(where: { $0.id == message.id }) {
-            self.messageRowView(
-                viewModel: viewModel,
-                message: message,
-                index: index,
-                messages: filteredMessages
-            )
-        }
-    }
-
-    @ViewBuilder
-    private func collapsedGroupView(
-        viewModel: ChatViewModel,
-        groupID: String,
-        collapsedMessages: [Message],
-        filteredMessages: [Message]
-    ) -> some View {
-        let isExpanded = self.expandedGroupIDs.contains(groupID)
-
-        VStack(spacing: 0) {
-            CollapsedMessagesView(
-                messages: collapsedMessages,
-                isExpanded: Binding(
-                    get: { isExpanded },
-                    set: { newValue in
-                        if newValue {
-                            self.expandedGroupIDs.insert(groupID)
-                        } else {
-                            self.expandedGroupIDs.remove(groupID)
-                        }
-                    }
-                )
-            )
-
-            if isExpanded {
-                ForEach(collapsedMessages) { message in
-                    if let index = filteredMessages.firstIndex(where: { $0.id == message.id }) {
-                        self.messageRowView(
-                            viewModel: viewModel,
-                            message: message,
-                            index: index,
-                            messages: filteredMessages
-                        )
-                    }
-                }
-            }
-        }
+        self.messageRowView(
+            viewModel: viewModel,
+            visibleItem: visibleItem,
+            isLastMessage: isLastMessage
+        )
     }
 
     private func messageRowView(
         viewModel: ChatViewModel,
-        message: Message,
-        index: Int,
-        messages: [Message]
+        visibleItem: VisibleItem,
+        isLastMessage: Bool
     ) -> some View {
-        let isConsecutive = self.isConsecutiveMessage(at: index, in: messages)
-        let hasNextConsecutive = self.hasNextConsecutiveMessage(at: index, in: messages)
-
-        return VStack(spacing: 0) {
-            NavigationLink(value: AppRoute.agentProfile(pubkey: message.pubkey)) {
+        VStack(spacing: 0) {
+            NavigationLink(value: AppRoute.agentProfile(pubkey: visibleItem.message.pubkey)) {
                 MessageRow(
-                    message: message,
+                    message: visibleItem.message,
                     currentUserPubkey: self.currentUserPubkey,
-                    isConsecutive: isConsecutive,
-                    hasNextConsecutive: hasNextConsecutive,
-                    onReplyTap: { self.replyToMessage(message) },
-                    onAgentTap: message.pubkey != self.currentUserPubkey ? {} : nil,
-                    onQuote: { self.quoteMessage(message, viewModel: viewModel) },
+                    isConsecutive: visibleItem.isConsecutive,
+                    hasNextConsecutive: visibleItem.hasNextConsecutive,
+                    onReplyTap: { self.replyToMessage(visibleItem.message) },
+                    onAgentTap: visibleItem.message.pubkey != self.currentUserPubkey ? {} : nil,
+                    onQuote: { self.quoteMessage(visibleItem.message, viewModel: viewModel) },
                     onPlayTTS: TTSCache.shared
-                        .hasCached(messageID: message.id) ? { self.playTTSForMessage(message.id) } : nil,
+                        .hasCached(messageID: visibleItem.message.id) ?
+                        { self.playTTSForMessage(visibleItem.message.id) } : nil,
                     showDebugInfo: false
                 )
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 16)
-            .id(message.id)
+            .id(visibleItem.message.id)
 
             // Track visibility of last message to detect scroll position
-            if index == messages.count - 1 {
+            if isLastMessage {
                 self.scrollPositionTracker
             }
         }
@@ -771,26 +637,6 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
         } else {
             return "\(count) people are typing..."
         }
-    }
-
-    private func isConsecutiveMessage(at index: Int, in messages: [Message]) -> Bool {
-        guard index > 0, index < messages.count else {
-            return false
-        }
-        let currentMessage = messages[index]
-        let previousMessage = messages[index - 1]
-        return currentMessage.pubkey == previousMessage.pubkey &&
-            currentMessage.pTaggedPubkeys.isEmpty
-    }
-
-    private func hasNextConsecutiveMessage(at index: Int, in messages: [Message]) -> Bool {
-        guard index < messages.count - 1 else {
-            return false
-        }
-        let currentMessage = messages[index]
-        let nextMessage = messages[index + 1]
-        return currentMessage.pubkey == nextMessage.pubkey &&
-            nextMessage.pTaggedPubkeys.isEmpty
     }
 
     private func quoteMessage(_ message: Message, viewModel _: ChatViewModel) {
