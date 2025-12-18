@@ -231,6 +231,8 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                 self.backButton
             }
             self.messagesArea(viewModel: viewModel, messages: displayedMessages)
+        }
+        .safeAreaInset(edge: .bottom) {
             self.inputBar(viewModel: viewModel)
         }
         .navigationTitle(self.navigationTitle(viewModel: viewModel))
@@ -350,35 +352,35 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     @ViewBuilder
     private func inputBar(viewModel: ChatViewModel) -> some View {
         if let ndk, let inputVM = inputViewModel {
-            Divider()
-
-            // Show active agents with stop controls when agents are working
-            if let threadID = viewModel.threadID {
-                ActiveAgentsView(
-                    eventId: threadID,
-                    projectReference: self.projectReference,
-                    onlineAgents: self.onlineAgents
-                )
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-            }
-
-            ChatInputView(
-                viewModel: inputVM,
-                dataStore: self.dataStore,
-                ndk: ndk,
-                projectReference: self.projectReference,
-                defaultAgentPubkey: self.mostRecentAgentPubkey(from: viewModel.displayMessages)
-            ) { text, agentPubkey, mentions in
-                Task {
-                    await viewModel.sendMessage(
-                        text: text,
-                        targetAgentPubkey: agentPubkey,
-                        mentionedPubkeys: mentions,
-                        replyTo: inputVM.replyToMessage,
-                        selectedNudges: inputVM.selectedNudges,
-                        selectedBranch: inputVM.selectedBranch
+            VStack(spacing: 0) {
+                // Show active agents with stop controls when agents are working
+                if let threadID = viewModel.threadID {
+                    ActiveAgentsView(
+                        eventId: threadID,
+                        projectReference: self.projectReference,
+                        onlineAgents: self.onlineAgents
                     )
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                }
+
+                ChatInputView(
+                    viewModel: inputVM,
+                    dataStore: self.dataStore,
+                    ndk: ndk,
+                    projectReference: self.projectReference,
+                    defaultAgentPubkey: self.mostRecentAgentPubkey(from: viewModel.displayMessages)
+                ) { text, agentPubkey, mentions in
+                    Task {
+                        await viewModel.sendMessage(
+                            text: text,
+                            targetAgentPubkey: agentPubkey,
+                            mentionedPubkeys: mentions,
+                            replyTo: inputVM.replyToMessage,
+                            selectedNudges: inputVM.selectedNudges,
+                            selectedBranch: inputVM.selectedBranch
+                        )
+                    }
                 }
             }
         }

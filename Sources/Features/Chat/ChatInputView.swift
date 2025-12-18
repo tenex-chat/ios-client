@@ -42,6 +42,34 @@ private extension Color {
     }
 }
 
+// MARK: - Glass Effect Modifiers
+
+private struct GlassTextFieldModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, macOS 26.0, *) {
+            content.glassEffect(.regular, in: .capsule)
+        } else {
+            content
+                .background(Color.platformSecondaryBackground)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+                )
+        }
+    }
+}
+
+private struct GlassCircleButtonModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 26.0, macOS 26.0, *) {
+            content.glassEffect(.regular.interactive(), in: .circle)
+        } else {
+            content
+        }
+    }
+}
+
 // MARK: - ChatInputView
 
 /// Multi-line text input for composing chat messages
@@ -123,6 +151,9 @@ public struct ChatInputView: View {
                 )
             }
         }
+        .sheet(isPresented: self.$showAgentSelector) {
+            AgentSelectorView(viewModel: self.agentSelectorVM)
+        }
     }
 
     // MARK: Private
@@ -133,7 +164,7 @@ public struct ChatInputView: View {
     @State private var showNudgeSelector = false
     @State private var showBranchSelector = false
     @State private var showAgentConfig = false
-    @State private var configAgent: ProjectAgent?
+    @State private var showAgentSelector = false
     @FocusState private var isInputFocused: Bool
 
     /// Dynamic Type scaling for send button
@@ -175,6 +206,15 @@ public struct ChatInputView: View {
         self.viewModel.selectedBranch ?? self.defaultBranch
     }
 
+    /// Dynamic placeholder text showing selected agent
+    private var placeholderText: String {
+        if let pubkey = agentSelectorVM.selectedAgentPubkey,
+           let agent = agentSelectorVM.agents.first(where: { $0.pubkey == pubkey }) {
+            return "Message @\(agent.name)"
+        }
+        return "Message @agent"
+    }
+
     // MARK: - View Components
 
     @ViewBuilder private var replyContextView: some View {
@@ -208,168 +248,112 @@ public struct ChatInputView: View {
     }
 
     private var mainInputArea: some View {
-        VStack(spacing: 12) {
-            self.controlsRow
-
-            if self.viewModel.isExpanded {
-                self.expandedInputBar
-            } else {
-                self.compactInputBar
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color.platformBackground)
+        self.compactInputBar
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
     }
 
-    // MARK: - Controls Row
-
-    private var controlsRow: some View {
-        HStack(spacing: 8) {
-            self.nudgeButton
-            AgentSelectorButton(viewModel: self.agentSelectorVM) { agent in
-                self.configAgent = agent
-                self.showAgentConfig = true
-            }
-            self.branchButton
-            Spacer()
-            self.draftSaveErrorIndicator
-            self.expandButton
-        }
-        .sheet(isPresented: self.$showAgentConfig) {
-            if let agent = configAgent {
-                AgentConfigSheet(
-                    isPresented: self.$showAgentConfig,
-                    agent: agent,
-                    availableModels: self.availableModels,
-                    availableTools: self.availableTools,
-                    projectReference: self.projectReference,
-                    ndk: self.ndk
-                )
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var draftSaveErrorIndicator: some View {
-        if viewModel.draftSaveError != nil {
-            Image(systemName: "exclamationmark.icloud")
-                .font(.subheadline)
-                .foregroundStyle(.red)
-                .help("Draft failed to save")
-                .accessibilityLabel("Draft save error")
-        }
-    }
-
-    private var nudgeButton: some View {
-        Button {
-            self.showNudgeSelector = true
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "square.slash")
-                    .font(.subheadline)
-                if !self.viewModel.selectedNudges.isEmpty {
-                    Text("\(self.viewModel.selectedNudges.count)")
-                        .font(.caption.bold())
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.blue)
-                        .clipShape(Circle())
-                }
-            }
-            .foregroundStyle(.primary)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var branchButton: some View {
-        Button {
-            self.showBranchSelector = true
-        } label: {
-            HStack(spacing: 4) {
-                Image(systemName: "arrow.branch")
-                    .font(.subheadline)
-                if let branch = displayBranch {
-                    Text(branch)
-                        .font(.caption)
-                        .foregroundStyle(.green)
-                }
-            }
-            .foregroundStyle(self.displayBranch != nil ? .green : .primary)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var expandButton: some View {
-        Button {
-            self.viewModel.setExpanded(!self.viewModel.isExpanded)
-        } label: {
-            Image(systemName: self.viewModel.isExpanded ? "chevron.down" : "chevron.up")
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - Input Bars
+    // MARK: - Input Bar
 
     private var compactInputBar: some View {
-        HStack(alignment: .bottom, spacing: 8) {
+        HStack(alignment: .bottom, spacing: 6) {
+            self.atButton
+            self.textInputField
+            self.plusMenuButton
+        }
+    }
+
+    private var textInputField: some View {
+        HStack(alignment: .bottom, spacing: 0) {
             ZStack(alignment: .leading) {
                 if self.viewModel.inputText.isEmpty {
-                    Text("Message...")
-                        .font(.callout)
-                        .foregroundStyle(.tertiary)
-                        .padding(.leading, 4)
+                    Text(self.placeholderText)
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 6)
                 }
                 TextEditor(text: self.$viewModel.inputText)
-                    .font(.callout)
+                    .font(.body)
                     .scrollContentBackground(.hidden)
                     .background(.clear)
                     .focused(self.$isInputFocused)
-                    .frame(minHeight: 36, maxHeight: 120)
+                    .frame(minHeight: 36, maxHeight: 200)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.horizontal, 4)
 
             self.sendButton
+                .padding(.trailing, 2)
+                .padding(.bottom, 2)
         }
-        .padding(.leading, 16)
-        .padding(.trailing, 6)
-        .padding(.vertical, 6)
-        .background(Color.platformSecondaryBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
-        )
+        .padding(.leading, 12)
+        .modifier(GlassTextFieldModifier())
     }
 
-    private var expandedInputBar: some View {
-        VStack(spacing: 8) {
-            TextEditor(text: self.$viewModel.inputText)
-                .font(.system(.body, design: .monospaced))
-                .scrollContentBackground(.hidden)
-                .background(Color.platformSecondaryBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .frame(minHeight: 200, maxHeight: 400)
-                .focused(self.$isInputFocused)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
+    private var atButton: some View {
+        Button {
+            self.showAgentSelector = true
+        } label: {
+            Text("@")
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(
+                    self.agentSelectorVM.selectedAgentPubkey != nil
+                        ? Color.primary
+                        : .secondary
                 )
-                .accessibilityLabel("Message input")
-                .accessibilityHint("Enter your message here")
-
-            HStack {
-                Text("Cmd+Enter to send")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                self.sendButton
-            }
+                .frame(width: 36, height: 36)
+                .modifier(GlassCircleButtonModifier())
         }
+        .buttonStyle(.plain)
+        .padding(.bottom, 2)
+    }
+
+    private var plusMenuButton: some View {
+        Menu {
+            self.nudgesMenuItem
+            self.branchMenuItem
+            Divider()
+            self.agentSettingsMenuItem
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 36, height: 36)
+                .modifier(GlassCircleButtonModifier())
+        }
+        .padding(.bottom, 2)
+    }
+
+    private var nudgesMenuItem: some View {
+        Button {
+            self.showNudgeSelector = true
+        } label: {
+            Label(self.nudgesMenuLabel, systemImage: "square.slash")
+        }
+    }
+
+    private var nudgesMenuLabel: String {
+        self.viewModel.selectedNudges.isEmpty ? "Nudges" : "Nudges (\(self.viewModel.selectedNudges.count))"
+    }
+
+    private var branchMenuItem: some View {
+        Button {
+            self.showBranchSelector = true
+        } label: {
+            Label(self.branchMenuLabel, systemImage: "arrow.branch")
+        }
+    }
+
+    private var branchMenuLabel: String {
+        displayBranch.map { "Branch (\($0))" } ?? "Branch"
+    }
+
+    private var agentSettingsMenuItem: some View {
+        Button {
+            self.showAgentConfig = true
+        } label: {
+            Label("Agent Settings", systemImage: "gearshape")
+        }
+        .disabled(self.agentSelectorVM.selectedAgentPubkey == nil)
     }
 
     private var sendButton: some View {
@@ -408,11 +392,6 @@ public struct ChatInputView: View {
 
     private func handleTextChange(_ newText: String) {
         self.mentionVM.updateInput(text: newText, cursorPosition: newText.count)
-
-        // Auto-expand when text > 300 chars
-        if newText.count > 300, !self.viewModel.isExpanded {
-            self.viewModel.setExpanded(true)
-        }
     }
 
     private func handleAgentSelection(_ pubkey: String?) {

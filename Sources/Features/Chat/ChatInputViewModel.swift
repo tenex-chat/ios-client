@@ -50,9 +50,6 @@ public final class ChatInputViewModel {
     /// Message we're replying to (for swipe-to-reply)
     public private(set) var replyToMessage: Message?
 
-    /// Whether the input bar is expanded
-    public private(set) var isExpanded = false
-
     /// Pubkeys mentioned in the message (for p-tags)
     public private(set) var mentionedPubkeys: [String] = []
 
@@ -138,12 +135,6 @@ public final class ChatInputViewModel {
     /// Clear the reply context
     public func clearReplyTo() {
         self.replyToMessage = nil
-    }
-
-    /// Set the expanded state
-    /// - Parameter expanded: Whether the input should be expanded
-    public func setExpanded(_ expanded: Bool) {
-        self.isExpanded = expanded
     }
 
     /// Clear the input text, mentions, nudges, and reply context
