@@ -60,6 +60,7 @@ public struct MessageRow: View {
     // MARK: Private
 
     @Environment(\.ndk) private var ndk
+    @Environment(\.viewportHeight) private var viewportHeight
     @State private var showRawEvent = false
 
     private let message: Message
@@ -86,7 +87,11 @@ public struct MessageRow: View {
                 )
             }
 
-            MessageContentView(message: self.message)
+            TruncatedContentView(
+                content: MessageContentView(message: self.message),
+                maxHeight: self.viewportHeight * 0.5,
+                message: self.message
+            )
 
             if self.message.replyCount > 0, let onReplyTap, let ndk {
                 ReplyIndicatorView(
