@@ -29,6 +29,11 @@ brew install swiftlint
 # Install dependencies (--path needed as this runs from ci_scripts directory)
 mise exec -- tuist install --path ../
 
+# Patch ElevenlabsSwift for macOS (must run after tuist install, before build)
+SRCROOT="$(cd .. && pwd)"
+export SRCROOT
+../scripts/patch-elevenlabs.sh
+
 # Generate Xcode workspace and project
 mise exec -- tuist generate --path ../ --no-open
 
