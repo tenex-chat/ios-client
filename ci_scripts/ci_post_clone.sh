@@ -6,42 +6,27 @@
 #  This script runs on Xcode Cloud after the repository is cloned.
 #  It sets up the build environment by installing dependencies and generating
 #  the Xcode workspace with Tuist.
+#
+#  Based on: https://docs.tuist.dev/guides/develop/automate/continuous-integration
 
 set -e  # Exit on error
 set -x  # Print commands as they execute
 
-echo "📦 Xcode Cloud Post-Clone Script"
+echo "Xcode Cloud Post-Clone Script"
 echo "================================"
 
-# Install Homebrew if not present (Xcode Cloud doesn't have it by default)
-if ! command -v brew &> /dev/null; then
-    echo "🍺 Installing Homebrew..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+# Install Mise (Tuist's recommended version manager)
+# See: https://mise.jdx.dev/continuous-integration.html#xcode-cloud
+curl https://mise.run | sh
+export PATH="$HOME/.local/bin:$PATH"
 
-    # Add Homebrew to PATH for the current script
-    eval "$(/opt/homebrew/bin/brew shellenv)"
-fi
+# Install tools from .mise.toml (includes Tuist)
+mise install
 
-# Install Tuist
-echo "🔧 Installing Tuist..."
-if ! command -v tuist &> /dev/null; then
-    curl -Ls https://install.tuist.io | bash
-fi
-
-# Add Tuist to PATH
-export PATH="$HOME/.tuist/bin:$PATH"
-
-# Verify Tuist installation
-echo "📋 Tuist version:"
-tuist --version
-
-# Install dependencies
-echo "📥 Installing dependencies..."
-tuist install
+# Install dependencies (--path needed as this runs from ci_scripts directory)
+mise exec -- tuist install --path ../
 
 # Generate Xcode workspace and project
-echo "🏗️  Generating Xcode workspace..."
-tuist generate --no-open
+mise exec -- tuist generate --path ../ --no-open
 
-echo "✅ Xcode Cloud setup complete!"
-echo "================================"
+echo "Xcode Cloud setup complete!"
