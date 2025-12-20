@@ -28,46 +28,43 @@ public final class CallViewModel {
     ///   - projectID: Project identifier
     ///   - agent: Agent to call
     ///   - userPubkey: Current user's pubkey (for filtering messages)
-    ///   - voiceID: Voice ID for TTS (deprecated, use availableVoices and agentVoiceStorage)
+    ///   - availableVoices: Available configured voices from TTS settings
+    ///   - agentVoiceStorage: Storage for agent-specific voice configurations
     ///   - rootEvent: Optional thread to continue (if opening from existing conversation)
     ///   - branchTag: Optional branch tag for voice mode
     ///   - enableVOD: Whether to record the call for playback (Video/Voice on Demand)
     ///   - autoTTS: Whether to automatically speak agent responses
     ///   - vadController: Optional VAD controller for hands-free operation
     ///   - vadMode: Voice activity detection mode
-    ///   - availableVoices: Available configured voices from TTS settings
-    ///   - agentVoiceStorage: Storage for agent-specific voice configurations
     public init(
         audioService: AudioService,
         ndk: NDK,
         projectID: String,
         agent: ProjectAgent,
         userPubkey: String,
-        voiceID: String? = nil,
+        availableVoices: [VoiceConfig],
+        agentVoiceStorage: AgentVoiceConfigStorage,
         rootEvent: NDKEvent? = nil,
         branchTag: String? = nil,
         enableVOD: Bool = true,
         autoTTS: Bool = true,
         vadController: VADController? = nil,
-        vadMode: VADMode = .pushToTalk,
-        availableVoices: [VoiceConfig] = [],
-        agentVoiceStorage: AgentVoiceConfigStorage? = nil
+        vadMode: VADMode = .pushToTalk
     ) {
         self.audioService = audioService
         self.ndk = ndk
         self.projectID = projectID
         self.agent = agent
-        self.voiceID = voiceID
+        self.userPubkey = userPubkey
+        self.availableVoices = availableVoices
+        self.agentVoiceStorage = agentVoiceStorage
         self.threadEvent = rootEvent
         self.currentThreadID = rootEvent?.id
         self.branchTag = branchTag
-        self.userPubkey = userPubkey
         self.enableVOD = enableVOD
         self.autoTTS = autoTTS
         self.vadController = vadController
         self.vadMode = vadMode
-        self.availableVoices = availableVoices
-        self.agentVoiceStorage = agentVoiceStorage ?? AgentVoiceConfigStorage()
     }
 
     // MARK: Public
@@ -86,9 +83,6 @@ public final class CallViewModel {
 
     /// Agent in the call (mutable to allow changing during call)
     public private(set) var agent: ProjectAgent
-
-    /// Voice ID for TTS (from AgentVoiceConfigStorage)
-    public let voiceID: String?
 
     /// Whether mic is muted (VAD won't trigger)
     public private(set) var isMuted = false
@@ -179,7 +173,6 @@ public final class CallViewModel {
             self.ttsQueue = TTSQueue(
                 audioService: self.audioService,
                 userPubkey: self.userPubkey,
-                voiceID: self.voiceID,
                 availableVoices: self.availableVoices,
                 agentVoiceStorage: self.agentVoiceStorage
             )
@@ -445,8 +438,13 @@ public final class CallViewModel {
             if let cachedAudio = TTSCache.shared.audioFor(messageID: messageID) {
                 try await self.audioService.play(audioData: cachedAudio)
             } else {
-                // Not cached - synthesize (which will cache for future)
-                try await self.audioService.speak(text: message.content, voiceID: self.voiceID)
+                // Not cached - synthesize with agent's voice
+                let voiceID = VoiceSelectionHelper.selectVoice(
+                    for: message.pubkey,
+                    availableVoices: self.availableVoices,
+                    agentVoiceStorage: self.agentVoiceStorage
+                )
+                try await self.audioService.speak(text: message.content, voiceID: voiceID)
             }
             self.state = previousState
         } catch {
@@ -547,7 +545,6 @@ public final class CallViewModel {
         self.ttsQueue = TTSQueue(
             audioService: self.audioService,
             userPubkey: self.userPubkey,
-            voiceID: self.voiceID,
             availableVoices: self.availableVoices,
             agentVoiceStorage: self.agentVoiceStorage
         )

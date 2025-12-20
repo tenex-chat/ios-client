@@ -717,12 +717,16 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
             return nil
         }
 
-        // Get voice ID and settings
-        let voiceID = AgentVoiceConfigStorage().config(for: agent.pubkey)?.voiceID
+        // Load AI config for voice settings
         let keychain = KeychainStorage(service: "com.tenex.ai")
-        let storage = UserDefaultsAIConfigStorage(keychain: keychain)
-        let settings = (try? storage.load())?.voiceCallSettings ?? VoiceCallSettings()
+        let configStorage = UserDefaultsAIConfigStorage(keychain: keychain)
+        let aiConfig = try? configStorage.load()
+        let settings = aiConfig?.voiceCallSettings ?? VoiceCallSettings()
         let vadController = self.createVADControllerIfNeeded(settings: settings)
+
+        // Get available voices and agent voice storage
+        let availableVoices = aiConfig?.ttsSettings.voiceConfigs ?? []
+        let agentVoiceStorage = AgentVoiceConfigStorage()
 
         // Create CallViewModel
         return CallViewModel(
@@ -731,11 +735,9 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
             projectID: self.projectReference,
             agent: agent,
             userPubkey: self.currentUserPubkey,
-            voiceID: voiceID,
-            rootEvent: chatViewModel.threadEvent, // Pass existing thread
-            branchTag: nil,
-            enableVOD: true,
-            autoTTS: true,
+            availableVoices: availableVoices,
+            agentVoiceStorage: agentVoiceStorage,
+            rootEvent: chatViewModel.threadEvent,
             vadController: vadController,
             vadMode: settings.vadMode
         )

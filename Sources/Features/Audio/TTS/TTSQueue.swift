@@ -23,21 +23,18 @@ public final class TTSQueue {
     /// - Parameters:
     ///   - audioService: Audio service for TTS playback
     ///   - userPubkey: Current user's public key to filter out user messages
-    ///   - voiceID: Optional voice ID for TTS (deprecated, use availableVoices and agentVoiceStorage)
     ///   - availableVoices: Available configured voices from TTS settings
     ///   - agentVoiceStorage: Storage for agent-specific voice configurations
     public init(
         audioService: AudioService,
         userPubkey: String,
-        voiceID: String? = nil,
-        availableVoices: [VoiceConfig] = [],
-        agentVoiceStorage: AgentVoiceConfigStorage? = nil
+        availableVoices: [VoiceConfig],
+        agentVoiceStorage: AgentVoiceConfigStorage
     ) {
         self.audioService = audioService
         self.userPubkey = userPubkey
-        self.voiceID = voiceID
         self.availableVoices = availableVoices
-        self.agentVoiceStorage = agentVoiceStorage ?? AgentVoiceConfigStorage()
+        self.agentVoiceStorage = agentVoiceStorage
     }
 
     // MARK: Public
@@ -86,11 +83,10 @@ public final class TTSQueue {
                 continue
             }
 
-            // Queue for TTS (voiceID will be determined per-agent when processing)
+            // Queue for TTS (voice will be determined per-agent when processing)
             self.addToQueue(TTSMessage(
                 id: message.id,
                 content: message.content,
-                voiceID: nil,
                 agentPubkey: message.pubkey
             ))
 
@@ -135,7 +131,6 @@ public final class TTSQueue {
 
     private let audioService: AudioService
     private let userPubkey: String
-    private let voiceID: String?
     private let availableVoices: [VoiceConfig]
     private let agentVoiceStorage: AgentVoiceConfigStorage
     private let logger = Logger(subsystem: "com.tenex.ios", category: "TTSQueue")
@@ -163,12 +158,12 @@ public final class TTSQueue {
         self.onPlaybackStateChange?(true)
 
         do {
-            // Determine the voice to use for this specific message
+            // Determine the voice to use for this agent
             let voiceToUse = VoiceSelectionHelper.selectVoice(
                 for: message.agentPubkey,
                 availableVoices: self.availableVoices,
                 agentVoiceStorage: self.agentVoiceStorage
-            ) ?? message.voiceID ?? self.voiceID
+            )
 
             self.logger.info("Playing message \(message.id) from agent \(message.agentPubkey) with voice: \(voiceToUse ?? "default")")
 
@@ -210,6 +205,5 @@ public final class TTSQueue {
 struct TTSMessage {
     let id: String
     let content: String
-    let voiceID: String?
     let agentPubkey: String
 }
