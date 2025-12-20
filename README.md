@@ -48,8 +48,17 @@ tuist install
 tuist generate
 
 # Open in Xcode
-open TENEX.xcodeproj
+open TENEX.xcworkspace
 ```
+
+### Xcode Cloud Setup
+
+This project is configured to build on Xcode Cloud. The `ci_scripts/ci_post_clone.sh` script automatically:
+- Installs Tuist
+- Fetches dependencies
+- Generates the workspace and project files
+
+No additional Xcode Cloud configuration is required.
 
 ### Running Tests
 

@@ -43,11 +43,12 @@ cd tenex-ios
 # Install git hooks
 ./scripts/install-hooks.sh
 
-# Generate Xcode project
+# Fetch dependencies and generate Xcode workspace
+tuist install
 tuist generate
 
 # Open in Xcode
-open TENEX.xcodeproj
+open TENEX.xcworkspace
 ```
 
 ### Verify Setup
