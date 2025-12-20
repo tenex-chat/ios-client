@@ -57,6 +57,13 @@ let project = Project(
             scripts: [
                 .pre(
                     script: """
+                    "$SRCROOT/scripts/generate-build-info.sh"
+                    """,
+                    name: "Generate Build Info",
+                    basedOnDependencyAnalysis: false
+                ),
+                .pre(
+                    script: """
                     "$SRCROOT/scripts/patch-elevenlabs.sh"
                     """,
                     name: "Patch ElevenlabsSwift for macOS",

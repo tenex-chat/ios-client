@@ -23,15 +23,21 @@ public final class TTSQueue {
     /// - Parameters:
     ///   - audioService: Audio service for TTS playback
     ///   - userPubkey: Current user's public key to filter out user messages
-    ///   - voiceID: Optional voice ID for TTS
+    ///   - voiceID: Optional voice ID for TTS (deprecated, use availableVoices and agentVoiceStorage)
+    ///   - availableVoices: Available configured voices from TTS settings
+    ///   - agentVoiceStorage: Storage for agent-specific voice configurations
     public init(
         audioService: AudioService,
         userPubkey: String,
-        voiceID: String?
+        voiceID: String? = nil,
+        availableVoices: [VoiceConfig] = [],
+        agentVoiceStorage: AgentVoiceConfigStorage? = nil
     ) {
         self.audioService = audioService
         self.userPubkey = userPubkey
         self.voiceID = voiceID
+        self.availableVoices = availableVoices
+        self.agentVoiceStorage = agentVoiceStorage ?? AgentVoiceConfigStorage()
     }
 
     // MARK: Public
@@ -80,11 +86,11 @@ public final class TTSQueue {
                 continue
             }
 
-            // Queue for TTS
+            // Queue for TTS (voiceID will be determined per-agent when processing)
             self.addToQueue(TTSMessage(
                 id: message.id,
                 content: message.content,
-                voiceID: self.voiceID,
+                voiceID: nil,
                 agentPubkey: message.pubkey
             ))
 
@@ -130,6 +136,8 @@ public final class TTSQueue {
     private let audioService: AudioService
     private let userPubkey: String
     private let voiceID: String?
+    private let availableVoices: [VoiceConfig]
+    private let agentVoiceStorage: AgentVoiceConfigStorage
     private let logger = Logger(subsystem: "com.tenex.ios", category: "TTSQueue")
 
     // MARK: - Private Methods
@@ -155,6 +163,15 @@ public final class TTSQueue {
         self.onPlaybackStateChange?(true)
 
         do {
+            // Determine the voice to use for this specific message
+            let voiceToUse = VoiceSelectionHelper.selectVoice(
+                for: message.agentPubkey,
+                availableVoices: self.availableVoices,
+                agentVoiceStorage: self.agentVoiceStorage
+            ) ?? message.voiceID ?? self.voiceID
+
+            self.logger.info("Playing message \(message.id) from agent \(message.agentPubkey) with voice: \(voiceToUse ?? "default")")
+
             // Check cache first
             if let cachedAudio = TTSCache.shared.audioFor(messageID: message.id) {
                 self.logger.info("Playing cached audio for message: \(message.id)")
@@ -163,7 +180,7 @@ public final class TTSQueue {
                 // Synthesize, cache, then play
                 let audioData = try await self.audioService.synthesize(
                     text: message.content,
-                    voiceID: message.voiceID
+                    voiceID: voiceToUse
                 )
 
                 // Cache the audio
@@ -171,7 +188,7 @@ public final class TTSQueue {
                     audioData: audioData,
                     messageID: message.id,
                     text: message.content,
-                    voiceID: message.voiceID ?? "",
+                    voiceID: voiceToUse ?? "",
                     agentPubkey: message.agentPubkey
                 )
 

@@ -27,14 +27,16 @@ public final class CallViewModel {
     ///   - ndk: NDK instance for conversation subscriptions
     ///   - projectID: Project identifier
     ///   - agent: Agent to call
-    ///   - voiceID: Voice ID for TTS (from AgentVoiceConfigStorage)
+    ///   - userPubkey: Current user's pubkey (for filtering messages)
+    ///   - voiceID: Voice ID for TTS (deprecated, use availableVoices and agentVoiceStorage)
     ///   - rootEvent: Optional thread to continue (if opening from existing conversation)
     ///   - branchTag: Optional branch tag for voice mode
-    ///   - userPubkey: Current user's pubkey (for filtering messages)
     ///   - enableVOD: Whether to record the call for playback (Video/Voice on Demand)
     ///   - autoTTS: Whether to automatically speak agent responses
     ///   - vadController: Optional VAD controller for hands-free operation
     ///   - vadMode: Voice activity detection mode
+    ///   - availableVoices: Available configured voices from TTS settings
+    ///   - agentVoiceStorage: Storage for agent-specific voice configurations
     public init(
         audioService: AudioService,
         ndk: NDK,
@@ -47,7 +49,9 @@ public final class CallViewModel {
         enableVOD: Bool = true,
         autoTTS: Bool = true,
         vadController: VADController? = nil,
-        vadMode: VADMode = .pushToTalk
+        vadMode: VADMode = .pushToTalk,
+        availableVoices: [VoiceConfig] = [],
+        agentVoiceStorage: AgentVoiceConfigStorage? = nil
     ) {
         self.audioService = audioService
         self.ndk = ndk
@@ -62,6 +66,8 @@ public final class CallViewModel {
         self.autoTTS = autoTTS
         self.vadController = vadController
         self.vadMode = vadMode
+        self.availableVoices = availableVoices
+        self.agentVoiceStorage = agentVoiceStorage ?? AgentVoiceConfigStorage()
     }
 
     // MARK: Public
@@ -173,7 +179,9 @@ public final class CallViewModel {
             self.ttsQueue = TTSQueue(
                 audioService: self.audioService,
                 userPubkey: self.userPubkey,
-                voiceID: self.voiceID
+                voiceID: self.voiceID,
+                availableVoices: self.availableVoices,
+                agentVoiceStorage: self.agentVoiceStorage
             )
 
             self.ttsQueue?.onPlaybackStateChange = { [weak self] isPlaying in
@@ -513,6 +521,8 @@ public final class CallViewModel {
     private let vodActor = VODRecordingActor()
     private var ttsTask: Task<Void, Never>?
     private let vadController: VADController?
+    private let availableVoices: [VoiceConfig]
+    private let agentVoiceStorage: AgentVoiceConfigStorage
 
     // TTS Queue and subscriptions
     private var ttsQueue: TTSQueue?
@@ -537,7 +547,9 @@ public final class CallViewModel {
         self.ttsQueue = TTSQueue(
             audioService: self.audioService,
             userPubkey: self.userPubkey,
-            voiceID: self.voiceID
+            voiceID: self.voiceID,
+            availableVoices: self.availableVoices,
+            agentVoiceStorage: self.agentVoiceStorage
         )
         self.ttsQueue?.onPlaybackStateChange = { [weak self] isPlaying in
             guard let self else {

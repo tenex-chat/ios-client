@@ -94,3 +94,6 @@ junit.xml
 tmp/
 temp/
 .worktrees/
+
+# Generated files
+Sources/Shared/Generated/

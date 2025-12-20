@@ -7,6 +7,7 @@
 import NDKSwiftCore
 import SwiftUI
 import TENEXCore
+import TENEXShared
 
 // MARK: - SettingsView
 
@@ -24,6 +25,7 @@ public struct SettingsView: View {
             self.generalSection
             self.dataSection
             self.developerSection
+            self.aboutSection
         }
         .navigationTitle("Settings")
         #if os(iOS)
@@ -127,6 +129,39 @@ public struct SettingsView: View {
                 )
             }
         }
+    }
+
+    private var aboutSection: some View {
+        Section("About") {
+            HStack {
+                Text("Version")
+                Spacer()
+                Text(appVersion)
+                    .foregroundStyle(.secondary)
+            }
+            HStack {
+                Text("Build")
+                Spacer()
+                Text(buildNumber)
+                    .foregroundStyle(.secondary)
+            }
+            HStack {
+                Text("Commit")
+                Spacer()
+                Text(BuildInfo.commitHash)
+                    .font(.footnote)
+                    .fontDesign(.monospaced)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+    }
+
+    private var buildNumber: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
     }
 
     @ViewBuilder private var aiSettingsView: some View {

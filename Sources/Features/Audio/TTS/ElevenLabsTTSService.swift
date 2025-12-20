@@ -63,7 +63,12 @@ final class ElevenLabsTTSService: TTSService {
 
         do {
             // Use ElevenLabs SDK to synthesize speech - returns URL to audio file
-            let audioURL = try await client.textToSpeech(voice_id: voice, text: text)
+            // Always use English monolingual model to avoid auto-detection
+            let audioURL = try await client.textToSpeech(
+                voice_id: voice,
+                text: text,
+                model: Self.defaultModel
+            )
 
             // Read the audio file data
             let audioData = try Data(contentsOf: audioURL)
@@ -90,6 +95,9 @@ final class ElevenLabsTTSService: TTSService {
 
     /// Default voice ID (Rachel)
     private static let defaultVoiceID = "21m00Tcm4TlvDq8ikWAM"
+
+    /// Default model - English monolingual for best quality and no auto-detection
+    private static let defaultModel = "eleven_monolingual_v1"
 
     private let apiKey: String
     private let client: ElevenlabsSwift
