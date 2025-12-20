@@ -7,6 +7,7 @@
 import NDKSwiftUI
 import SwiftUI
 import TENEXCore
+import TENEXShared
 
 // MARK: - MessageHeaderView
 
@@ -56,6 +57,7 @@ public struct MessageHeaderView: View {
     @Environment(\.ndk) private var ndk
 
     @State private var cursorVisible = false
+    @State private var currentTime = Date()
 
     private var isAgent: Bool {
         self.currentUserPubkey != nil && self.message.pubkey != self.currentUserPubkey
@@ -99,17 +101,24 @@ public struct MessageHeaderView: View {
         Group {
             if let onTimestampTap {
                 Button(action: onTimestampTap) {
-                    Text(self.message.createdAt, style: .relative)
+                    Text(FormattingUtilities.relativeDiscrete(self.message.createdAt))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
                 .buttonStyle(.plain)
             } else {
-                Text(self.message.createdAt, style: .relative)
+                Text(FormattingUtilities.relativeDiscrete(self.message.createdAt))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
         }
+        .onAppear {
+            // Start a timer that updates every minute
+            Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in
+                self.currentTime = Date()
+            }
+        }
+        .id(self.currentTime) // Force refresh when currentTime changes
     }
 
     private var pTaggedUsersView: some View {

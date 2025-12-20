@@ -41,6 +41,7 @@ public struct ThreadListView: View {
 
     @Environment(\.ndk) private var ndk
     @State private var viewModel: ThreadListViewModel?
+    @State private var showingArchivedThreads = false
 
     private let projectID: String
     private let userPubkey: String?
@@ -97,26 +98,8 @@ public struct ThreadListView: View {
 
     private func threadList(viewModel: ThreadListViewModel) -> some View {
         List {
-            ForEach(viewModel.threads) { thread in
-                Group {
-                    if let userPubkey {
-                        NavigationLink {
-                            ThreadChatDestination(
-                                viewModel: viewModel,
-                                thread: thread,
-                                userPubkey: userPubkey
-                            )
-                        } label: {
-                            ThreadRow(thread: thread)
-                        }
-                    } else {
-                        ThreadRow(thread: thread)
-                    }
-                }
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    archiveButton(for: thread, viewModel: viewModel)
-                }
-            }
+            threadRows(viewModel: viewModel)
+            archivedThreadsSection(viewModel: viewModel)
         }
         #if os(iOS)
         .listStyle(.plain)
@@ -126,6 +109,73 @@ public struct ThreadListView: View {
         #else
         .listStyle(.inset)
         #endif
+        .sheet(isPresented: $showingArchivedThreads) {
+            if let ndk {
+                ArchivedThreadsView(
+                    viewModel: viewModel,
+                    userPubkey: userPubkey,
+                    isPresented: $showingArchivedThreads
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func threadRows(viewModel: ThreadListViewModel) -> some View {
+        ForEach(viewModel.threads) { thread in
+            Group {
+                if let userPubkey {
+                    NavigationLink {
+                        ThreadChatDestination(
+                            viewModel: viewModel,
+                            thread: thread,
+                            userPubkey: userPubkey
+                        )
+                    } label: {
+                        ThreadRow(thread: thread)
+                    }
+                } else {
+                    ThreadRow(thread: thread)
+                }
+            }
+            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                archiveButton(for: thread, viewModel: viewModel)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func archivedThreadsSection(viewModel: ThreadListViewModel) -> some View {
+        if viewModel.hasArchivedThreads {
+            Section {
+                archivedThreadsButton(count: viewModel.archivedThreadsCount)
+            }
+        }
+    }
+
+    private func archivedThreadsButton(count: Int) -> some View {
+        Button {
+            showingArchivedThreads = true
+        } label: {
+            HStack {
+                Image(systemName: "archivebox")
+                    .foregroundStyle(.orange)
+                Text("Archived Threads")
+                    .foregroundStyle(.primary)
+                Spacer()
+                Text("\(count)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Color.secondary.opacity(0.1))
+                    .clipShape(Capsule())
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     private func archiveButton(for thread: ThreadSummary, viewModel: ThreadListViewModel) -> some View {
@@ -233,5 +283,88 @@ private struct ThreadChatDestination: View {
         .task {
             threadEvent = await viewModel.getThreadEvent(for: thread.id)
         }
+    }
+}
+
+// MARK: - ArchivedThreadsView
+
+/// View displaying archived threads with unarchive functionality
+struct ArchivedThreadsView: View {
+    let viewModel: ThreadListViewModel
+    let userPubkey: String?
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if viewModel.archivedThreads.isEmpty {
+                    emptyView
+                } else {
+                    archivedThreadsList
+                }
+            }
+            .navigationTitle("Archived Threads")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        isPresented = false
+                    }
+                }
+            }
+        }
+    }
+
+    private var emptyView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "archivebox")
+                .font(.system(size: 60))
+                .foregroundStyle(.orange)
+
+            Text("No Archived Threads")
+                .font(.title)
+                .fontWeight(.semibold)
+
+            Text("Threads you archive will appear here")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var archivedThreadsList: some View {
+        List {
+            ForEach(viewModel.archivedThreads) { thread in
+                Group {
+                    if let userPubkey {
+                        NavigationLink {
+                            ThreadChatDestination(
+                                viewModel: viewModel,
+                                thread: thread,
+                                userPubkey: userPubkey
+                            )
+                        } label: {
+                            ThreadRow(thread: thread)
+                        }
+                    } else {
+                        ThreadRow(thread: thread)
+                    }
+                }
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    unarchiveButton(for: thread)
+                }
+            }
+        }
+        .listStyle(.plain)
+    }
+
+    private func unarchiveButton(for thread: ThreadSummary) -> some View {
+        Button {
+            Task {
+                await viewModel.unarchiveThread(id: thread.id)
+            }
+        } label: {
+            Label("Unarchive", systemImage: "tray.and.arrow.up")
+        }
+        .tint(.blue)
     }
 }

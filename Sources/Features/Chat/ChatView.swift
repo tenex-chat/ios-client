@@ -323,35 +323,25 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     @ViewBuilder
     private func inputBar(viewModel: ChatViewModel) -> some View {
         if let ndk, let inputVM = inputViewModel {
-            VStack(spacing: 0) {
-                // Show active agents with stop controls when agents are working
-                if let threadID = viewModel.threadID {
-                    ActiveAgentsView(
-                        eventId: threadID,
-                        projectReference: self.projectReference,
-                        onlineAgents: self.onlineAgents
+            ChatInputView(
+                viewModel: inputVM,
+                dataStore: self.dataStore,
+                ndk: ndk,
+                projectReference: self.projectReference,
+                defaultAgentPubkey: self.mostRecentAgentPubkey(from: viewModel.displayMessages),
+                eventId: viewModel.threadID,
+                onlineAgents: self.onlineAgents,
+                lastAgentPubkey: self.mostRecentAgentPubkey(from: viewModel.displayMessages)
+            ) { text, agentPubkey, mentions in
+                Task {
+                    await viewModel.sendMessage(
+                        text: text,
+                        targetAgentPubkey: agentPubkey,
+                        mentionedPubkeys: mentions,
+                        replyTo: inputVM.replyToMessage,
+                        selectedNudges: inputVM.selectedNudges,
+                        selectedBranch: inputVM.selectedBranch
                     )
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                }
-
-                ChatInputView(
-                    viewModel: inputVM,
-                    dataStore: self.dataStore,
-                    ndk: ndk,
-                    projectReference: self.projectReference,
-                    defaultAgentPubkey: self.mostRecentAgentPubkey(from: viewModel.displayMessages)
-                ) { text, agentPubkey, mentions in
-                    Task {
-                        await viewModel.sendMessage(
-                            text: text,
-                            targetAgentPubkey: agentPubkey,
-                            mentionedPubkeys: mentions,
-                            replyTo: inputVM.replyToMessage,
-                            selectedNudges: inputVM.selectedNudges,
-                            selectedBranch: inputVM.selectedBranch
-                        )
-                    }
                 }
             }
         }
@@ -473,6 +463,13 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                     onPlayTTS: TTSCache.shared
                         .hasCached(messageID: visibleItem.message.id) ?
                         { self.playTTSForMessage(visibleItem.message.id) } : nil,
+                    onSuggestionTap: { suggestion in
+                        self.handleSuggestionTap(
+                            suggestion: suggestion,
+                            askMessage: visibleItem.message,
+                            viewModel: viewModel
+                        )
+                    },
                     showDebugInfo: false
                 )
             }
@@ -657,6 +654,46 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
 
         Task {
             try? await audioService.play(audioData: audioData)
+        }
+    }
+
+    /// Handle suggestion tap - publish a kind 1111 event with the suggestion text
+    /// Event should include:
+    /// - a tag: project coordinate
+    /// - e tag: the ask event ID (lowercase)
+    /// - E tag: the conversation/thread ID (uppercase)
+    /// - p tag: the agent that authored the ask event
+    private func handleSuggestionTap(suggestion: String, askMessage: Message, viewModel: ChatViewModel) {
+        guard let ndk else {
+            return
+        }
+
+        Task {
+            do {
+                // Use MessagePublisher to send the suggestion as a reply
+                let publisher = MessagePublisher()
+
+                // Get the thread event - required for reply
+                guard let threadEvent = viewModel.threadEvent else {
+                    return
+                }
+
+                // Publish reply with proper tags:
+                // - a tag: project reference (automatically added by publishReply)
+                // - e tag: ask event ID (replyTo parameter)
+                // - E tag: thread ID (automatically added by NDKEventBuilder.reply)
+                // - p tag: agent who authored the ask event (agentPubkey parameter)
+                _ = try await publisher.publishReply(
+                    ndk: ndk,
+                    threadEvent: threadEvent,
+                    content: suggestion,
+                    projectRef: self.projectReference,
+                    agentPubkey: askMessage.pubkey, // The agent that authored the ask event
+                    replyTo: askMessage.id // The ask event ID
+                )
+            } catch {
+                // Failed to publish suggestion - error will be logged by NDK
+            }
         }
     }
 

@@ -8,10 +8,32 @@ import Foundation
 import NDKSwiftCore
 import Observation
 
+// MARK: - FeedViewState
+
+/// Represents the current state of the feed view
+public enum FeedViewState: Equatable {
+    case idle
+    case loading
+    case loaded
+    case error(FeedServiceError)
+
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.idle, .idle), (.loading, .loading), (.loaded, .loaded):
+            return true
+        case let (.error(lhsError), .error(rhsError)):
+            return lhsError.localizedDescription == rhsError.localizedDescription
+        default:
+            return false
+        }
+    }
+}
+
 // MARK: - FeedTabViewModel
 
 /// View model for the Feed Tab
 /// Shows all events that tag the project
+/// Follows MVVM architecture with clear separation of concerns
 @MainActor
 @Observable
 public final class FeedTabViewModel {
@@ -19,14 +41,17 @@ public final class FeedTabViewModel {
 
     /// Initialize the feed tab view model
     /// - Parameters:
-    ///   - ndk: The NDK instance
+    ///   - service: The feed service for network operations
     ///   - projectID: The project identifier
-    public init(ndk: NDK, projectID: String) {
-        self.ndk = ndk
+    public init(service: FeedServiceProtocol, projectID: String) {
+        self.service = service
         self.projectID = projectID
     }
 
     // MARK: Public
+
+    /// Current view state
+    public private(set) var state: FeedViewState = .idle
 
     /// Search query
     public var searchQuery = ""
@@ -72,9 +97,39 @@ public final class FeedTabViewModel {
     }
 
     /// Subscribe to project events
-    public func subscribe() {
-        let filter = NDKFilter(tags: ["a": [projectID]])
-        subscription = ndk.subscribe(filter: filter)
+    public func subscribe() async {
+        guard state != .loading else {
+            return
+        }
+
+        state = .loading
+
+        do {
+            subscription = try await service.subscribeToProject(projectID)
+            state = .loaded
+        } catch let error as FeedServiceError {
+            state = .error(error)
+        } catch {
+            state = .error(.subscriptionFailed)
+        }
+    }
+
+    /// Retry subscription after an error
+    public func retry() async {
+        await subscribe()
+    }
+
+    /// Clear search and filters
+    public func clearFilters() {
+        searchQuery = ""
+        selectedAuthor = nil
+    }
+
+    /// Clean up when view disappears
+    public func cleanup() {
+        service.unsubscribe()
+        subscription = nil
+        state = .idle
     }
 
     // MARK: Internal
@@ -83,7 +138,7 @@ public final class FeedTabViewModel {
 
     // MARK: Private
 
-    private let ndk: NDK
+    private let service: FeedServiceProtocol
     private let projectID: String
 
     /// Check if an event should be included in the feed

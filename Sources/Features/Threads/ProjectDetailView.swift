@@ -127,11 +127,21 @@ public struct ProjectDetailView: View {
     }
 
     private var feedTab: some View {
-        FeedTabView(projectID: self.project.coordinate)
-            .navigationTitle(self.project.title)
-            .tabItem {
-                Label("Feed", systemImage: "list.bullet")
+        Group {
+            if let ndk {
+                FeedTabViewFactory.create(
+                    ndk: ndk,
+                    projectID: self.project.coordinate
+                )
+                .navigationTitle(self.project.title)
+            } else {
+                Text("NDK not available")
+                    .navigationTitle(self.project.title)
             }
+        }
+        .tabItem {
+            Label("Feed", systemImage: "list.bullet")
+        }
     }
 
     @ViewBuilder private var filterMenu: some View {

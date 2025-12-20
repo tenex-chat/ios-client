@@ -47,13 +47,13 @@ private extension Color {
 private struct GlassTextFieldModifier: ViewModifier {
     func body(content: Content) -> some View {
         if #available(iOS 26.0, macOS 26.0, *) {
-            content.glassEffect(.regular, in: .capsule)
+            content.glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         } else {
             content
                 .background(Color.platformSecondaryBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
                 )
         }
@@ -84,6 +84,9 @@ public struct ChatInputView: View {
     ///   - ndk: The NDK instance for profile pictures
     ///   - projectReference: The project reference for agent config
     ///   - defaultAgentPubkey: Optional default agent pubkey (e.g., most recent message author)
+    ///   - eventId: Optional event ID to track active agents for
+    ///   - onlineAgents: List of online agents in the project
+    ///   - lastAgentPubkey: The last agent that spoke (for auto-updating selection)
     ///   - onSend: Callback when message is sent
     public init(
         viewModel: ChatInputViewModel,
@@ -91,11 +94,17 @@ public struct ChatInputView: View {
         ndk: NDK,
         projectReference: String,
         defaultAgentPubkey: String? = nil,
+        eventId: String? = nil,
+        onlineAgents: [ProjectAgent] = [],
+        lastAgentPubkey: String? = nil,
         onSend: @escaping (String, String?, [String]) -> Void
     ) {
         self.ndk = ndk
         self.dataStore = dataStore
         self.projectReference = projectReference
+        self.eventId = eventId
+        self.onlineAgents = onlineAgents
+        self.lastAgentPubkey = lastAgentPubkey
         self.onSend = onSend
         _viewModel = State(initialValue: viewModel)
         _agentSelectorVM = State(initialValue: AgentSelectorViewModel(
@@ -123,6 +132,10 @@ public struct ChatInputView: View {
         }
         .onChange(of: self.agentSelectorVM.selectedAgentPubkey) { _, newPubkey in
             self.handleAgentSelection(newPubkey)
+        }
+        .onChange(of: self.lastAgentPubkey) { _, newAgentPubkey in
+            // Auto-update the selected agent when the last speaking agent changes
+            self.agentSelectorVM.updateDefaultAgent(newAgentPubkey)
         }
         .sheet(isPresented: self.$showNudgeSelector) {
             NudgeSelectorSheet(
@@ -167,6 +180,10 @@ public struct ChatInputView: View {
     @State private var showAgentSelector = false
     @FocusState private var isInputFocused: Bool
 
+    // Pulsing animation state for active agents indicator
+    @State private var pulseScale: CGFloat = 1.0
+    @State private var pulseOpacity: Double = 0.5
+
     /// Dynamic Type scaling for send button
     @ScaledMetric(relativeTo: .body) private var sendButtonSize: CGFloat = 32
     @ScaledMetric(relativeTo: .body) private var sendIconSize: CGFloat = 14
@@ -177,6 +194,9 @@ public struct ChatInputView: View {
     private let ndk: NDK
     private let dataStore: DataStore
     private let projectReference: String
+    private let eventId: String?
+    private let onlineAgents: [ProjectAgent]
+    private let lastAgentPubkey: String?
     private let onSend: (String, String?, [String]) -> Void
 
     /// Available models from project status
@@ -213,6 +233,24 @@ public struct ChatInputView: View {
             return "Message @\(agent.name)"
         }
         return "Message @agent"
+    }
+
+    /// Get active agent pubkeys for this event from DataStore
+    private var activeAgentPubkeys: Set<String> {
+        guard let eventId else {
+            return []
+        }
+        return self.dataStore.activeOperations[eventId] ?? []
+    }
+
+    /// Filter online agents to only those currently active
+    private var activeAgents: [ProjectAgent] {
+        self.onlineAgents.filter { self.activeAgentPubkeys.contains($0.pubkey) }
+    }
+
+    /// Whether any agents are currently working
+    private var hasActiveAgents: Bool {
+        !self.activeAgents.isEmpty
     }
 
     // MARK: - View Components
@@ -265,12 +303,13 @@ public struct ChatInputView: View {
 
     private var textInputField: some View {
         HStack(alignment: .bottom, spacing: 0) {
-            ZStack(alignment: .leading) {
+            ZStack(alignment: .topLeading) {
                 if self.viewModel.inputText.isEmpty {
                     Text(self.placeholderText)
                         .font(.body)
                         .foregroundStyle(.secondary)
-                        .padding(.leading, 6)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 10)
                 }
                 TextEditor(text: self.$viewModel.inputText)
                     .font(.body)
@@ -280,6 +319,7 @@ public struct ChatInputView: View {
                     .frame(minHeight: 36, maxHeight: 200)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            .padding(.vertical, 2)
 
             self.sendButton
                 .padding(.trailing, 2)
@@ -304,23 +344,81 @@ public struct ChatInputView: View {
                 .modifier(GlassCircleButtonModifier())
         }
         .buttonStyle(.plain)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.5)
+                .onEnded { _ in
+                    if self.agentSelectorVM.selectedAgentPubkey != nil {
+                        self.showAgentConfig = true
+                    }
+                }
+        )
         .padding(.bottom, 2)
     }
 
     private var plusMenuButton: some View {
         Menu {
+            // Show stop options first if agents are active
+            if self.hasActiveAgents {
+                self.stopAgentsSection
+                Divider()
+            }
+
             self.nudgesMenuItem
             self.branchMenuItem
             Divider()
             self.agentSettingsMenuItem
         } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(.secondary)
-                .frame(width: 36, height: 36)
-                .modifier(GlassCircleButtonModifier())
+            ZStack {
+                // Icon changes based on active agents
+                Image(systemName: self.hasActiveAgents ? "xmark" : "plus")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(self.hasActiveAgents ? .red : .secondary)
+                    .frame(width: 36, height: 36)
+                    .modifier(GlassCircleButtonModifier())
+
+                // Pulsing indicator when agents are active
+                if self.hasActiveAgents {
+                    Circle()
+                        .fill(Color.red.opacity(0.3))
+                        .frame(width: 36, height: 36)
+                        .scaleEffect(self.pulseScale)
+                        .opacity(self.pulseOpacity)
+                        .onAppear {
+                            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                                self.pulseScale = 1.3
+                                self.pulseOpacity = 0.1
+                            }
+                        }
+                        .onDisappear {
+                            // Reset state for next time
+                            self.pulseScale = 1.0
+                            self.pulseOpacity = 0.5
+                        }
+                }
+            }
         }
         .padding(.bottom, 2)
+        .accessibilityLabel(self.hasActiveAgents ? "Stop active agents or more options" : "More options")
+    }
+
+    @ViewBuilder
+    private var stopAgentsSection: some View {
+        if self.activeAgents.count > 1 {
+            Button(role: .destructive) {
+                Task { await self.stopAllAgents() }
+            } label: {
+                Label("Cancel All", systemImage: "stop.circle.fill")
+            }
+            Divider()
+        }
+
+        ForEach(self.activeAgents, id: \.pubkey) { agent in
+            Button(role: .destructive) {
+                Task { await self.stopAgent(agent.pubkey) }
+            } label: {
+                Label("Cancel \(agent.name)", systemImage: "stop.circle")
+            }
+        }
     }
 
     private var nudgesMenuItem: some View {
@@ -403,5 +501,35 @@ public struct ChatInputView: View {
     private func handleMentionSelection(replacement: String, pubkey: String) {
         self.viewModel.insertMention(replacement: replacement, pubkey: pubkey)
         self.mentionVM.hide()
+    }
+
+    // MARK: - Active Agents Management
+
+    /// Stop a specific agent
+    private func stopAgent(_ pubkey: String) async {
+        guard let eventId else {
+            return
+        }
+        // Stop commands are best-effort - silently ignore errors
+        try? await MessagePublisher().publishStopCommand(
+            ndk: self.ndk,
+            projectRef: self.projectReference,
+            eventId: eventId,
+            agentPubkey: pubkey
+        )
+    }
+
+    /// Stop all active agents
+    private func stopAllAgents() async {
+        guard let eventId else {
+            return
+        }
+        // Stop commands are best-effort - silently ignore errors
+        try? await MessagePublisher().publishStopCommand(
+            ndk: self.ndk,
+            projectRef: self.projectReference,
+            eventId: eventId,
+            agentPubkey: nil // nil means stop all
+        )
     }
 }

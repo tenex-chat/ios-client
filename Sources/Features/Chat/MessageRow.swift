@@ -25,6 +25,7 @@ public struct MessageRow: View {
         onQuote: (() -> Void)? = nil,
         onTimestampTap: (() -> Void)? = nil,
         onPlayTTS: (() -> Void)? = nil,
+        onSuggestionTap: ((String) -> Void)? = nil,
         showDebugInfo: Bool = false
     ) {
         self.message = message
@@ -36,6 +37,7 @@ public struct MessageRow: View {
         self.onQuote = onQuote
         self.onTimestampTap = onTimestampTap
         self.onPlayTTS = onPlayTTS
+        self.onSuggestionTap = onSuggestionTap
         self.showDebugInfo = showDebugInfo
         self.isAgent = currentUserPubkey != nil && message.pubkey != currentUserPubkey
     }
@@ -71,6 +73,7 @@ public struct MessageRow: View {
     private let onQuote: (() -> Void)?
     private let onTimestampTap: (() -> Void)?
     private let onPlayTTS: (() -> Void)?
+    private let onSuggestionTap: ((String) -> Void)?
     private let showDebugInfo: Bool
     private let isAgent: Bool
 
@@ -162,20 +165,23 @@ public struct MessageRow: View {
     }
 
     private var suggestionsView: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 8) {
             ForEach(self.message.suggestions, id: \.self) { suggestion in
-                Button {} label: {
+                Button {
+                    self.onSuggestionTap?(suggestion)
+                } label: {
                     Text(suggestion)
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
+                        .font(.subheadline)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .background(Color.blue.opacity(0.1))
-                        .cornerRadius(4)
+                        .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.top, 4)
+        .padding(.top, 8)
     }
 
     @ViewBuilder private var contextMenuContent: some View {

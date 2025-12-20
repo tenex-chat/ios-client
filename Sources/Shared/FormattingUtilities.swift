@@ -33,6 +33,36 @@ public enum FormattingUtilities {
         return formatter.localizedString(for: date, relativeTo: Date())
     }
 
+    /// Format a date as relative time with appropriate granularity
+    /// - Returns "just now" for messages less than 60 seconds old
+    /// - Returns time in minutes/hours/days for older messages
+    /// This prevents constant UI updates while still showing relative time
+    public static func relativeDiscrete(_ date: Date) -> String {
+        let secondsAgo = Date().timeIntervalSince(date)
+
+        if secondsAgo < 60 {
+            return "just now"
+        } else if secondsAgo < 3600 {
+            let minutes = Int(secondsAgo / 60)
+            return "\(minutes)m ago"
+        } else if secondsAgo < 86_400 {
+            let hours = Int(secondsAgo / 3600)
+            return "\(hours)h ago"
+        } else if secondsAgo < 604_800 {
+            let days = Int(secondsAgo / 86_400)
+            return "\(days)d ago"
+        } else if secondsAgo < 2_592_000 {
+            let weeks = Int(secondsAgo / 604_800)
+            return "\(weeks)w ago"
+        } else if secondsAgo < 31_536_000 {
+            let months = Int(secondsAgo / 2_592_000)
+            return "\(months)mo ago"
+        } else {
+            let years = Int(secondsAgo / 31_536_000)
+            return "\(years)y ago"
+        }
+    }
+
     // MARK: - Byte Formatting
 
     /// Format bytes as human-readable string

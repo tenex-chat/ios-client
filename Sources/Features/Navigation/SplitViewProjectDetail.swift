@@ -68,10 +68,19 @@ struct SplitViewProjectDetail: View {
     }
 
     private var feedTab: some View {
-        FeedTabView(projectID: self.project.coordinate)
-            .tabItem {
-                Label("Feed", systemImage: "list.bullet")
+        Group {
+            if let ndk {
+                FeedTabViewFactory.create(
+                    ndk: ndk,
+                    projectID: self.project.coordinate
+                )
+            } else {
+                Text("NDK not available")
             }
+        }
+        .tabItem {
+            Label("Feed", systemImage: "list.bullet")
+        }
     }
 }
 

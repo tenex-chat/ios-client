@@ -38,7 +38,6 @@ public final class SyncManager {
     /// Maximum number of sync history entries to keep
     public static let maxHistoryCount = 50
 
-
     /// All sync runs (most recent first)
     public private(set) var syncHistory: [SyncRun] = []
 

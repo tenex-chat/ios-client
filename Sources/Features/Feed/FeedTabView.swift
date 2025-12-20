@@ -10,38 +10,97 @@ import SwiftUI
 // MARK: - FeedTabView
 
 /// View displaying the feed of project events
+/// This is a "dumb" view that only knows how to display data
+/// All business logic is handled by the FeedTabViewModel
 public struct FeedTabView: View {
     // MARK: Lifecycle
 
     /// Initialize the feed tab view
     /// - Parameters:
-    ///   - projectID: The project identifier
+    ///   - viewModel: The view model managing feed state and data
     ///   - onEventClick: Optional callback when an event is tapped
-    public init(projectID: String, onEventClick: ((NDKEvent) -> Void)? = nil) {
-        self.projectID = projectID
+    public init(
+        viewModel: FeedTabViewModel,
+        onEventClick: ((NDKEvent) -> Void)? = nil
+    ) {
+        self.viewModel = viewModel
         self.onEventClick = onEventClick
     }
 
     // MARK: Public
 
     public var body: some View {
-        Group {
-            if let ndk {
-                contentView(ndk: ndk)
-            } else {
-                Text("NDK not available")
+        contentView
+            .task {
+                await viewModel.subscribe()
             }
-        }
+            .onDisappear {
+                viewModel.cleanup()
+            }
     }
 
     // MARK: Private
 
     @Environment(\.ndk) private var ndk
-    @State private var viewModel: FeedTabViewModel?
-    @State private var showFilterMenu = false
 
-    private let projectID: String
+    @Bindable private var viewModel: FeedTabViewModel
     private let onEventClick: ((NDKEvent) -> Void)?
+
+    // MARK: - Content View
+
+    @ViewBuilder
+    private var contentView: some View {
+        switch viewModel.state {
+        case .idle:
+            emptyView
+
+        case .loading:
+            loadingView
+
+        case .loaded:
+            loadedContent
+
+        case let .error(error):
+            errorView(error: error)
+        }
+    }
+
+    // MARK: - State Views
+
+    private var loadingView: some View {
+        VStack(spacing: 20) {
+            ProgressView()
+                .scaleEffect(1.5)
+
+            Text("Loading feed...")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func errorView(error: FeedServiceError) -> some View {
+        VStack(spacing: 20) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 60))
+                .foregroundStyle(.orange)
+
+            Text("Error Loading Feed")
+                .font(.headline)
+
+            Text(error.localizedDescription)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+
+            Button("Retry") {
+                Task {
+                    await viewModel.retry()
+                }
+            }
+            .buttonStyle(.borderedProminent)
+        }
+    }
 
     private var emptyView: some View {
         VStack(spacing: 20) {
@@ -75,58 +134,41 @@ public struct FeedTabView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
 
-            if let vm = viewModel {
-                Button("Clear search") {
-                    vm.searchQuery = ""
-                }
-                .buttonStyle(.bordered)
+            Button("Clear Filters") {
+                viewModel.clearFilters()
             }
+            .buttonStyle(.bordered)
         }
     }
 
-    @ViewBuilder
-    private func contentView(ndk: NDK) -> some View {
-        let vm = viewModel ?? FeedTabViewModel(ndk: ndk, projectID: projectID)
+    // MARK: - Loaded Content
 
+    @ViewBuilder
+    private var loadedContent: some View {
         VStack(spacing: 0) {
             // Search bar - only show when there are events
-            if !vm.events.isEmpty {
+            if !viewModel.events.isEmpty, let ndk {
                 FeedSearchBar(
-                    searchQuery: Binding(
-                        get: { vm.searchQuery },
-                        set: { vm.searchQuery = $0 }
-                    ),
-                    selectedAuthor: Binding(
-                        get: { vm.selectedAuthor },
-                        set: { vm.selectedAuthor = $0 }
-                    ),
-                    groupThreads: Binding(
-                        get: { vm.groupThreads },
-                        set: { vm.groupThreads = $0 }
-                    ),
-                    uniqueAuthors: vm.uniqueAuthors,
+                    searchQuery: $viewModel.searchQuery,
+                    selectedAuthor: $viewModel.selectedAuthor,
+                    groupThreads: $viewModel.groupThreads,
+                    uniqueAuthors: viewModel.uniqueAuthors,
                     ndk: ndk
                 )
             }
 
-            // Event list or empty states
-            if vm.events.isEmpty {
+            // Event list or empty/no-results states
+            if viewModel.events.isEmpty {
                 emptyView
-            } else if vm.filteredEvents.isEmpty {
+            } else if viewModel.filteredEvents.isEmpty {
                 noResultsView
-            } else {
-                eventList(viewModel: vm, ndk: ndk)
+            } else if let ndk {
+                eventList(ndk: ndk)
             }
-        }
-        .task {
-            if viewModel == nil {
-                viewModel = vm
-            }
-            await vm.subscribe()
         }
     }
 
-    private func eventList(viewModel: FeedTabViewModel, ndk: NDK) -> some View {
+    private func eventList(ndk: NDK) -> some View {
         List {
             ForEach(viewModel.filteredEvents, id: \.id) { event in
                 FeedEventRow(event: event, ndk: ndk)

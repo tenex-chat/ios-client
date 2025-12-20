@@ -68,6 +68,22 @@ public final class ThreadListViewModel {
         store.subscription?.error?.localizedDescription
     }
 
+    /// Whether there are any archived threads
+    public var hasArchivedThreads: Bool {
+        !archiveStorage.archivedThreadIDs().isEmpty
+    }
+
+    /// Count of archived threads
+    public var archivedThreadsCount: Int {
+        archiveStorage.archivedThreadIDs().count
+    }
+
+    /// Get archived threads with summaries
+    public var archivedThreads: [ThreadSummary] {
+        let archivedIDs = archiveStorage.archivedThreadIDs()
+        return store.sortedThreads.filter { archivedIDs.contains($0.id) }
+    }
+
     /// Subscribe to all thread-related events
     public func subscribe() {
         Logger().info("[ThreadListViewModel] subscribe() called for projectID: \(self.projectID)")

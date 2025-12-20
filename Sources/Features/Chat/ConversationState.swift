@@ -54,6 +54,10 @@ public final class ConversationState {
     /// Typing indicators keyed by pubkey
     public private(set) var typingIndicators: [String: NDKEvent] = [:]
 
+    /// Parent event IDs that have been finalized (to ignore late streaming chunks)
+    /// Key is "pubkey:parentEventID" to handle agents replying to multiple messages
+    private var finalizedResponses: Set<String> = []
+
     /// Merged display list: root + direct replies + streaming, sorted by time.
     /// Only shows root and its direct replies (nested replies are hidden behind reply indicators).
     /// Includes computed reply metadata (replyCount, replyAuthorPubkeys) for messages with nested replies.
@@ -126,6 +130,7 @@ public final class ConversationState {
         self.messages.removeAll()
         self.streamingSessions.removeAll()
         self.typingIndicators.removeAll()
+        self.finalizedResponses.removeAll()
     }
 
     /// Add a message directly (e.g., the root thread event which isn't returned by subscriptions)
@@ -166,20 +171,22 @@ public final class ConversationState {
         // Trigger callback for agent messages (for auto-TTS)
         self.onAgentMessage?(message)
 
+        // Mark this response as finalized so late streaming chunks are ignored
+        // Use pubkey:parentEventID as key to handle agents replying to multiple messages
+        if let parentEventID = event.tagValue("e") {
+            self.finalizedResponses.insert("\(event.pubkey):\(parentEventID)")
+        }
+
         // Clear streaming session immediately
-        // (Late chunks are already handled by hasFinalized check in handleStreamingEvent)
         // Typing indicators are managed by updateTypingIndicators() based on stream state
         self.streamingSessions.removeValue(forKey: event.pubkey)
     }
 
     private func handleStreamingEvent(_ event: NDKEvent) {
-        // Check if already finalized (match by pubkey + createdAt)
-        let hasFinalized = self.messages.values.contains { message in
-            message.pubkey == event.pubkey &&
-                Int64(message.createdAt.timeIntervalSince1970) == event.createdAt
-        }
-        if hasFinalized {
-            return // Ignore late chunk
+        // Ignore late streaming chunks for responses that have already been finalized
+        if let parentEventID = event.tagValue("e"),
+           self.finalizedResponses.contains("\(event.pubkey):\(parentEventID)") {
+            return
         }
 
         // Get or create streaming session

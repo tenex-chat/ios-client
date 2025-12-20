@@ -52,6 +52,9 @@ public final class AgentSelectorViewModel: Identifiable {
     /// Whether the selector sheet is presented
     public var isPresented = false
 
+    /// Whether the user has manually selected an agent (to prevent auto-updates)
+    private var hasManualSelection = false
+
     /// List of online agents from ProjectStatus (sorted: PM first, then alphabetical)
     public var agents: [ProjectAgent] {
         if let agentsList {
@@ -75,6 +78,22 @@ public final class AgentSelectorViewModel: Identifiable {
     /// - Parameter pubkey: The agent's Nostr pubkey
     public func selectAgent(_ pubkey: String) {
         self.selectedAgentPubkey = pubkey
+        self.hasManualSelection = true
+    }
+
+    /// Update the default agent (auto-selection from last message)
+    /// Only updates if the user hasn't manually selected an agent
+    /// - Parameter pubkey: The agent's Nostr pubkey to set as default
+    public func updateDefaultAgent(_ pubkey: String?) {
+        guard !hasManualSelection else {
+            return
+        }
+        self.selectedAgentPubkey = pubkey
+    }
+
+    /// Reset manual selection flag (e.g., when starting a new thread)
+    public func resetManualSelection() {
+        self.hasManualSelection = false
     }
 
     /// Present the agent selector sheet
