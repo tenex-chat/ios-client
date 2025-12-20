@@ -116,7 +116,7 @@ public actor ConversationProcessor {
 
         let phase = event.tags(withName: "phase").first?[safe: 1]
 
-        let summary = parseSummary(from: event.content)
+        let summary = event.tags(withName: "summary").first?[safe: 1]
 
         // If thread exists, update it directly
         if let existing = threadSummaries[threadID] {
