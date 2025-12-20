@@ -23,6 +23,9 @@ export PATH="$HOME/.local/bin:$PATH"
 # Install tools from .mise.toml (includes Tuist)
 mise install
 
+# Install SwiftLint (required by build phases in Project.swift)
+brew install swiftlint
+
 # Install dependencies (--path needed as this runs from ci_scripts directory)
 mise exec -- tuist install --path ../
 
