@@ -64,11 +64,7 @@ public struct ProjectDetailView: View {
             }
 
             ToolbarItem(placement: .secondaryAction) {
-                Button {
-                    self.showingSettings = true
-                } label: {
-                    Label("Settings", systemImage: "gear")
-                }
+                self.settingsMenu
             }
         }
         .sheet(isPresented: self.$showingSettings) {
@@ -83,6 +79,7 @@ public struct ProjectDetailView: View {
     @State private var showingSettings = false
     @State private var selectedTab = 0
     @State private var filtersStore = ThreadFiltersStore()
+    @State private var showArchived = false
 
     private let project: Project
 
@@ -90,7 +87,8 @@ public struct ProjectDetailView: View {
         ThreadListView(
             projectID: self.project.coordinate,
             userPubkey: self.authManager.activePubkey,
-            filtersStore: self.filtersStore
+            filtersStore: self.filtersStore,
+            showArchived: self.$showArchived
         )
         .navigationTitle(self.project.title)
         .tabItem {
@@ -190,6 +188,32 @@ public struct ProjectDetailView: View {
                     ? "line.3.horizontal.decrease.circle.fill"
                     : "line.3.horizontal.decrease.circle"
             )
+        }
+    }
+
+    @ViewBuilder private var settingsMenu: some View {
+        Menu {
+            // Only show this option on threads tab
+            if self.selectedTab == 0 {
+                Button {
+                    self.showArchived.toggle()
+                } label: {
+                    Label(
+                        self.showArchived ? "Hide Archived Conversations" : "View Archived Conversations",
+                        systemImage: self.showArchived ? "archivebox.fill" : "archivebox"
+                    )
+                }
+
+                Divider()
+            }
+
+            Button {
+                self.showingSettings = true
+            } label: {
+                Label("Project Settings", systemImage: "gearshape")
+            }
+        } label: {
+            Label("Settings", systemImage: "gear")
         }
     }
 }

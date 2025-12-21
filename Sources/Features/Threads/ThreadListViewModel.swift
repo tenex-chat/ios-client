@@ -43,6 +43,9 @@ public final class ThreadListViewModel {
 
     // MARK: Public
 
+    /// Whether to show archived threads in the main list
+    public var showArchived: Bool = false
+
     /// Get thread event for navigation (async)
     /// - Parameter threadID: The thread ID
     /// - Returns: The NDKEvent for the thread, or nil
@@ -52,7 +55,7 @@ public final class ThreadListViewModel {
 
     /// The list of threads (already processed by store, just apply filters)
     public var threads: [ThreadSummary] {
-        var filteredThreads = filterArchivedThreads(from: store.sortedThreads)
+        var filteredThreads = showArchived ? store.sortedThreads : filterArchivedThreads(from: store.sortedThreads)
 
         // Apply time-based filter if one is set
         let activeFilter = filtersStore.getFilter(for: projectID)
