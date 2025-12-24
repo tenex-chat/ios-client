@@ -7,11 +7,12 @@
 import NDKSwiftUI
 import SwiftUI
 import TENEXCore
+import TENEXShared
 
 // MARK: - AgentSelectorView
 
-/// Agent selector sheet for choosing which agent to chat with
-/// Displays online agents from ProjectStatus (kind:24010)
+/// Agent selector sheet for choosing which agent or hashtag to route messages to
+/// Displays online agents from ProjectStatus (kind:24010) and available hashtags
 public struct AgentSelectorView: View {
     // MARK: Lifecycle
 
@@ -29,15 +30,15 @@ public struct AgentSelectorView: View {
     public var body: some View {
         NavigationStack {
             List {
-                if self.viewModel.agents.isEmpty {
-                    self.emptyState
-                } else {
-                    ForEach(self.viewModel.agents) { agent in
-                        self.agentRow(agent)
-                    }
+                // Hashtags section
+                if !self.viewModel.availableHashtags.isEmpty {
+                    self.hashtagsSection
                 }
+
+                // Agents section
+                self.agentsSection
             }
-            .navigationTitle("Select Agent")
+            .navigationTitle("Route Message")
             #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -49,7 +50,7 @@ public struct AgentSelectorView: View {
                     }
                 }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
     }
 
@@ -59,6 +60,66 @@ public struct AgentSelectorView: View {
     @State private var viewModel: AgentSelectorViewModel
 
     private let onSettings: ((ProjectAgent) -> Void)?
+
+    // MARK: - Hashtags Section
+
+    private var hashtagsSection: some View {
+        Section {
+            ForEach(self.viewModel.availableHashtags, id: \.self) { hashtag in
+                self.hashtagRow(hashtag)
+            }
+        } header: {
+            Label("Topics", systemImage: "number")
+        }
+    }
+
+    private func hashtagRow(_ hashtag: String) -> some View {
+        Button {
+            self.viewModel.selectHashtag(hashtag)
+            self.viewModel.dismissSelector()
+        } label: {
+            HStack(spacing: 12) {
+                self.hashtagIcon(for: hashtag)
+                Text("#\(hashtag)")
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.primary)
+                Spacer()
+                if self.viewModel.selectedHashtag == hashtag {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(Color.deterministicColor(for: hashtag, saturation: 65, lightness: 45))
+                }
+            }
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func hashtagIcon(for hashtag: String) -> some View {
+        let color = Color.deterministicColor(for: hashtag, saturation: 65, lightness: 45)
+        return Image(systemName: "number")
+            .font(.callout.weight(.semibold))
+            .foregroundStyle(.white)
+            .frame(width: 40, height: 40)
+            .background(color, in: Circle())
+    }
+
+    // MARK: - Agents Section
+
+    private var agentsSection: some View {
+        Section {
+            if self.viewModel.agents.isEmpty {
+                self.emptyState
+            } else {
+                ForEach(self.viewModel.agents) { agent in
+                    self.agentRow(agent)
+                }
+            }
+        } header: {
+            Label("Agents", systemImage: "sparkles")
+        }
+    }
 
     private var emptyState: some View {
         ContentUnavailableView {
@@ -160,7 +221,7 @@ public struct AgentSelectorView: View {
 
 // MARK: - AgentSelectorButton
 
-/// Compact chip button to show currently selected agent and open selector
+/// Compact chip button to show currently selected agent or hashtag and open selector
 public struct AgentSelectorButton: View {
     // MARK: Lifecycle
 
@@ -204,12 +265,20 @@ public struct AgentSelectorButton: View {
     }
 
     @ViewBuilder private var buttonIcon: some View {
-        if let agent = viewModel.selectedAgent {
+        if let hashtag = viewModel.selectedHashtag {
+            // Show hashtag when selected
+            self.hashtagIcon(for: hashtag)
+            Text("#\(hashtag)")
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.primary)
+        } else if let agent = viewModel.selectedAgent {
+            // Show agent when selected
             self.agentAvatar(for: agent)
             Text(agent.name)
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.primary)
         } else {
+            // No selection
             Image(systemName: "sparkles")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
@@ -217,6 +286,15 @@ public struct AgentSelectorButton: View {
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private func hashtagIcon(for hashtag: String) -> some View {
+        let color = Color.deterministicColor(for: hashtag, saturation: 65, lightness: 45)
+        return Image(systemName: "number")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.white)
+            .frame(width: 20, height: 20)
+            .background(color, in: Circle())
     }
 
     private var chevron: some View {

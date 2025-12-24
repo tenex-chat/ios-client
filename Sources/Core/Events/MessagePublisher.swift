@@ -29,7 +29,8 @@ public final class MessagePublisher {
     ///   - ndk: NDK instance for publishing
     ///   - content: Message content
     ///   - projectRef: Project reference coordinate
-    ///   - agentPubkey: Agent public key for routing
+    ///   - agentPubkey: Agent public key for routing (nil when using hashtag routing)
+    ///   - hashtag: Optional hashtag for topic-based routing (mutually exclusive with agent)
     ///   - mentions: Additional mentioned pubkeys
     ///   - nudges: Nudge IDs
     ///   - branch: Optional branch tag
@@ -39,7 +40,8 @@ public final class MessagePublisher {
         ndk: NDK,
         content: String,
         projectRef: String,
-        agentPubkey: String,
+        agentPubkey: String? = nil,
+        hashtag: String? = nil,
         mentions: [String] = [],
         nudges: [String] = [],
         branch: String? = nil,
@@ -50,6 +52,7 @@ public final class MessagePublisher {
             content: content,
             projectRef: projectRef,
             agentPubkey: agentPubkey,
+            hashtag: hashtag,
             mentions: mentions,
             nudges: nudges,
             branch: branch,
@@ -145,11 +148,13 @@ public final class MessagePublisher {
 
     // swiftlint:disable function_parameter_count
     /// Build tags for a new thread (kind:11)
+    /// Supports either agent-based routing (p-tag) or hashtag-based routing (t-tag)
     private nonisolated func buildThreadTags(
         ndk: NDK,
         content: String,
         projectRef: String,
-        agentPubkey: String,
+        agentPubkey: String?,
+        hashtag: String?,
         mentions: [String],
         nudges: [String],
         branch: String?,
@@ -167,25 +172,40 @@ public final class MessagePublisher {
         let title = String(content.prefix(50))
         builder = builder.tag(["title", title])
 
-        // Extract hashtags from content and add as t tags
+        // Add selected hashtag first if provided (for topic-based routing)
+        if let hashtag {
+            builder = builder.tag(["t", hashtag.lowercased()])
+        }
+
+        // Extract additional hashtags from content and add as t tags
         let pattern = "#(\\w+)"
         if let regex = try? NSRegularExpression(pattern: pattern, options: []) {
             let range = NSRange(content.startIndex..., in: content)
             let matches = regex.matches(in: content, options: [], range: range)
             for match in matches {
                 if let tagRange = Range(match.range(at: 1), in: content) {
-                    let hashtag = String(content[tagRange]).lowercased()
-                    builder = builder.tag(["t", hashtag])
+                    let extractedHashtag = String(content[tagRange]).lowercased()
+                    // Avoid duplicating the selected hashtag
+                    if extractedHashtag != hashtag?.lowercased() {
+                        builder = builder.tag(["t", extractedHashtag])
+                    }
                 }
             }
         }
 
-        // Add agent p-tag (required for new threads)
-        builder = builder.tag(["p", agentPubkey])
+        // Add agent p-tag only if agent is selected (not when using hashtag routing)
+        if let agentPubkey {
+            builder = builder.tag(["p", agentPubkey])
 
-        // Add mentioned p-tags (excluding agent if already added)
-        for pubkey in mentions where pubkey != agentPubkey {
-            builder = builder.tag(["p", pubkey])
+            // Add mentioned p-tags (excluding agent if already added)
+            for pubkey in mentions where pubkey != agentPubkey {
+                builder = builder.tag(["p", pubkey])
+            }
+        } else {
+            // When using hashtag routing, still add mentioned p-tags
+            for pubkey in mentions {
+                builder = builder.tag(["p", pubkey])
+            }
         }
 
         // Add nudge tags

@@ -64,6 +64,9 @@ public final class ChatInputViewModel {
         }
     }
 
+    /// The selected hashtag for topic-based routing (mutually exclusive with agent)
+    public var selectedHashtag: String?
+
     /// Error that occurred during draft save/restore operations
     public private(set) var draftSaveError: Error?
 
@@ -76,16 +79,18 @@ public final class ChatInputViewModel {
     /// Task for debounced save operation
     private var debounceSaveTask: Task<Void, Never>?
 
-    /// Whether an agent is required to send (computed from isNewThread)
-    public var requiresAgent: Bool {
+    /// Whether routing is required (agent or hashtag) for new threads
+    public var requiresRouting: Bool {
         self.isNewThread
     }
 
     /// Whether the send button should be enabled
+    /// For new threads: requires either an agent or a hashtag
+    /// For replies: can send without routing
     public var canSend: Bool {
         let hasText = !self.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let hasAgentIfRequired = !self.requiresAgent || self.selectedAgent != nil
-        return hasText && hasAgentIfRequired
+        let hasRoutingIfRequired = !self.requiresRouting || self.selectedAgent != nil || self.selectedHashtag != nil
+        return hasText && hasRoutingIfRequired
     }
 
     /// Select an agent
@@ -137,11 +142,12 @@ public final class ChatInputViewModel {
         self.replyToMessage = nil
     }
 
-    /// Clear the input text, mentions, nudges, and reply context
+    /// Clear the input text, mentions, nudges, hashtag, and reply context
     public func clearInput() {
         self.inputText = ""
         self.mentionedPubkeys = []
         self.selectedNudges = []
+        self.selectedHashtag = nil
         self.replyToMessage = nil
 
         // Delete draft when input is cleared (e.g., after sending)

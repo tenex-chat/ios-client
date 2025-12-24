@@ -168,7 +168,8 @@ public final class ChatViewModel {
         replyTo: Message? = nil,
         selectedNudges: [String] = [],
         selectedBranch: String? = nil,
-        customTags: [[String]] = []
+        customTags: [[String]] = [],
+        hashtag: String? = nil
     ) async {
         // Validate message text
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -176,15 +177,16 @@ public final class ChatViewModel {
             return
         }
 
-        // For new threads, agent is required
+        // For new threads, either agent or hashtag is required
         if self.isNewThread {
-            guard let targetAgentPubkey else {
-                self.errorMessage = "Please select an agent to start a thread"
+            guard targetAgentPubkey != nil || hashtag != nil else {
+                self.errorMessage = "Please select an agent or topic to start a thread"
                 return
             }
             await self.createThread(
                 content: trimmedText,
                 agentPubkey: targetAgentPubkey,
+                hashtag: hashtag,
                 mentionedPubkeys: mentionedPubkeys,
                 selectedNudges: selectedNudges,
                 selectedBranch: selectedBranch
@@ -246,9 +248,10 @@ public final class ChatViewModel {
     }
 
     /// Create a new thread (kind:11)
-    private func createThread(
+    private func createThread( // swiftlint:disable:this function_parameter_count
         content: String,
-        agentPubkey: String,
+        agentPubkey: String?,
+        hashtag: String?,
         mentionedPubkeys: [String],
         selectedNudges: [String],
         selectedBranch: String?
@@ -260,6 +263,7 @@ public final class ChatViewModel {
                 content: content,
                 projectRef: self.projectReference,
                 agentPubkey: agentPubkey,
+                hashtag: hashtag,
                 mentions: mentionedPubkeys,
                 nudges: selectedNudges,
                 branch: selectedBranch

@@ -59,6 +59,8 @@ public struct ThreadSummary: Identifiable, Sendable {
     public let summary: String?
     /// Optional phase tag
     public let phase: String?
+    /// Hashtags (t-tags) associated with this thread
+    public let hashtags: [String]
     /// Number of replies in thread
     public var replyCount: Int
     /// Most recent activity timestamp
@@ -107,6 +109,11 @@ public final class ProjectConversationStore {
     /// Sorted threads by last activity
     public var sortedThreads: [ThreadSummary] {
         state.sortedThreadIDs.compactMap { state.threadSummaries[$0] }
+    }
+
+    /// All unique hashtags collected from threads
+    public var hashtags: [String] {
+        state.hashtags
     }
 
     /// Currently active thread ID

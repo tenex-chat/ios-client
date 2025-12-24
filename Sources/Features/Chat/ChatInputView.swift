@@ -86,8 +86,9 @@ public struct ChatInputView: View {
     ///   - defaultAgentPubkey: Optional default agent pubkey (e.g., most recent message author)
     ///   - eventId: Optional event ID to track active agents for
     ///   - onlineAgents: List of online agents in the project
+    ///   - availableHashtags: List of available hashtags for routing
     ///   - lastAgentPubkey: The last agent that spoke (for auto-updating selection)
-    ///   - onSend: Callback when message is sent
+    ///   - onSend: Callback when message is sent (text, agentPubkey, mentions, hashtag)
     public init(
         viewModel: ChatInputViewModel,
         dataStore: DataStore,
@@ -96,21 +97,24 @@ public struct ChatInputView: View {
         defaultAgentPubkey: String? = nil,
         eventId: String? = nil,
         onlineAgents: [ProjectAgent] = [],
+        availableHashtags: [String] = [],
         lastAgentPubkey: String? = nil,
-        onSend: @escaping (String, String?, [String]) -> Void
+        onSend: @escaping (String, String?, [String], String?) -> Void
     ) {
         self.ndk = ndk
         self.dataStore = dataStore
         self.projectReference = projectReference
         self.eventId = eventId
         self.onlineAgents = onlineAgents
+        self.availableHashtags = availableHashtags
         self.lastAgentPubkey = lastAgentPubkey
         self.onSend = onSend
         _viewModel = State(initialValue: viewModel)
         _agentSelectorVM = State(initialValue: AgentSelectorViewModel(
             dataStore: dataStore,
             projectReference: projectReference,
-            defaultAgentPubkey: defaultAgentPubkey
+            defaultAgentPubkey: defaultAgentPubkey,
+            availableHashtags: availableHashtags
         ))
         _mentionVM = State(initialValue: MentionAutocompleteViewModel(
             dataStore: dataStore,
@@ -196,8 +200,9 @@ public struct ChatInputView: View {
     private let projectReference: String
     private let eventId: String?
     private let onlineAgents: [ProjectAgent]
+    private let availableHashtags: [String]
     private let lastAgentPubkey: String?
-    private let onSend: (String, String?, [String]) -> Void
+    private let onSend: (String, String?, [String], String?) -> Void
 
     /// Available models from project status
     private var availableModels: [String] {
@@ -226,8 +231,11 @@ public struct ChatInputView: View {
         self.viewModel.selectedBranch ?? self.defaultBranch
     }
 
-    /// Dynamic placeholder text showing selected agent
+    /// Dynamic placeholder text showing selected agent or hashtag
     private var placeholderText: String {
+        if let hashtag = agentSelectorVM.selectedHashtag {
+            return "Post to #\(hashtag)"
+        }
         if let pubkey = agentSelectorVM.selectedAgentPubkey,
            let agent = agentSelectorVM.agents.first(where: { $0.pubkey == pubkey }) {
             return "Message @\(agent.name)"
@@ -484,7 +492,8 @@ public struct ChatInputView: View {
         let text = self.viewModel.inputText
         let agentPubkey = self.agentSelectorVM.selectedAgentPubkey
         let mentions = self.viewModel.mentionedPubkeys
-        self.onSend(text, agentPubkey, mentions)
+        let hashtag = self.agentSelectorVM.selectedHashtag
+        self.onSend(text, agentPubkey, mentions, hashtag)
         self.viewModel.clearInput()
     }
 

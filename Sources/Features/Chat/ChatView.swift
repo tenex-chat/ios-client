@@ -320,6 +320,11 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
         }
     }
 
+    /// Available hashtags from DataStore
+    private var availableHashtags: [String] {
+        self.dataStore.conversationStore(for: self.projectReference)?.hashtags ?? []
+    }
+
     @ViewBuilder
     private func inputBar(viewModel: ChatViewModel) -> some View {
         if let ndk, let inputVM = inputViewModel {
@@ -331,8 +336,9 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                 defaultAgentPubkey: self.mostRecentAgentPubkey(from: viewModel.displayMessages),
                 eventId: viewModel.threadID,
                 onlineAgents: self.onlineAgents,
+                availableHashtags: self.availableHashtags,
                 lastAgentPubkey: self.mostRecentAgentPubkey(from: viewModel.displayMessages)
-            ) { text, agentPubkey, mentions in
+            ) { text, agentPubkey, mentions, hashtag in
                 Task {
                     await viewModel.sendMessage(
                         text: text,
@@ -340,7 +346,8 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                         mentionedPubkeys: mentions,
                         replyTo: inputVM.replyToMessage,
                         selectedNudges: inputVM.selectedNudges,
-                        selectedBranch: inputVM.selectedBranch
+                        selectedBranch: inputVM.selectedBranch,
+                        hashtag: hashtag
                     )
                 }
             }

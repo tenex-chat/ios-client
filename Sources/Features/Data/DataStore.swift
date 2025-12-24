@@ -56,6 +56,22 @@ public final class DataStore {
     /// Active operations: eventId -> Set of agent pubkeys currently working
     public private(set) var activeOperations: [String: Set<String>] = [:]
 
+    /// Conversation stores keyed by project coordinate
+    private var conversationStores: [String: ProjectConversationStore] = [:]
+
+    /// Get or create a conversation store for a project
+    /// - Parameter projectCoordinate: The project coordinate
+    /// - Returns: The conversation store for the project
+    public func conversationStore(for projectCoordinate: String) -> ProjectConversationStore? {
+        if let store = conversationStores[projectCoordinate] {
+            return store
+        }
+        let store = ProjectConversationStore(ndk: ndk, projectCoordinate: projectCoordinate)
+        store.subscribe()
+        conversationStores[projectCoordinate] = store
+        return store
+    }
+
     /// Whether projects are currently loading
     public private(set) var isLoadingProjects = false
 
@@ -128,6 +144,7 @@ public final class DataStore {
         self.inboxMessages = []
         self.inboxUnreadCount = 0
         self.activeOperations = [:]
+        self.conversationStores = [:]
         self.userPubkey = nil
 
         self.logger.info("All subscriptions stopped and state cleared")

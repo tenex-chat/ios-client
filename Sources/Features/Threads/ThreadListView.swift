@@ -7,6 +7,7 @@
 import NDKSwiftCore
 import SwiftUI
 import TENEXCore
+import TENEXShared
 
 // MARK: - ThreadListView
 
@@ -237,12 +238,33 @@ struct ThreadRow: View {
                     .cornerRadius(3)
             }
 
+            // Hashtag badges
+            ForEach(thread.hashtags.prefix(3), id: \.self) { hashtag in
+                hashtagBadge(for: hashtag)
+            }
+
             Spacer()
 
             Text(thread.createdAt, style: .relative)
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
+    }
+
+    private func hashtagBadge(for hashtag: String) -> some View {
+        let color = Color.deterministicColor(for: hashtag, saturation: 65, lightness: 45)
+        return HStack(spacing: 2) {
+            Image(systemName: "number")
+                .font(.system(size: 8, weight: .bold))
+            Text(hashtag)
+        }
+        .font(.caption2)
+        .fontWeight(.medium)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 2)
+        .background(color.opacity(0.15))
+        .foregroundStyle(color)
+        .cornerRadius(3)
     }
 
     // MARK: Private

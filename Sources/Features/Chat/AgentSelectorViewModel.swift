@@ -12,6 +12,7 @@ import TENEXCore
 
 /// View model for agent selector
 /// Uses ProjectAgent from ProjectStatus (kind:24010) for online agents
+/// Supports both agent selection and hashtag selection (mutually exclusive)
 @MainActor
 @Observable
 public final class AgentSelectorViewModel: Identifiable {
@@ -22,10 +23,17 @@ public final class AgentSelectorViewModel: Identifiable {
     ///   - dataStore: The data store containing project statuses
     ///   - projectReference: The project coordinate to get agents for
     ///   - defaultAgentPubkey: Optional default agent pubkey to preselect
-    public init(dataStore: DataStore, projectReference: String, defaultAgentPubkey: String? = nil) {
+    ///   - availableHashtags: List of available hashtags for selection
+    public init(
+        dataStore: DataStore,
+        projectReference: String,
+        defaultAgentPubkey: String? = nil,
+        availableHashtags: [String] = []
+    ) {
         self.dataStore = dataStore
         self.projectReference = projectReference
         self.agentsList = nil
+        self.availableHashtags = availableHashtags
         let currentAgents = Self
             .sortAgents(dataStore.getProjectStatus(projectCoordinate: projectReference)?.agents ?? [])
         self.selectedAgentPubkey = defaultAgentPubkey ?? currentAgents.first?.pubkey
@@ -35,10 +43,12 @@ public final class AgentSelectorViewModel: Identifiable {
     /// - Parameters:
     ///   - agents: The list of agents to display
     ///   - defaultAgentPubkey: Optional default agent pubkey to preselect
-    public init(agents: [ProjectAgent], defaultAgentPubkey: String? = nil) {
+    ///   - availableHashtags: List of available hashtags for selection
+    public init(agents: [ProjectAgent], defaultAgentPubkey: String? = nil, availableHashtags: [String] = []) {
         self.dataStore = nil
         self.projectReference = nil
         self.agentsList = Self.sortAgents(agents)
+        self.availableHashtags = availableHashtags
         self.selectedAgentPubkey = defaultAgentPubkey ?? self.agentsList?.first?.pubkey
     }
 
@@ -46,8 +56,14 @@ public final class AgentSelectorViewModel: Identifiable {
 
     public let id = UUID()
 
-    /// The currently selected agent pubkey
+    /// The currently selected agent pubkey (nil when hashtag is selected)
     public private(set) var selectedAgentPubkey: String?
+
+    /// The currently selected hashtag (nil when agent is selected)
+    public private(set) var selectedHashtag: String?
+
+    /// Available hashtags for selection
+    public var availableHashtags: [String]
 
     /// Whether the selector sheet is presented
     public var isPresented = false
@@ -74,15 +90,38 @@ public final class AgentSelectorViewModel: Identifiable {
         return self.agents.first { $0.pubkey == selectedAgentPubkey }
     }
 
-    /// Select an agent by pubkey
+    /// Whether a hashtag is selected (mutually exclusive with agent)
+    public var hasHashtagSelected: Bool {
+        selectedHashtag != nil
+    }
+
+    /// Select an agent by pubkey (clears hashtag selection)
     /// - Parameter pubkey: The agent's Nostr pubkey
     public func selectAgent(_ pubkey: String) {
         self.selectedAgentPubkey = pubkey
+        self.selectedHashtag = nil
         self.hasManualSelection = true
     }
 
+    /// Select a hashtag (clears agent selection)
+    /// - Parameter hashtag: The hashtag to select
+    public func selectHashtag(_ hashtag: String) {
+        self.selectedHashtag = hashtag.lowercased()
+        self.selectedAgentPubkey = nil
+        self.hasManualSelection = true
+    }
+
+    /// Clear hashtag selection and optionally restore agent
+    public func clearHashtag() {
+        self.selectedHashtag = nil
+        // Optionally restore first agent as default
+        if selectedAgentPubkey == nil {
+            self.selectedAgentPubkey = agents.first?.pubkey
+        }
+    }
+
     /// Update the default agent (auto-selection from last message)
-    /// Only updates if the user hasn't manually selected an agent
+    /// Only updates if the user hasn't manually selected an agent or hashtag
     /// - Parameter pubkey: The agent's Nostr pubkey to set as default
     public func updateDefaultAgent(_ pubkey: String?) {
         guard !hasManualSelection else {
@@ -94,6 +133,7 @@ public final class AgentSelectorViewModel: Identifiable {
     /// Reset manual selection flag (e.g., when starting a new thread)
     public func resetManualSelection() {
         self.hasManualSelection = false
+        self.selectedHashtag = nil
     }
 
     /// Present the agent selector sheet

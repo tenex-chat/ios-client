@@ -33,6 +33,9 @@ public struct ConversationStoreState: Sendable {
     /// Used for "needs response" filtering
     public let lastReplyByThreadAndAuthor: [String: [String: Date]]
 
+    /// All unique hashtags collected from threads, sorted alphabetically
+    public let hashtags: [String]
+
     /// Empty state initializer
     public static func empty(projectCoordinate: String) -> Self {
         Self(
@@ -43,7 +46,8 @@ public struct ConversationStoreState: Sendable {
             totalMessageCount: 0,
             projectCoordinate: projectCoordinate,
             snapshotTimestamp: Date(),
-            lastReplyByThreadAndAuthor: [:]
+            lastReplyByThreadAndAuthor: [:],
+            hashtags: []
         )
     }
 }

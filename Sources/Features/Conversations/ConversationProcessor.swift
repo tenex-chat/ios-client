@@ -21,6 +21,8 @@ public actor ConversationProcessor {
     private var lastReplyByThreadAndAuthor: [String: [String: Date]] = [:]
     /// Pending metadata for threads that haven't arrived yet (threadID -> metadata)
     private var pendingMetadata: [String: (title: String, summary: String?, phase: String?)] = [:]
+    /// All unique hashtags collected from threads
+    private var collectedHashtags: Set<String> = []
 
     // MARK: - Initialization
 
@@ -72,6 +74,19 @@ public actor ConversationProcessor {
             phase = pending.phase ?? phase
         }
 
+        // Extract hashtags from t-tags
+        let hashtags = event.tags(withName: "t").compactMap { tag -> String? in
+            guard tag.count > 1, !tag[1].isEmpty else {
+                return nil
+            }
+            return tag[1].lowercased()
+        }
+
+        // Add to collected hashtags
+        for hashtag in hashtags {
+            collectedHashtags.insert(hashtag)
+        }
+
         let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
 
         let existingMessages = messagesByThread[event.id] ?? []
@@ -90,6 +105,7 @@ public actor ConversationProcessor {
             title: title,
             summary: summary,
             phase: phase,
+            hashtags: hashtags,
             replyCount: existingReplyCount,
             lastActivity: existingLastActivity,
             createdAt: createdAt
@@ -127,6 +143,7 @@ public actor ConversationProcessor {
                 title: title,
                 summary: summary ?? existing.summary,
                 phase: phase ?? existing.phase,
+                hashtags: existing.hashtags,
                 replyCount: existing.replyCount,
                 lastActivity: existing.lastActivity,
                 createdAt: existing.createdAt
@@ -187,6 +204,7 @@ public actor ConversationProcessor {
                 title: existing.title,
                 summary: existing.summary,
                 phase: existing.phase,
+                hashtags: existing.hashtags,
                 replyCount: existing.replyCount + 1,
                 lastActivity: max(existing.lastActivity, message.createdAt),
                 createdAt: existing.createdAt
@@ -229,7 +247,8 @@ public actor ConversationProcessor {
             totalMessageCount: totalMessages,
             projectCoordinate: projectCoordinate,
             snapshotTimestamp: Date(),
-            lastReplyByThreadAndAuthor: lastReplyByThreadAndAuthor
+            lastReplyByThreadAndAuthor: lastReplyByThreadAndAuthor,
+            hashtags: Array(collectedHashtags).sorted()
         )
     }
 
@@ -253,5 +272,6 @@ public actor ConversationProcessor {
         processedMessageIDs = []
         lastReplyByThreadAndAuthor = [:]
         pendingMetadata = [:]
+        collectedHashtags = []
     }
 }
