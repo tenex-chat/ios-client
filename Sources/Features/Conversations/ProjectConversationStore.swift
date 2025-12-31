@@ -154,7 +154,7 @@ public final class ProjectConversationStore {
     /// Subscribe to project events
     public func subscribe() {
         let filter = NDKFilter(
-            kinds: [11, 513, 1111, 21_111],
+            kinds: [1, 513],
             tags: ["a": Set([projectCoordinate])]
         )
 

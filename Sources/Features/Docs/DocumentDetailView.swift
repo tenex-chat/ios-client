@@ -102,7 +102,7 @@ public struct DocumentDetailView: View {
         HStack(spacing: 10) {
             NDKUIProfilePicture(ndk: self.ndk, pubkey: self.document.pubkey, size: 40)
             VStack(alignment: .leading, spacing: 2) {
-                NDKUIDisplayName(ndk: self.ndk, pubkey: self.document.pubkey)
+                Text(self.ndk.profile(for: self.document.pubkey).displayName)
                     .font(.subheadline.weight(.medium))
                 self.authorMetadataRow
             }

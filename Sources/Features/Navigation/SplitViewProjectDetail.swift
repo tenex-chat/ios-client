@@ -226,7 +226,7 @@ struct SplitViewChatDetail: View {
                     systemImage: "person.crop.circle.badge.xmark",
                     description: Text("Sign in to view and send messages")
                 )
-            } else if let threadEvent = subscription?.data.first, let userPubkey {
+            } else if let threadEvent, let userPubkey {
                 ChatView(
                     threadEvent: threadEvent,
                     projectReference: self.projectID,
@@ -241,23 +241,23 @@ struct SplitViewChatDetail: View {
             }
         }
         .task(id: self.threadID) {
-            self.startSubscription()
+            await self.fetchThreadEvent()
         }
     }
 
     // MARK: Private
 
     @Environment(\.ndk) private var ndk
-    @State private var subscription: NDKSubscription<NDKEvent>?
+    @State private var threadEvent: NDKEvent?
 
-    private func startSubscription() {
-        // Cancel previous subscription when threadID changes
-        self.subscription = nil
+    private func fetchThreadEvent() async {
+        threadEvent = nil
 
         guard let ndk else {
             return
         }
         let filter = NDKFilter(ids: [threadID])
-        self.subscription = ndk.subscribe(filter: filter)
+        let events = await ndk.fetchEvents(filter: filter, timeout: 5.0)
+        threadEvent = events.first
     }
 }

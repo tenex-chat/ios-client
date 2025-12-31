@@ -134,13 +134,10 @@ public final class SyncManager {
         var eventsByKind: [Int: Int] = [:]
         var totalEvents = 0
 
-        // Use NDK subscription with collect to gather all events
-        let subscription = ndk.subscribe(filter: filter)
-
-        // Collect events with timeout
-        let events = await subscription.collect(
-            timeout: Self.subscriptionTimeout,
-            limit: Self.maxEventsPerProject
+        // Fetch events with EOSE-based collection and timeout
+        let events = await ndk.fetchEvents(
+            filter: filter,
+            timeout: Self.subscriptionTimeout
         )
 
         // Process all collected events at once

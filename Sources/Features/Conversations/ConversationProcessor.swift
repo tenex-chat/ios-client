@@ -46,12 +46,15 @@ public actor ConversationProcessor {
 
     private func processEvent(_ event: NDKEvent) {
         switch event.kind {
-        case 11:
-            processThreadEvent(event)
         case 513:
             processMetadataEvent(event)
-        case 1111, 21_111:
-            processMessageEvent(event)
+        case 1:
+            // All messages are kind:1 - threads have no e-tags, replies have e-tags
+            if event.tags(withName: "e").isEmpty {
+                processThreadEvent(event)
+            } else {
+                processMessageEvent(event)
+            }
         default:
             break
         }

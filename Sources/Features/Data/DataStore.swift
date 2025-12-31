@@ -352,13 +352,12 @@ extension DataStore {
 
             currentProjectCoordinates = projectCoordinates
 
-            // Create filter for recent conversation replies
+            // Create filter for recent conversation messages
             let filter = NDKFilter(
-                kinds: [1111], // GenericReply
+                kinds: [1],
                 limit: 200,
                 tags: [
                     "a": Set(projectCoordinates), // All our projects
-                    "K": Set(["11"]), // Root event kind is 11 (threads)
                 ]
             )
 
@@ -411,7 +410,7 @@ extension DataStore {
             // Create filter for inbox messages
             let filter = NDKFilter(
                 authors: Array(agentPubkeys),
-                kinds: [1111],
+                kinds: [1],
                 limit: 100,
                 tags: ["p": Set([userPubkey])]
             )

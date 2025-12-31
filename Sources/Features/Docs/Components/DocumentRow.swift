@@ -78,7 +78,7 @@ struct DocumentRow: View {
 
     private var documentHeader: some View {
         HStack(spacing: 6) {
-            NDKUIDisplayName(ndk: self.ndk, pubkey: self.document.pubkey)
+            Text(self.ndk.profile(for: self.document.pubkey).displayName)
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.primary)
 

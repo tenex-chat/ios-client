@@ -199,7 +199,8 @@ public actor AppleIntelligenceLLMServiceImpl: AppleIntelligenceLLMService {
                         }
                         continuation.finish()
                     } catch {
-                        continuation.finish(throwing: AppleIntelligenceError.generationFailed(error.localizedDescription))
+                        let error = AppleIntelligenceError.generationFailed(error.localizedDescription)
+                        continuation.finish(throwing: error)
                     }
                 }
             }

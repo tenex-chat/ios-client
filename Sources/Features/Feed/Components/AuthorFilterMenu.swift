@@ -133,7 +133,7 @@ struct AuthorFilterItem: View {
                         .font(.subheadline)
                         .foregroundStyle(.primary)
                 } else {
-                    NDKUIDisplayName(ndk: self.ndk, pubkey: self.pubkey)
+                    Text(self.ndk.profile(for: self.pubkey).displayName)
                         .font(.subheadline)
                         .foregroundStyle(.primary)
                 }

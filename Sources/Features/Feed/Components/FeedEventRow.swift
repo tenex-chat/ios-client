@@ -119,7 +119,7 @@ struct FeedEventRow: View {
 
     private var eventHeader: some View {
         HStack(spacing: 6) {
-            NDKUIDisplayName(ndk: self.ndk, pubkey: self.event.pubkey)
+            Text(self.ndk.profile(for: self.event.pubkey).displayName)
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.primary)
 

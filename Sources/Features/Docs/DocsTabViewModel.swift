@@ -31,9 +31,9 @@ public final class DocsTabViewModel {
     /// Search query for filtering documents
     public var searchQuery = ""
 
-    /// All documents (kind 30023) from the subscription
+    /// All documents (kind 30023) from the feed
     public var documents: [NDKEvent] {
-        subscription?.data.filter { $0.kind == 30_023 } ?? []
+        feed.events.filter { $0.kind == 30_023 }
     }
 
     /// Filtered and sorted documents based on search
@@ -56,17 +56,15 @@ public final class DocsTabViewModel {
             kinds: [30_023],
             tags: ["a": [projectID]]
         )
-        subscription = ndk.subscribe(filter: filter)
+        let subscription = ndk.subscribe(filter: filter)
+        feed.observe(subscription)
     }
-
-    // MARK: Internal
-
-    private(set) var subscription: NDKSubscription<NDKEvent>?
 
     // MARK: Private
 
     private let ndk: NDK
     private let projectID: String
+    private let feed = NDKFeed()
 
     /// Check if a document matches the search query
     private func documentMatchesSearch(_ event: NDKEvent, query: String) -> Bool {

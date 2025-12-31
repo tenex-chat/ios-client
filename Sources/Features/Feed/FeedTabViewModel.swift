@@ -64,7 +64,7 @@ public final class FeedTabViewModel {
 
     /// All events from the feed (filtered to exclude unwanted kinds)
     public var events: [NDKEvent] {
-        subscription?.data.filter { shouldIncludeEvent($0) } ?? []
+        feed.events.filter { shouldIncludeEvent($0) }
     }
 
     /// Filtered and sorted events based on search, author, and thread grouping
@@ -105,7 +105,8 @@ public final class FeedTabViewModel {
         state = .loading
 
         do {
-            subscription = try await service.subscribeToProject(projectID)
+            let subscription = try await service.subscribeToProject(projectID)
+            feed.observe(subscription)
             state = .loaded
         } catch let error as FeedServiceError {
             state = .error(error)
@@ -128,18 +129,15 @@ public final class FeedTabViewModel {
     /// Clean up when view disappears
     public func cleanup() {
         service.unsubscribe()
-        subscription = nil
+        feed.clear()
         state = .idle
     }
-
-    // MARK: Internal
-
-    private(set) var subscription: NDKSubscription<NDKEvent>?
 
     // MARK: Private
 
     private let service: FeedServiceProtocol
     private let projectID: String
+    private let feed = NDKFeed()
 
     /// Check if an event should be included in the feed
     private func shouldIncludeEvent(_ event: NDKEvent) -> Bool {

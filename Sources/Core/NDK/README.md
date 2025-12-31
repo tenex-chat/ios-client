@@ -365,19 +365,28 @@ if let cache = ndk.cache as? NDKInMemoryCache {
 }
 ```
 
-### Profile Caching
+### Profile API
 
 ```swift
-// Fetch user profile (automatically cached)
-let user = ndk.getUser(pubkey)
-if let profile = try await user.fetchProfile() {
-    print("Name: \(profile.name ?? "Unknown")")
-    print("About: \(profile.about ?? "")")
+// Get observable profile (automatically fetches and caches)
+let profile = ndk.profile(for: pubkey)
+
+// Use in SwiftUI - automatically updates when data arrives
+Text(profile.displayName)
+Text(profile.name)
+Text(profile.about)
+
+// Access full metadata if needed
+if let metadata = profile.metadata {
+    print("Name: \(metadata.name ?? "Unknown")")
+    print("About: \(metadata.about ?? "")")
 }
 
-// Force refresh (bypass cache)
-if let profile = try await user.fetchProfile(forceRefresh: true) {
-    print("Fresh profile: \(profile.displayName ?? "Unknown")")
+// Profile updates stream for non-UI code
+Task { @MainActor in
+    for await metadata in ndk.profileUpdates(for: pubkey) {
+        print("Profile updated: \(metadata?.name ?? "Unknown")")
+    }
 }
 ```
 

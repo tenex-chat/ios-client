@@ -33,44 +33,48 @@ public final class AgentsTabViewModel {
     /// Online agents from ProjectStatus
     public var agents: [ProjectAgent] {
         // Get the latest ProjectStatus event and extract agents
-        self.subscription?.data.first?.agents ?? []
+        latestStatus?.agents ?? []
     }
 
-    /// Whether initial load is in progress
+    /// Whether data is loading (subscription started but no data yet)
     public var isLoading: Bool {
-        self.subscription?.isLoading ?? false
-    }
-
-    /// Error message if subscription failed
-    public var errorMessage: String? {
-        self.subscription?.error?.localizedDescription
+        subscriptionStarted && latestStatus == nil
     }
 
     /// Start subscribing to ProjectStatus events
     /// Continuously updates agents as new events arrive
     public func subscribe() {
+        subscriptionStarted = true
         // Extract owner pubkey from project coordinate (format: "31933:pubkey:dTag")
-        let ownerPubkey = self.extractOwnerPubkey(from: self.projectID)
+        let ownerPubkey = extractOwnerPubkey(from: projectID)
         let filter = ProjectStatus.filter(for: ownerPubkey)
-        self.subscription = self.ndk.subscribe(filter: filter) { event in
-            // Only include status for this specific project
-            guard let status = ProjectStatus.from(event: event),
-                  status.projectCoordinate == self.projectID else {
-                return nil
+        let subscription = ndk.subscribe(filter: filter)
+
+        Task {
+            for await batch in subscription.events {
+                for event in batch {
+                    guard let status = ProjectStatus.from(event: event),
+                          status.projectCoordinate == projectID else {
+                        continue
+                    }
+                    // Keep only the most recent status
+                    if latestStatus == nil || status.createdAt > (latestStatus?.createdAt ?? .distantPast) {
+                        latestStatus = status
+                    }
+                }
             }
-            return status
         }
     }
 
     // MARK: Internal
-
-    private(set) var subscription: NDKSubscription<ProjectStatus>?
 
     let ndk: NDK
 
     // MARK: Private
 
     private let projectID: String
+    private var subscriptionStarted = false
+    private var latestStatus: ProjectStatus?
 
     /// Extract owner pubkey from project coordinate
     /// - Parameter coordinate: Project coordinate in format "kind:pubkey:dTag"

@@ -67,8 +67,9 @@ public final class ThreadListViewModel {
     }
 
     /// The current error message, if any
+    /// Note: NDKSubscription no longer exposes error state
     public var errorMessage: String? {
-        store.subscription?.error?.localizedDescription
+        nil
     }
 
     /// Whether there are any archived threads

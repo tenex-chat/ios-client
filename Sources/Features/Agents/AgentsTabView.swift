@@ -28,8 +28,6 @@ public struct AgentsTabView: View {
         Group {
             if self.viewModel.isLoading, self.viewModel.agents.isEmpty {
                 self.loadingView
-            } else if let error = viewModel.errorMessage {
-                self.errorView(error)
             } else if self.viewModel.agents.isEmpty {
                 self.emptyView
             } else {
@@ -37,8 +35,8 @@ public struct AgentsTabView: View {
             }
         }
         .navigationTitle("Agents")
-        .task {
-            await self.viewModel.subscribe()
+        .onAppear {
+            self.viewModel.subscribe()
         }
     }
 
@@ -75,20 +73,6 @@ public struct AgentsTabView: View {
                 Text("Online Agents")
             } footer: {
                 Text("These agents are available to assist you in this project.")
-            }
-        }
-    }
-
-    private func errorView(_ message: String) -> some View {
-        ContentUnavailableView {
-            Label("Error", systemImage: "exclamationmark.triangle")
-        } description: {
-            Text(message)
-        } actions: {
-            Button("Try Again") {
-                Task {
-                    await self.viewModel.subscribe()
-                }
             }
         }
     }

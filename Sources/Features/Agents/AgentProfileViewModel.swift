@@ -22,27 +22,27 @@ final class AgentProfileViewModel {
 
     // MARK: Internal
 
-    private(set) var eventsSubscription: NDKSubscription<NDKEvent>?
-
     /// Agent name fallback (shortened pubkey)
     var agentName: String? {
-        String(self.pubkey.prefix(8))
+        String(pubkey.prefix(8))
     }
 
-    /// Events are already deduplicated and managed by NDKSubscription
+    /// Events sorted by most recent first (NDKFeed already handles deduplication)
     var events: [NDKEvent] {
-        self.eventsSubscription?.data.sorted { $0.createdAt > $1.createdAt } ?? []
+        feed.events
     }
 
     func startSubscriptions() {
         // Subscribe to all events from this agent
-        self.eventsSubscription = self.ndk.subscribe(
-            filter: NDKFilter(authors: [self.pubkey], limit: 50)
+        let subscription = ndk.subscribe(
+            filter: NDKFilter(authors: [pubkey], limit: 50)
         )
+        feed.observe(subscription)
     }
 
     // MARK: Private
 
     private let pubkey: String
     private let ndk: NDK
+    private let feed = NDKFeed()
 }
