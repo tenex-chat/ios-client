@@ -142,8 +142,8 @@ public final class MentionAutocompleteViewModel {
 
     // MARK: Private
 
-    @ObservationIgnored private let dataStore: DataStore
-    @ObservationIgnored private let projectReference: String
+    private let dataStore: DataStore
+    private let projectReference: String
 
     private var currentText = ""
     private var currentCursorPosition = 0

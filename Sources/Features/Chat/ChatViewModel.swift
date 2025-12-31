@@ -20,7 +20,7 @@ public final class ChatViewModel {
     /// Initialize the chat view model
     /// - Parameters:
     ///   - ndk: The NDK instance for fetching and publishing messages
-    ///   - threadEvent: The thread event (kind:11) to reply to, or nil for new thread mode
+    ///   - threadEvent: The thread event (kind:1) to reply to, or nil for new thread mode
     ///   - projectReference: The project reference in format "31933:pubkey:d-tag"
     ///   - userPubkey: The pubkey of the authenticated user
     ///   - aiConfigStorage: AI configuration storage for auto-TTS settings
@@ -55,8 +55,7 @@ public final class ChatViewModel {
                 self?.handleAgentMessage(message)
             }
 
-            // Add the thread event (kind:11) as the first message
-            // This is needed because the subscription only fetches kind:1111 replies
+            // Add the thread event as the first message
             if let threadMessage = Message.from(event: threadEvent) {
                 self.conversationState.addMessage(threadMessage)
             }
@@ -87,7 +86,7 @@ public final class ChatViewModel {
     /// The most recent thread title from kind:513 metadata
     public private(set) var threadTitle: String?
 
-    /// The thread event (kind:11) - nil for new thread mode, set after thread is created
+    /// The thread event (kind:1) - nil for new thread mode, set after thread is created
     public private(set) var threadEvent: NDKEvent?
 
     /// Conversation settings for debugging display options
@@ -108,14 +107,9 @@ public final class ChatViewModel {
         self.conversationState.displayMessages
     }
 
-    /// All messages in the thread (for finding nested replies)
+    /// All messages in the thread
     public var allMessages: [String: Message] {
         self.conversationState.messages
-    }
-
-    /// Set of pubkeys of users who are currently typing
-    public var typingUsers: Set<String> {
-        Set(self.conversationState.typingIndicators.keys)
     }
 
     /// The thread ID derived from the thread event (nil if new thread)
@@ -247,7 +241,7 @@ public final class ChatViewModel {
         }
     }
 
-    /// Create a new thread (kind:11)
+    /// Create a new thread (kind:1)
     private func createThread( // swiftlint:disable:this function_parameter_count
         content: String,
         agentPubkey: String?,
@@ -280,7 +274,7 @@ public final class ChatViewModel {
                 self?.handleAgentMessage(message)
             }
 
-            // Add the thread as the first message (subscription only fetches kind:1111 replies)
+            // Add the thread as the first message
             if let threadMessage = Message.from(event: event) {
                 self.conversationState.addMessage(threadMessage)
             }
@@ -294,7 +288,7 @@ public final class ChatViewModel {
         }
     }
 
-    /// Send a reply (kind:1111) to an existing thread
+    /// Send a reply (kind:1) to an existing thread
     private func sendReply( // swiftlint:disable:this function_parameter_count
         text: String,
         targetAgentPubkey: String?,
@@ -327,54 +321,24 @@ public final class ChatViewModel {
         }
     }
 
-    /// Subscribe to all event types and route through ConversationState
+    /// Subscribe to all messages (kind:1) in the thread
     private func subscribeToAllEvents() async {
         guard let threadID else {
             return
         }
 
-        // Create two filters in one subscription:
-        // Filter 1: kind 1111 (final messages) - no limits
-        let finalMessagesFilter = NDKFilter(
-            kinds: [1111],
-            tags: ["E": Set([threadID])]
+        // Subscribe to kind:1 messages that e-tag this thread
+        let filter = NDKFilter(
+            kinds: [1],
+            tags: ["e": Set([threadID])]
         )
 
-        // Filter 2: ephemeral events (21111 streaming deltas)
-        // - since: 1 minute ago to prevent overwhelming with old events
-        // - limit: 5 to cap the number of ephemeral events
-        let oneMinuteAgo = Timestamp(Date().addingTimeInterval(-60).timeIntervalSince1970)
-        let ephemeralFilter = NDKFilter(
-            kinds: [21_111],
-            since: oneMinuteAgo,
-            limit: 5,
-            tags: ["E": Set([threadID])]
-        )
+        let subscription = ndk.subscribe(filter: filter)
 
-        // Use uppercase 'E' tag to get ALL events in the thread
-        // (lowercase 'e' = direct parent, uppercase 'E' = root thread reference)
-        // Subscribe to both filters and process events from both
-        let messagesSubscription = self.ndk.subscribe(filter: finalMessagesFilter)
-        let ephemeralSubscription = self.ndk.subscribe(filter: ephemeralFilter)
-
-        // Continuous subscriptions - run both in parallel
-        await withTaskGroup(of: Void.self) { group in
-            group.addTask {
-                for await events in messagesSubscription.events {
-                    for event in events {
-                        await self.conversationState.processEvent(event)
-                    }
-                }
-            }
-            group.addTask {
-                for await events in ephemeralSubscription.events {
-                    for event in events {
-                        await self.conversationState.processEvent(event)
-                    }
-                }
+        for await events in subscription.events {
+            for event in events {
+                await conversationState.processEvent(event)
             }
         }
     }
-
-    // Build tags for a new thread (kind:11)
 }

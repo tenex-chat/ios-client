@@ -137,6 +137,9 @@ public struct ChatInputView: View {
         .onChange(of: self.agentSelectorVM.selectedAgentPubkey) { _, newPubkey in
             self.handleAgentSelection(newPubkey)
         }
+        .onChange(of: self.agentSelectorVM.selectedHashtag) { _, newHashtag in
+            self.viewModel.selectedHashtag = newHashtag
+        }
         .onChange(of: self.lastAgentPubkey) { _, newAgentPubkey in
             // Auto-update the selected agent when the last speaking agent changes
             self.agentSelectorVM.updateDefaultAgent(newAgentPubkey)
@@ -168,7 +171,7 @@ public struct ChatInputView: View {
                 )
             }
         }
-        .sheet(isPresented: self.$showAgentSelector) {
+        .sheet(isPresented: self.$agentSelectorVM.isPresented) {
             AgentSelectorView(viewModel: self.agentSelectorVM)
         }
     }
@@ -181,7 +184,6 @@ public struct ChatInputView: View {
     @State private var showNudgeSelector = false
     @State private var showBranchSelector = false
     @State private var showAgentConfig = false
-    @State private var showAgentSelector = false
     @FocusState private var isInputFocused: Bool
 
     // Pulsing animation state for active agents indicator
@@ -339,7 +341,7 @@ public struct ChatInputView: View {
 
     private var atButton: some View {
         Button {
-            self.showAgentSelector = true
+            self.agentSelectorVM.presentSelector()
         } label: {
             Text("@")
                 .font(.system(size: 18, weight: .medium))
@@ -492,7 +494,8 @@ public struct ChatInputView: View {
         let text = self.viewModel.inputText
         let agentPubkey = self.agentSelectorVM.selectedAgentPubkey
         let mentions = self.viewModel.mentionedPubkeys
-        let hashtag = self.agentSelectorVM.selectedHashtag
+        // Use selected hashtag from dropdown, or extract from content (e.g., "hello #world")
+        let hashtag = self.agentSelectorVM.selectedHashtag ?? self.viewModel.firstExtractedHashtag
         self.onSend(text, agentPubkey, mentions, hashtag)
         self.viewModel.clearInput()
     }

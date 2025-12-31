@@ -11,15 +11,8 @@ import TENEXCore
 
 // MARK: - ConversationState
 
-/// Manages the state of a conversation including messages, streaming sessions, and typing indicators.
-///
-/// Implements the dual storage model from STREAMING.md:
-/// - Final messages (kind 1111) keyed by event ID for deduplication
-/// - Streaming sessions (kind 21111) keyed by pubkey (one active stream per agent)
-/// - Typing indicators keyed by pubkey
-///
-/// The `displayMessages` computed property merges all sources into a sorted list for display,
-/// filtered to show only the root event and its direct replies (not nested replies).
+/// Manages the state of a conversation - flat list of all messages.
+/// All messages are kind:1, sorted chronologically.
 @MainActor
 @Observable
 public final class ConversationState {
@@ -27,8 +20,8 @@ public final class ConversationState {
 
     /// Creates a new conversation state for a specific root event.
     /// - Parameters:
-    ///   - rootEventID: The ID of the root event (kind:11 thread)
-    ///   - onAgentMessage: Optional callback when a final agent message arrives
+    ///   - rootEventID: The ID of the root event
+    ///   - onAgentMessage: Optional callback when a message arrives
     public init(
         rootEventID: String,
         onAgentMessage: ((Message) -> Void)? = nil
@@ -39,176 +32,51 @@ public final class ConversationState {
 
     // MARK: Public
 
-    /// The ID of the root event (kind:11 thread) - used to filter display messages
+    /// The ID of the root event
     public let rootEventID: String
 
-    /// Callback when a final agent message arrives (for auto-TTS)
+    /// Callback when a message arrives (for auto-TTS)
     public var onAgentMessage: ((Message) -> Void)?
 
-    /// Final messages keyed by event ID (for deduplication)
+    /// Messages keyed by event ID (for deduplication)
     public private(set) var messages: [String: Message] = [:]
 
-    /// Active streaming sessions keyed by pubkey (one stream per agent)
-    public private(set) var streamingSessions: [String: StreamingSession] = [:]
-
-    /// Typing indicators keyed by pubkey
-    public private(set) var typingIndicators: [String: NDKEvent] = [:]
-
-    /// Parent event IDs that have been finalized (to ignore late streaming chunks)
-    /// Key is "pubkey:parentEventID" to handle agents replying to multiple messages
-    private var finalizedResponses: Set<String> = []
-
-    /// Merged display list: root + direct replies + streaming, sorted by time.
-    /// Only shows root and its direct replies (nested replies are hidden behind reply indicators).
-    /// Includes computed reply metadata (replyCount, replyAuthorPubkeys) for messages with nested replies.
+    /// Flat display list - all messages sorted by time
     public var displayMessages: [Message] {
-        // Build reply index: parent ID -> [replies from ALL messages in thread]
-        var repliesByParent: [String: [Message]] = [:]
-        for message in self.messages.values {
-            if let parentID = message.replyTo {
-                repliesByParent[parentID, default: []].append(message)
-            }
-        }
-
-        var all: [Message] = []
-
-        // Only include messages that should be displayed at this level:
-        // - Root message (replyTo == nil)
-        // - Direct replies to root (replyTo == rootEventID)
-        for message in self.messages.values {
-            let isRoot = message.replyTo == nil
-            let isDirectReplyToRoot = message.replyTo == self.rootEventID
-
-            guard isRoot || isDirectReplyToRoot else {
-                continue // Skip nested replies - they're shown via reply indicators
-            }
-
-            // For root message: don't show reply count (its replies are displayed inline)
-            // For direct replies: show reply count if they have nested replies
-            if isRoot {
-                all.append(message)
-            } else {
-                // This is a direct reply to root - check if it has nested replies
-                let nestedReplies = repliesByParent[message.id] ?? []
-                if nestedReplies.isEmpty {
-                    all.append(message)
-                } else {
-                    // Get unique pubkeys (up to 3) for avatar display
-                    let uniquePubkeys = Array(Set(nestedReplies.map(\.pubkey)).prefix(3))
-                    all.append(message.with(replyCount: nestedReplies.count, replyAuthorPubkeys: uniquePubkeys))
-                }
-            }
-        }
-
-        // Add streaming sessions as synthetic messages (only if they have content)
-        // If stream has no content, it will be shown as typing indicator instead
-        for session in self.streamingSessions.values {
-            let content = session.reconstructedContent.trimmingCharacters(in: .whitespaces)
-            if !content.isEmpty {
-                let syntheticMessage = self.createSyntheticMessage(from: session)
-                all.append(syntheticMessage)
-            }
-        }
-
-        // Sort by creation time (oldest first)
-        return all.sorted { $0.createdAt < $1.createdAt }
+        messages.values.sorted { $0.createdAt < $1.createdAt }
     }
 
     /// Process an incoming event and update state accordingly.
     /// - Parameter event: The NDKEvent to process
     public func processEvent(_ event: NDKEvent) {
-        if event.isFinalMessage {
-            self.handleFinalMessage(event)
-        } else if event.isStreamingDelta {
-            self.handleStreamingEvent(event)
-            self.updateTypingIndicators()
+        // Only process kind:1 messages
+        guard event.kind == 1 else {
+            return
         }
-    }
 
-    /// Clear all state.
-    public func clear() {
-        self.messages.removeAll()
-        self.streamingSessions.removeAll()
-        self.typingIndicators.removeAll()
-        self.finalizedResponses.removeAll()
-    }
-
-    /// Add a message directly (e.g., the root thread event which isn't returned by subscriptions)
-    /// - Parameter message: The message to add
-    public func addMessage(_ message: Message) {
-        self.messages[message.id] = message
-    }
-
-    // MARK: Private
-
-    /// Update typing indicators based on streaming session state.
-    /// Shows typing indicator for sessions with no content.
-    private func updateTypingIndicators() {
-        self.typingIndicators.removeAll()
-
-        for (pubkey, session) in self.streamingSessions {
-            let content = session.reconstructedContent.trimmingCharacters(in: .whitespaces)
-            if content.isEmpty {
-                // Show typing indicator for empty streams
-                self.typingIndicators[pubkey] = session.latestEvent
-            }
-        }
-    }
-
-    private func handleFinalMessage(_ event: NDKEvent) {
-        // Store the message (keyed by ID for deduplication)
         let message = Message.from(event: event) ?? Message(
             id: event.id,
             pubkey: event.pubkey,
             threadID: "",
             content: event.content,
             createdAt: Date(timeIntervalSince1970: TimeInterval(event.createdAt)),
-            replyTo: nil,
+            replyTo: event.tagValue("e"),
             kind: UInt16(event.kind)
         )
-        self.messages[event.id] = message
+        messages[event.id] = message
 
         // Trigger callback for agent messages (for auto-TTS)
-        self.onAgentMessage?(message)
-
-        // Mark this response as finalized so late streaming chunks are ignored
-        // Use pubkey:parentEventID as key to handle agents replying to multiple messages
-        if let parentEventID = event.tagValue("e") {
-            self.finalizedResponses.insert("\(event.pubkey):\(parentEventID)")
-        }
-
-        // Clear streaming session immediately
-        // Typing indicators are managed by updateTypingIndicators() based on stream state
-        self.streamingSessions.removeValue(forKey: event.pubkey)
+        onAgentMessage?(message)
     }
 
-    private func handleStreamingEvent(_ event: NDKEvent) {
-        // Ignore late streaming chunks for responses that have already been finalized
-        if let parentEventID = event.tagValue("e"),
-           self.finalizedResponses.contains("\(event.pubkey):\(parentEventID)") {
-            return
-        }
-
-        // Get or create streaming session
-        if var session = streamingSessions[event.pubkey] {
-            session.addDelta(from: event)
-            self.streamingSessions[event.pubkey] = session
-        } else {
-            let session = StreamingSession(event: event)
-            self.streamingSessions[event.pubkey] = session
-        }
+    /// Clear all state.
+    public func clear() {
+        messages.removeAll()
     }
 
-    private func createSyntheticMessage(from session: StreamingSession) -> Message {
-        Message(
-            id: session.syntheticID,
-            pubkey: session.latestEvent.pubkey,
-            threadID: "",
-            content: session.reconstructedContent,
-            createdAt: Date(timeIntervalSince1970: TimeInterval(session.latestEvent.createdAt)),
-            replyTo: nil,
-            kind: UInt16(session.latestEvent.kind),
-            isStreaming: true
-        )
+    /// Add a message directly (e.g., the root thread event)
+    /// - Parameter message: The message to add
+    public func addMessage(_ message: Message) {
+        messages[message.id] = message
     }
 }

@@ -22,6 +22,7 @@ public struct MessageHeaderView: View {
             }
 
             HStack(spacing: 8) {
+                self.avatarView
                 self.authorNameView
                 self.timestampView
 
@@ -74,18 +75,38 @@ public struct MessageHeaderView: View {
         }
     }
 
+    @ViewBuilder
+    private var avatarView: some View {
+        if let ndk {
+            if self.isAgent, let onAgentTap {
+                Button(action: onAgentTap) {
+                    NDKUIProfilePicture(ndk: ndk, pubkey: self.message.pubkey, size: 24)
+                }
+                .buttonStyle(.plain)
+            } else {
+                NDKUIProfilePicture(ndk: ndk, pubkey: self.message.pubkey, size: 24)
+            }
+        } else {
+            Image(systemName: "person.circle.fill")
+                .font(.title3)
+                .foregroundStyle(self.isAgent ? .blue : .gray)
+                .frame(width: 24, height: 24)
+        }
+    }
+
     private var authorNameView: some View {
         Group {
             if let ndk {
+                let displayName = ndk.profile(for: self.message.pubkey).displayName
                 if self.isAgent, let onAgentTap {
                     Button(action: onAgentTap) {
-                        NDKUIUsername(ndk: ndk, pubkey: self.message.pubkey)
+                        Text(displayName)
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.blue)
                     }
                     .buttonStyle(.plain)
                 } else {
-                    NDKUIUsername(ndk: ndk, pubkey: self.message.pubkey)
+                    Text(displayName)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(self.isAgent ? .blue : .primary)
                 }

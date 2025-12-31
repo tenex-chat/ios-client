@@ -62,8 +62,8 @@ public struct AgentConfigSheet: View {
                         }
                     }
                 }
-                .task {
-                    self.profile = await self.ndk.profileManager.loadMetadata(for: self.agent.pubkey)
+                .onAppear {
+                    self.profile = self.ndk.profile(for: self.agent.pubkey)
                 }
         }
     }
@@ -74,7 +74,7 @@ public struct AgentConfigSheet: View {
     @State private var selectedModel: String
     @State private var selectedTools: Set<String>
     @State private var expandedGroups: Set<String> = []
-    @State private var profile: NDKUserMetadata?
+    @State private var profile: NDKProfile?
     @State private var showRawProfileData = false
 
     private let agent: ProjectAgent
@@ -92,7 +92,7 @@ public struct AgentConfigSheet: View {
                     self.profilePicture
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text(self.profile?.bestDisplayName ?? self.agent.name)
+                        Text(self.profile?.displayName ?? self.agent.name)
                             .font(.headline)
                         Text(self.agent.pubkey.prefix(16) + "...")
                             .font(.caption)
@@ -115,8 +115,7 @@ public struct AgentConfigSheet: View {
 
     @ViewBuilder
     private var profilePicture: some View {
-        if let pictureURLString = profile?.picture,
-           let pictureURL = URL(string: pictureURLString) {
+        if let pictureURL = profile?.pictureURL {
             AsyncImage(url: pictureURL) { phase in
                 switch phase {
                 case .success(let image):
@@ -416,7 +415,7 @@ private struct ToolGroupRow: View {
 
 /// Sheet displaying raw profile metadata for debugging
 private struct RawProfileDataSheet: View {
-    let profile: NDKUserMetadata?
+    let profile: NDKProfile?
     let pubkey: String
 
     @Environment(\.dismiss) private var dismiss
@@ -460,9 +459,9 @@ private struct RawProfileDataSheet: View {
             Text("Metadata")
                 .font(.headline)
 
-            if let profile {
-                if let metadata = profile.metadata {
-                    self.metadataContent(metadata)
+            if let metadata = profile?.metadata {
+                if let rawMetadata = metadata.metadata {
+                    self.metadataContent(rawMetadata)
                 } else {
                     Text("No metadata dictionary available")
                         .foregroundStyle(.secondary)
@@ -471,7 +470,7 @@ private struct RawProfileDataSheet: View {
                 Divider()
                     .padding(.vertical, 8)
 
-                self.parsedFieldsSection(profile)
+                self.parsedFieldsSection(metadata)
             } else {
                 Text("Profile not loaded")
                     .foregroundStyle(.secondary)

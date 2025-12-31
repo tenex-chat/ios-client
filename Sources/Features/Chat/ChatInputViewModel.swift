@@ -84,12 +84,44 @@ public final class ChatInputViewModel {
         self.isNewThread
     }
 
+    /// Hashtags extracted from the input text (e.g., "hello #world" -> ["world"])
+    public var extractedHashtags: [String] {
+        let pattern = "#(\\w+)"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else {
+            return []
+        }
+        let range = NSRange(inputText.startIndex..., in: inputText)
+        let matches = regex.matches(in: inputText, options: [], range: range)
+
+        var seen = Set<String>()
+        var result: [String] = []
+
+        for match in matches {
+            if let tagRange = Range(match.range(at: 1), in: inputText) {
+                let hashtag = String(inputText[tagRange]).lowercased()
+                if !seen.contains(hashtag) {
+                    seen.insert(hashtag)
+                    result.append(hashtag)
+                }
+            }
+        }
+        return result
+    }
+
+    /// The first hashtag extracted from the input text, if any
+    public var firstExtractedHashtag: String? {
+        extractedHashtags.first
+    }
+
     /// Whether the send button should be enabled
-    /// For new threads: requires either an agent or a hashtag
+    /// For new threads: requires either an agent, a selected hashtag, or a hashtag in the message content
     /// For replies: can send without routing
     public var canSend: Bool {
         let hasText = !self.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let hasRoutingIfRequired = !self.requiresRouting || self.selectedAgent != nil || self.selectedHashtag != nil
+        let hasRoutingIfRequired = !self.requiresRouting ||
+            self.selectedAgent != nil ||
+            self.selectedHashtag != nil ||
+            self.firstExtractedHashtag != nil
         return hasText && hasRoutingIfRequired
     }
 

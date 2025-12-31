@@ -148,9 +148,9 @@ public final class AgentSelectorViewModel: Identifiable {
 
     // MARK: Private
 
-    @ObservationIgnored private let dataStore: DataStore?
-    @ObservationIgnored private let projectReference: String?
-    @ObservationIgnored private let agentsList: [ProjectAgent]?
+    private let dataStore: DataStore?
+    private let projectReference: String?
+    private let agentsList: [ProjectAgent]?
 
     /// Sort agents: PM first, then alphabetically by name
     private static func sortAgents(_ agents: [ProjectAgent]) -> [ProjectAgent] {

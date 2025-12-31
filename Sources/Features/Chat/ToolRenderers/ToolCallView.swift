@@ -4,6 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftCore
 import SwiftUI
 import TENEXCore
 
@@ -24,6 +25,8 @@ public struct ToolCallView: View {
     }
 
     // MARK: Private
+
+    @Environment(\.ndk) private var ndk
 
     private let toolCall: ToolCall
 
@@ -60,8 +63,9 @@ public struct ToolCallView: View {
             )
         case "delegate":
             DelegateToolRenderer(
+                ndk: ndk,
                 delegations: toolCall.delegations(),
-                mode: toolCall.string(for: "mode", default: "wait")
+                conversationIDs: toolCall.conversationIDs
             )
         case "Task":
             TaskToolRenderer(

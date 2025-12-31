@@ -21,7 +21,7 @@ public struct AgentSelectorView: View {
     ///   - viewModel: The agent selector view model
     ///   - onSettings: Optional callback when settings button is tapped for an agent
     public init(viewModel: AgentSelectorViewModel, onSettings: ((ProjectAgent) -> Void)? = nil) {
-        _viewModel = State(initialValue: viewModel)
+        self.viewModel = viewModel
         self.onSettings = onSettings
     }
 
@@ -57,7 +57,7 @@ public struct AgentSelectorView: View {
     // MARK: Private
 
     @Environment(\.ndk) private var ndk
-    @State private var viewModel: AgentSelectorViewModel
+    @Bindable private var viewModel: AgentSelectorViewModel
 
     private let onSettings: ((ProjectAgent) -> Void)?
 
@@ -201,21 +201,9 @@ public struct AgentSelectorView: View {
         }
     }
 
-    @ViewBuilder
     private func agentAvatar(for agent: ProjectAgent) -> some View {
-        if let ndk {
-            NDKUIProfilePicture(ndk: ndk, pubkey: agent.pubkey, size: 40)
-        } else {
-            // Fallback when NDK is not available
-            Circle()
-                .fill(Color.gray.opacity(0.2))
-                .frame(width: 40, height: 40)
-                .overlay {
-                    Text(agent.name.prefix(1).uppercased())
-                        .font(.callout.weight(.medium))
-                        .foregroundStyle(.secondary)
-                }
-        }
+        // swiftlint:disable:next force_unwrapping
+        NDKUIProfilePicture(ndk: ndk!, pubkey: agent.pubkey, size: 40)
     }
 }
 
@@ -313,20 +301,8 @@ public struct AgentSelectorButton: View {
             .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
     }
 
-    @ViewBuilder
     private func agentAvatar(for agent: ProjectAgent) -> some View {
-        if let ndk {
-            NDKUIProfilePicture(ndk: ndk, pubkey: agent.pubkey, size: 20)
-        } else {
-            // Fallback when NDK is not available
-            Circle()
-                .fill(Color.gray.opacity(0.2))
-                .frame(width: 20, height: 20)
-                .overlay {
-                    Text(agent.name.prefix(1).uppercased())
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
-                }
-        }
+        // swiftlint:disable:next force_unwrapping
+        NDKUIProfilePicture(ndk: ndk!, pubkey: agent.pubkey, size: 20)
     }
 }
