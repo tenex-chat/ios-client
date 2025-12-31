@@ -11,7 +11,7 @@ import NDKSwiftCore
 
 /// Centralizes message publishing logic for both ChatViewModel and CallViewModel
 ///
-/// This service provides unified methods for creating threads (kind:11) and replies (kind:1111)
+/// This service provides unified methods for creating threads and replies (all kind:1)
 /// with proper tag management, eliminating ViewModel dependencies on Views.
 @MainActor
 public final class MessagePublisher {
@@ -24,7 +24,7 @@ public final class MessagePublisher {
 
     // MARK: - Thread Creation
 
-    /// Publish a new thread (kind:11)
+    /// Publish a new thread (kind:1)
     /// - Parameters:
     ///   - ndk: NDK instance for publishing
     ///   - content: Message content
@@ -65,7 +65,7 @@ public final class MessagePublisher {
 
     // MARK: - Reply Creation
 
-    /// Publish a reply (kind:1111)
+    /// Publish a reply (kind:1)
     /// - Parameters:
     ///   - ndk: NDK instance for publishing
     ///   - threadEvent: Root thread event to reply to
@@ -92,6 +92,7 @@ public final class MessagePublisher {
     ) async throws -> NDKEvent {
         let context = ReplyContext(
             projectRef: projectRef,
+            threadEventId: threadEvent.id,
             replyTo: replyTo,
             agentPubkey: agentPubkey,
             mentions: mentions,
@@ -102,7 +103,7 @@ public final class MessagePublisher {
 
         let (event, _) = try await ndk.publish { _ in
             self.buildReplyTags(
-                builder: NDKEventBuilder.reply(to: threadEvent, ndk: ndk),
+                ndk: ndk,
                 content: content,
                 context: context
             )
@@ -147,7 +148,7 @@ public final class MessagePublisher {
     // MARK: - Private Tag Building
 
     // swiftlint:disable function_parameter_count
-    /// Build tags for a new thread (kind:11)
+    /// Build tags for a new thread (kind:1)
     /// Supports either agent-based routing (p-tag) or hashtag-based routing (t-tag)
     private nonisolated func buildThreadTags(
         ndk: NDK,
@@ -162,7 +163,7 @@ public final class MessagePublisher {
     ) -> NDKEventBuilder {
         // swiftlint:enable function_parameter_count
         var builder = NDKEventBuilder(ndk: ndk)
-            .kind(11)
+            .kind(1)
             .content(content, extractImeta: false)
 
         // Add project reference (a tag)
@@ -226,52 +227,53 @@ public final class MessagePublisher {
         return builder
     }
 
-    /// Build tags for a reply message
+    /// Build tags for a reply message (kind:1)
     private nonisolated func buildReplyTags(
-        builder: NDKEventBuilder,
+        ndk: NDK,
         content: String,
         context: ReplyContext
     ) -> NDKEventBuilder {
-        // Filter out auto p-tags only (keep e-tags from builder)
-        let filteredTags = builder.tags.filter { $0.first != "p" }
-        var newBuilder = builder.setTags(filteredTags)
+        var builder = NDKEventBuilder(ndk: ndk)
+            .kind(1)
+            .content(content, extractImeta: false)
 
-        // Set content and project reference
-        newBuilder = newBuilder.content(content, extractImeta: false)
-        newBuilder = newBuilder.tag(["a", context.projectRef])
+        // Always e-tag the root thread (OP)
+        builder = builder.tag(["e", context.threadEventId])
 
-        // Add reply e-tag ONLY if replying to a specific message
+        // Add project reference
+        builder = builder.tag(["a", context.projectRef])
+
+        // Add reply e-tag if replying to a specific message
         if let replyTo = context.replyTo {
-            newBuilder = newBuilder.tag(["e", replyTo])
-            // Don't add p-tag for replyTo author - it's handled below
+            builder = builder.tag(["e", replyTo])
         }
 
         // Add target agent p-tag for routing
         if let agentPubkey = context.agentPubkey {
-            newBuilder = newBuilder.tag(["p", agentPubkey])
+            builder = builder.tag(["p", agentPubkey])
         }
 
         // Add mentioned user p-tags (excluding agent if already added)
         for pubkey in context.mentions where pubkey != context.agentPubkey {
-            newBuilder = newBuilder.tag(["p", pubkey])
+            builder = builder.tag(["p", pubkey])
         }
 
         // Add nudge tags
         for nudgeID in context.selectedNudges {
-            newBuilder = newBuilder.tag(["nudge", nudgeID])
+            builder = builder.tag(["nudge", nudgeID])
         }
 
         // Add branch tag
         if let branch = context.selectedBranch {
-            newBuilder = newBuilder.tag(["branch", branch])
+            builder = builder.tag(["branch", branch])
         }
 
         // Add custom tags (e.g., ["mode", "voice"])
         for customTag in context.customTags {
-            newBuilder = newBuilder.tag(customTag)
+            builder = builder.tag(customTag)
         }
 
-        return newBuilder
+        return builder
     }
 }
 
@@ -280,6 +282,7 @@ public final class MessagePublisher {
 /// Context for building reply tags
 private struct ReplyContext {
     let projectRef: String
+    let threadEventId: String
     let replyTo: String?
     let agentPubkey: String?
     let mentions: [String]

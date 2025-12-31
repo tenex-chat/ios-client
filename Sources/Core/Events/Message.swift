@@ -26,6 +26,9 @@ public struct ToolCall: Sendable {
     /// Branch name extracted from the event's "branch" tag
     public let branch: String?
 
+    /// Conversation IDs from q-tags (for delegate tool)
+    public let conversationIDs: [String]
+
     /// Whether this is a tool call event
     public var isToolCall: Bool { true }
 
@@ -102,7 +105,7 @@ public struct ToolCall: Sendable {
     // MARK: - Factory
 
     static func from(event: NDKEvent) -> Self? {
-        guard event.kind == 1111,
+        guard event.kind == 1,
               let toolName = event.tagValue("tool"),
               !toolName.isEmpty
         else {
@@ -112,12 +115,14 @@ public struct ToolCall: Sendable {
         let args = self.parseToolArgs(from: event)
         let projectDTag = self.extractProjectDTag(from: event)
         let branch = event.tagValue("branch")
+        let conversationIDs = event.tags(withName: "q").compactMap { $0[safe: 1] }
 
         return Self(
             name: toolName,
             args: args,
             projectDTag: projectDTag,
-            branch: branch
+            branch: branch,
+            conversationIDs: conversationIDs
         )
     }
 
@@ -173,6 +178,14 @@ public struct AnySendable: @unchecked Sendable {
 
 /// A todo item from the TodoWrite tool
 public struct TodoItem: Sendable {
+    // MARK: Lifecycle
+
+    public init(content: String, status: Status, activeForm: String) {
+        self.content = content
+        self.status = status
+        self.activeForm = activeForm
+    }
+
     // MARK: Public
 
     public enum Status: String, Sendable {
@@ -221,7 +234,7 @@ public struct Delegation: Sendable {
 
 // MARK: - Message
 
-/// Represents a TENEX message (Nostr kind:1111 - GenericReply)
+/// Represents a TENEX message (Nostr kind:1)
 public struct Message: Identifiable, Sendable {
     // MARK: Lifecycle
 
@@ -315,7 +328,7 @@ public struct Message: Identifiable, Sendable {
     /// Whether this message contains AI reasoning/thinking content
     public let isReasoning: Bool
 
-    /// Event kind (11 for thread, 1111 for GenericReply)
+    /// Event kind (1 for all messages)
     public let kind: UInt16
 
     /// Branch name from event tags
@@ -343,17 +356,18 @@ public struct Message: Identifiable, Sendable {
     public var isToolCall: Bool { self.toolCall != nil }
 
     /// Create a Message from a Nostr event
-    /// - Parameter event: The NDKEvent (must be kind:11 or kind:1111)
+    /// - Parameter event: The NDKEvent (must be kind:1)
     /// - Returns: A Message instance, or nil if the event is invalid
     public static func from(event: NDKEvent) -> Self? {
-        let metadata = self.extractMetadata(from: event)
-
-        if event.kind == 11 {
-            return self.createThreadRoot(from: event, metadata: metadata)
+        guard event.kind == 1 else {
+            return nil
         }
 
-        guard event.kind == 1111 else {
-            return nil
+        let metadata = self.extractMetadata(from: event)
+
+        // Threads have no e-tags, replies have e-tags
+        if event.tags(withName: "e").isEmpty {
+            return self.createThreadRoot(from: event, metadata: metadata)
         }
 
         return self.createThreadReply(from: event, metadata: metadata)
@@ -361,10 +375,10 @@ public struct Message: Identifiable, Sendable {
 
     /// Create a filter for fetching messages by thread
     /// - Parameter threadId: The thread identifier (conversation ID)
-    /// - Returns: An NDKFilter configured for kind:1111 events with uppercase 'E' tag (root reference)
+    /// - Returns: An NDKFilter configured for kind:1 events with 'e' tag (root reference)
     public static func filter(for threadID: String) -> NDKFilter {
         NDKFilter(
-            kinds: [1111],
+            kinds: [1],
             tags: ["e": Set([threadID])]
         )
     }

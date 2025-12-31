@@ -111,7 +111,7 @@ public final class CallViewModel {
     /// Whether TTS playback is paused
     public private(set) var isPaused = false
 
-    /// Whether agent is processing (21111 streaming event received)
+    /// Whether agent is processing a response
     public private(set) var agentIsProcessing = false
 
     /// Current user's public key (for filtering messages)
@@ -226,9 +226,6 @@ public final class CallViewModel {
         self.subscriptionTask?.cancel()
         self.subscriptionTask = nil
         self.subscription = nil
-        self.streamingSubscriptionTask?.cancel()
-        self.streamingSubscriptionTask = nil
-        self.streamingSubscription = nil
         self.conversationState = nil
 
         // Stop VOD recording
@@ -526,8 +523,6 @@ public final class CallViewModel {
     private var ttsQueue: TTSQueue?
     private var subscription: NDKSubscription<NDKEvent>?
     private var subscriptionTask: Task<Void, Never>?
-    private var streamingSubscription: NDKSubscription<NDKEvent>?
-    private var streamingSubscriptionTask: Task<Void, Never>?
 
     // MARK: - VOD Directory Management
 
@@ -761,42 +756,14 @@ public final class CallViewModel {
 
         self.logger.info("[subscribeToConversation] Subscribing to thread: \(threadID)")
 
-        // Subscribe to kind 1111 final messages
+        // Subscribe to kind:1 reply messages
         let filter = NDKFilter(
-            kinds: [1111],
-            tags: ["E": Set([threadID])]
+            kinds: [1],
+            tags: ["e": Set([threadID])]
         )
 
         self.subscription = self.ndk.subscribe(filter: filter)
 
-        // Subscribe to kind 21111 streaming events (agent processing indicator)
-        let streamingFilter = NDKFilter(
-            kinds: [21_111],
-            since: Timestamp(Date().addingTimeInterval(-60).timeIntervalSince1970),
-            tags: ["E": Set([threadID])]
-        )
-
-        self.streamingSubscription = self.ndk.subscribe(filter: streamingFilter)
-
-        // Process streaming events (21111) - show processing indicator
-        if let streamingSub = self.streamingSubscription {
-            self.streamingSubscriptionTask = Task {
-                for await events in streamingSub.events {
-                    for event in events {
-                        guard !Task.isCancelled else {
-                            return
-                        }
-                        // Agent started generating response
-                        if event.pubkey != self.userPubkey {
-                            self.agentIsProcessing = true
-                            self.logger.info("[subscribeToConversation] Agent is processing (21111 received)")
-                        }
-                    }
-                }
-            }
-        }
-
-        // Process final message events (1111)
         guard let subscription = self.subscription else {
             return
         }
