@@ -19,9 +19,18 @@ public final class RecentConversationsViewModel {
     /// - Parameters:
     ///   - dataStore: The data store for accessing conversation data
     ///   - ndk: The NDK instance for fetching thread metadata
-    public init(dataStore: DataStore, ndk: NDK) {
+    ///   - filterStore: The store for filter state persistence
+    ///   - currentUserPubkey: The current user's pubkey for filtering
+    public init(
+        dataStore: DataStore,
+        ndk: NDK,
+        filterStore: RecentConversationsFilterStore = RecentConversationsFilterStore(),
+        currentUserPubkey: String? = nil
+    ) {
         self.dataStore = dataStore
         self.ndk = ndk
+        self.filterStore = filterStore
+        self.currentUserPubkey = currentUserPubkey
     }
 
     // MARK: Public
@@ -33,12 +42,57 @@ public final class RecentConversationsViewModel {
         }
     }
 
-    /// Get sorted thread IDs (by latest activity)
+    /// Get sorted thread IDs (by latest activity), with optional filtering
     public var sortedThreadIDs: [String] {
-        self.conversationsByThread.keys.sorted { threadID1, threadID2 in
+        let threadIDs = filterStore.onlyByMe ? filteredThreadIDs : Array(conversationsByThread.keys)
+        return threadIDs.sorted { threadID1, threadID2 in
             let latest1 = self.conversationsByThread[threadID1]?.max { $0.createdAt < $1.createdAt }
             let latest2 = self.conversationsByThread[threadID2]?.max { $0.createdAt < $1.createdAt }
             return (latest1?.createdAt ?? .distantPast) > (latest2?.createdAt ?? .distantPast)
+        }
+    }
+
+    /// Whether the "Only by me" filter is currently enabled
+    public var onlyByMeFilterEnabled: Bool {
+        filterStore.onlyByMe
+    }
+
+    /// Toggle the "Only by me" filter
+    public func toggleOnlyByMeFilter() {
+        filterStore.toggleOnlyByMe()
+    }
+
+    /// Thread IDs filtered to only include threads where the current user is the root event author
+    private var filteredThreadIDs: [String] {
+        guard let userPubkey = currentUserPubkey else {
+            // If no user pubkey, return all threads (filter cannot apply)
+            return Array(conversationsByThread.keys)
+        }
+
+        return conversationsByThread.keys.filter { threadID in
+            // Check if we have thread metadata with author info
+            if let thread = threadCache[threadID] {
+                return thread.pubkey == userPubkey
+            }
+
+            // Check if we have thread event with author info
+            if let threadEvent = threadEventCache[threadID] {
+                return threadEvent.pubkey == userPubkey
+            }
+
+            // Fallback: check the messages in the conversation
+            // The thread root would be a message where id == threadID
+            // Or check if any message's threadID author matches user
+            if let messages = conversationsByThread[threadID] {
+                // Look for a message that IS the thread root (id == threadID)
+                if let rootMessage = messages.first(where: { $0.id == threadID }) {
+                    return rootMessage.pubkey == userPubkey
+                }
+            }
+
+            // If we don't have enough info yet, include it (will be filtered once metadata loads)
+            // This provides a "loading" behavior where threads appear then filter out
+            return true
         }
     }
 
@@ -109,6 +163,8 @@ public final class RecentConversationsViewModel {
 
     private let dataStore: DataStore
     private let ndk: NDK
+    private let filterStore: RecentConversationsFilterStore
+    private let currentUserPubkey: String?
     private let logger = Logger(subsystem: "com.tenex.ios", category: "RecentConversations")
 
     // MARK: - State

@@ -28,6 +28,11 @@ public struct RecentConversationsView: View {
             }
         }
         .navigationTitle("Recent")
+        .toolbar {
+            ToolbarItem(placement: .automatic) {
+                filterToggle
+            }
+        }
     }
 
     // MARK: Private
@@ -38,12 +43,39 @@ public struct RecentConversationsView: View {
 
     @State private var viewModel: RecentConversationsViewModel?
     @State private var selectedThreadID: String?
+    @State private var filterStore = RecentConversationsFilterStore()
+
+    /// Toggle button for the "Only by me" filter
+    @ViewBuilder
+    private var filterToggle: some View {
+        if let viewModel {
+            Button {
+                viewModel.toggleOnlyByMeFilter()
+            } label: {
+                Label(
+                    "Only by me",
+                    systemImage: viewModel.onlyByMeFilterEnabled ? "person.fill" : "person"
+                )
+            }
+            .help(viewModel.onlyByMeFilterEnabled
+                ? "Showing only my conversations"
+                : "Show only my conversations")
+            .accessibilityLabel(viewModel.onlyByMeFilterEnabled
+                ? "Filter active: showing only my conversations"
+                : "Filter: show only my conversations")
+        }
+    }
 
     // MARK: - Private Views
 
     @ViewBuilder
     private func macOSBody(ndk: NDK, dataStore: DataStore) -> some View {
-        let vm = viewModel ?? RecentConversationsViewModel(dataStore: dataStore, ndk: ndk)
+        let vm = viewModel ?? RecentConversationsViewModel(
+            dataStore: dataStore,
+            ndk: ndk,
+            filterStore: filterStore,
+            currentUserPubkey: authManager.activePubkey
+        )
 
         NavigationSplitView {
             conversationList(viewModel: vm)
@@ -67,14 +99,21 @@ public struct RecentConversationsView: View {
 
     @ViewBuilder
     private func iOSBody(ndk: NDK, dataStore: DataStore) -> some View {
-        let vm = self.viewModel ?? RecentConversationsViewModel(dataStore: dataStore, ndk: ndk)
+        let vm = self.viewModel ?? RecentConversationsViewModel(
+            dataStore: dataStore,
+            ndk: ndk,
+            filterStore: filterStore,
+            currentUserPubkey: authManager.activePubkey
+        )
 
         List {
             if vm.sortedThreadIDs.isEmpty {
                 ContentUnavailableView(
-                    "No Recent Conversations",
-                    systemImage: "bubble.left.and.bubble.right",
-                    description: Text("Recent conversations across all projects will appear here")
+                    vm.onlyByMeFilterEnabled ? "No Conversations Started by You" : "No Recent Conversations",
+                    systemImage: vm.onlyByMeFilterEnabled ? "person.slash" : "bubble.left.and.bubble.right",
+                    description: Text(vm.onlyByMeFilterEnabled
+                        ? "No conversations where you are the author. Try disabling the filter."
+                        : "Recent conversations across all projects will appear here")
                 )
             } else {
                 ForEach(vm.sortedThreadIDs, id: \.self) { threadID in
@@ -111,9 +150,11 @@ public struct RecentConversationsView: View {
         List(selection: $selectedThreadID) {
             if viewModel.sortedThreadIDs.isEmpty {
                 ContentUnavailableView(
-                    "No Recent Conversations",
-                    systemImage: "bubble.left.and.bubble.right",
-                    description: Text("Recent conversations across all projects will appear here")
+                    viewModel.onlyByMeFilterEnabled ? "No Conversations Started by You" : "No Recent Conversations",
+                    systemImage: viewModel.onlyByMeFilterEnabled ? "person.slash" : "bubble.left.and.bubble.right",
+                    description: Text(viewModel.onlyByMeFilterEnabled
+                        ? "No conversations where you are the author. Try disabling the filter."
+                        : "Recent conversations across all projects will appear here")
                 )
             } else {
                 ForEach(viewModel.sortedThreadIDs, id: \.self) { threadID in
