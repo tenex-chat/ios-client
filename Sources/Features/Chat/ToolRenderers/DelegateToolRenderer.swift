@@ -4,6 +4,7 @@
 // Copyright (c) 2025 TENEX Team
 //
 
+import NDKSwiftCore
 import SwiftUI
 import TENEXCore
 
@@ -13,51 +14,68 @@ import TENEXCore
 public struct DelegateToolRenderer: View {
     // MARK: Lifecycle
 
-    public init(delegations: [Delegation], mode: String) {
+    public init(ndk: NDK?, delegations: [Delegation], conversationIDs: [String]) {
+        self.ndk = ndk
         self.delegations = delegations
-        self.mode = mode
+        self.conversationIDs = conversationIDs
     }
 
     // MARK: Public
 
     public var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "person.2")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-
-            Text(self.displayText)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(delegationsWithIDs, id: \.conversationID) { item in
+                if let ndk, let conversationID = item.conversationID {
+                    DelegationPreview(
+                        ndk: ndk,
+                        conversationID: conversationID,
+                        recipientName: item.delegation.recipient,
+                        prompt: item.delegation.prompt
+                    )
+                } else {
+                    fallbackView(for: item.delegation)
+                }
+            }
         }
     }
 
     // MARK: Private
 
+    private let ndk: NDK?
     private let delegations: [Delegation]
-    private let mode: String
+    private let conversationIDs: [String]
 
-    private var recipients: [String] {
-        self.delegations.compactMap(\.recipient).filter { !$0.isEmpty }
+    private var delegationsWithIDs: [DelegationWithID] {
+        delegations.enumerated().map { index, delegation in
+            DelegationWithID(
+                delegation: delegation,
+                conversationID: conversationIDs[safe: index]
+            )
+        }
     }
 
-    private var displayText: AttributedString {
-        var text = AttributedString("Delegating to ")
+    @ViewBuilder
+    private func fallbackView(for delegation: Delegation) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "person.2")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
 
-        for (index, recipient) in self.recipients.enumerated() {
-            var recipientAttr = AttributedString(recipient)
-            recipientAttr.font = .caption.monospaced()
-            text.append(recipientAttr)
-
-            if index < self.recipients.count - 1 {
-                text.append(AttributedString(", "))
-            }
+            Text("Delegating to ")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                + Text(delegation.recipient ?? "unknown")
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
         }
-
-        if self.mode != "wait" {
-            text.append(AttributedString(" (\(self.mode))"))
-        }
-
-        return text
     }
+}
+
+// MARK: - DelegationWithID
+
+private struct DelegationWithID: Identifiable {
+    let delegation: Delegation
+    let conversationID: String?
+
+    var id: String { conversationID ?? UUID().uuidString }
 }
