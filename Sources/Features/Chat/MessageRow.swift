@@ -19,7 +19,6 @@ public struct MessageRow: View {
         message: Message,
         currentUserPubkey: String?,
         isConsecutive: Bool = false,
-        hasNextConsecutive: Bool = false,
         onReplyTap: (() -> Void)? = nil,
         onAgentTap: (() -> Void)? = nil,
         onQuote: (() -> Void)? = nil,
@@ -31,7 +30,6 @@ public struct MessageRow: View {
         self.message = message
         self.currentUserPubkey = currentUserPubkey
         self.isConsecutive = isConsecutive
-        self.hasNextConsecutive = hasNextConsecutive
         self.onReplyTap = onReplyTap
         self.onAgentTap = onAgentTap
         self.onQuote = onQuote
@@ -45,18 +43,14 @@ public struct MessageRow: View {
     // MARK: Public
 
     public var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            self.avatarColumnView
-            self.messageContent
-            Spacer()
-        }
-        .padding(.vertical, self.isConsecutive ? 2 : 8)
-        .contextMenu {
-            self.contextMenuContent
-        }
-        .sheet(isPresented: self.$showRawEvent) {
-            RawEventSheet(rawEventJSON: self.message.rawEventJSON, isPresented: self.$showRawEvent)
-        }
+        self.messageContent
+            .padding(.vertical, self.isConsecutive ? 2 : 8)
+            .contextMenu {
+                self.contextMenuContent
+            }
+            .sheet(isPresented: self.$showRawEvent) {
+                RawEventSheet(rawEventJSON: self.message.rawEventJSON, isPresented: self.$showRawEvent)
+            }
     }
 
     // MARK: Private
@@ -67,7 +61,6 @@ public struct MessageRow: View {
     private let message: Message
     private let currentUserPubkey: String?
     private let isConsecutive: Bool
-    private let hasNextConsecutive: Bool
     private let onReplyTap: (() -> Void)?
     private let onAgentTap: (() -> Void)?
     private let onQuote: (() -> Void)?
@@ -104,63 +97,6 @@ public struct MessageRow: View {
             if !self.message.suggestions.isEmpty {
                 self.suggestionsView
             }
-        }
-    }
-
-    private var avatarColumnView: some View {
-        VStack(spacing: 0) {
-            if self.isConsecutive {
-                self.threadContinuityLine
-            } else {
-                self.avatarView
-            }
-            if self.hasNextConsecutive {
-                self.threadContinuityLineBelow
-            }
-        }
-        .frame(width: 36)
-    }
-
-    private var threadContinuityLine: some View {
-        VStack(spacing: 0) {
-            Rectangle()
-                .fill(Color.gray.opacity(0.3))
-                .frame(width: 2)
-                .frame(maxHeight: .infinity)
-            Circle()
-                .fill(Color.gray.opacity(0.5))
-                .frame(width: 8, height: 8)
-        }
-        .frame(height: 20)
-    }
-
-    private var threadContinuityLineBelow: some View {
-        Rectangle()
-            .fill(Color.gray.opacity(0.3))
-            .frame(width: 2)
-            .frame(maxHeight: .infinity)
-    }
-
-    private var avatarView: some View {
-        Group {
-            if self.isAgent, let onAgentTap {
-                Button(action: onAgentTap) {
-                    self.avatar
-                }
-                .buttonStyle(.plain)
-            } else {
-                self.avatar
-            }
-        }
-    }
-
-    @ViewBuilder private var avatar: some View {
-        if let ndk {
-            NDKUIProfilePicture(ndk: ndk, pubkey: self.message.pubkey, size: 36)
-        } else {
-            Image(systemName: "person.circle.fill")
-                .font(.largeTitle)
-                .foregroundStyle(self.isAgent ? .blue : .gray)
         }
     }
 

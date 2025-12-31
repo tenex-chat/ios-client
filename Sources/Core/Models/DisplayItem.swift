@@ -9,13 +9,13 @@ import Foundation
 // MARK: - DisplayItem
 
 /// Represents an item in the display model for chat messages
-/// This enum enables grouping of sequential tool calls with their associated thinking blocks
+/// Groups consecutive messages from the same author
 public enum DisplayItem: Identifiable, Sendable {
-    /// A visible message to display (user messages, AI responses with content)
+    /// A single message (when not part of a consecutive group)
     case visible(VisibleItem)
 
-    /// A group of sequential tool calls with optional thinking blocks
-    case toolGroup(ToolGroupItem)
+    /// A group of consecutive messages from the same author
+    case agentGroup(AgentGroupItem)
 
     /// Metadata event (phase changes, etc.)
     case metadata(MetadataItem)
@@ -26,7 +26,7 @@ public enum DisplayItem: Identifiable, Sendable {
         switch self {
         case let .visible(item):
             item.id
-        case let .toolGroup(item):
+        case let .agentGroup(item):
             item.id
         case let .metadata(item):
             item.id
@@ -36,78 +36,48 @@ public enum DisplayItem: Identifiable, Sendable {
 
 // MARK: - VisibleItem
 
-/// A visible message item
+/// A single visible message item
 public struct VisibleItem: Identifiable, Sendable {
     public let message: Message
     public let isConsecutive: Bool
-    public let hasNextConsecutive: Bool
-    public let isLastReasoningMessage: Bool
 
     public var id: String { self.message.id }
 
     public init(
         message: Message,
-        isConsecutive: Bool = false,
-        hasNextConsecutive: Bool = false,
-        isLastReasoningMessage: Bool = false
+        isConsecutive: Bool = false
     ) {
         self.message = message
         self.isConsecutive = isConsecutive
-        self.hasNextConsecutive = hasNextConsecutive
-        self.isLastReasoningMessage = isLastReasoningMessage
     }
 }
 
-// MARK: - ToolGroupItem
+// MARK: - AgentGroupItem
 
-/// A group of tool calls with optional thinking blocks
-public struct ToolGroupItem: Identifiable, Sendable {
-    /// The tool call messages in this group
-    public let tools: [Message]
-
-    /// Associated thinking/reasoning messages
-    public let thinking: [Message]
-
-    /// Whether this group is currently active (last group with no messages after)
-    public let isActive: Bool
+/// A group of consecutive messages from the same author
+/// Replaces the old ToolGroupItem - now groups ALL message types together
+public struct AgentGroupItem: Identifiable, Sendable {
+    /// All messages in this group (tools, reasoning, regular - all mixed together)
+    public let messages: [Message]
 
     /// Whether this continues from the previous message by the same author
     public let isConsecutive: Bool
 
-    /// Whether the next message is from the same author
-    public let hasNextConsecutive: Bool
-
-    /// Stable fallback ID generated at init time (used only if both tools and thinking are empty)
-    private let fallbackID: String
-
     public var id: String {
-        // Use first tool's ID, or first thinking message ID for thinking-only groups
-        "tool_group-\(tools.first?.id ?? thinking.first?.id ?? fallbackID)"
+        "agent_group-\(messages.first?.id ?? UUID().uuidString)"
     }
 
-    /// All tool calls from the messages
-    public var toolCalls: [ToolCall] {
-        self.tools.compactMap(\.toolCall)
-    }
-
-    /// Whether this group has thinking content
-    public var hasThinking: Bool {
-        !self.thinking.isEmpty
+    /// The pubkey of the author (all messages in group have same pubkey)
+    public var pubkey: String? {
+        messages.first?.pubkey
     }
 
     public init(
-        tools: [Message],
-        thinking: [Message] = [],
-        isActive: Bool = false,
-        isConsecutive: Bool = false,
-        hasNextConsecutive: Bool = false
+        messages: [Message],
+        isConsecutive: Bool = false
     ) {
-        self.tools = tools
-        self.thinking = thinking
-        self.isActive = isActive
+        self.messages = messages
         self.isConsecutive = isConsecutive
-        self.hasNextConsecutive = hasNextConsecutive
-        self.fallbackID = UUID().uuidString
     }
 }
 
@@ -126,96 +96,70 @@ public struct MetadataItem: Identifiable, Sendable {
 
 // MARK: - DisplayModelBuilder
 
-/// Builds display items from messages with tool grouping logic
+/// Builds display items from messages
+/// Groups consecutive messages from the same author together
 public enum DisplayModelBuilder {
     // MARK: Public
 
     /// Create a display model from messages
-    /// Groups sequential tool calls together with their associated thinking blocks
+    /// Groups consecutive messages from the same author (no p-tag interruption)
     public static func createDisplayModel(from messages: [Message]) -> [DisplayItem] {
-        var state = BuilderState()
+        var items: [DisplayItem] = []
+        var currentGroup: [Message] = []
+        var lastPubkey: String?
+        var groupStartIsConsecutive = false
 
-        for (index, message) in messages.enumerated() {
-            processMessage(message, at: index, in: messages, state: &state)
+        for message in messages {
+            let isConsecutive = message.pubkey == lastPubkey && message.pTaggedPubkeys.isEmpty
+
+            // Metadata stays separate
+            if message.phase != nil, message.content.isEmpty {
+                finalizeGroup(&currentGroup, into: &items, isConsecutive: groupStartIsConsecutive)
+                items.append(.metadata(MetadataItem(message: message)))
+                groupStartIsConsecutive = false
+            }
+            // Check if this message breaks the current group
+            else if !currentGroup.isEmpty, !isConsecutive {
+                finalizeGroup(&currentGroup, into: &items, isConsecutive: groupStartIsConsecutive)
+                currentGroup = [message]
+                groupStartIsConsecutive = isConsecutive
+            }
+            // Add to current group
+            else {
+                if currentGroup.isEmpty {
+                    groupStartIsConsecutive = isConsecutive
+                }
+                currentGroup.append(message)
+            }
+
+            lastPubkey = message.pubkey
         }
 
-        // Finalize any remaining tool group (this one is active)
-        finalizeToolGroup(state: &state, isActive: true, nextMessagePubkey: nil)
+        // Finalize remaining group
+        finalizeGroup(&currentGroup, into: &items, isConsecutive: groupStartIsConsecutive)
 
-        return state.items
+        return items
     }
 
     // MARK: Private
 
-    private struct BuilderState {
-        var items: [DisplayItem] = []
-        var currentToolGroup: [Message] = []
-        var currentThinking: [Message] = []
-        var lastPubkey: String?
-    }
-
-    private static func processMessage(
-        _ message: Message,
-        at index: Int,
-        in messages: [Message],
-        state: inout BuilderState
+    private static func finalizeGroup(
+        _ group: inout [Message],
+        into items: inout [DisplayItem],
+        isConsecutive: Bool
     ) {
-        let nextMessage = index + 1 < messages.count ? messages[index + 1] : nil
-        let isConsecutive = message.pubkey == state.lastPubkey && message.pTaggedPubkeys.isEmpty
-        let hasNextConsecutive = nextMessage?.pubkey == message.pubkey &&
-            nextMessage?.pTaggedPubkeys.isEmpty == true
-
-        if message.isReasoning {
-            state.currentThinking.append(message)
-        } else if message.isToolCall {
-            state.currentToolGroup.append(message)
-        } else {
-            finalizeToolGroup(state: &state, isActive: false, nextMessagePubkey: message.pubkey)
-            appendVisibleOrMetadata(
-                message,
-                isConsecutive: isConsecutive,
-                hasNextConsecutive: hasNextConsecutive,
-                state: &state
-            )
-        }
-
-        state.lastPubkey = message.pubkey
-    }
-
-    private static func finalizeToolGroup(state: inout BuilderState, isActive: Bool, nextMessagePubkey: String?) {
-        guard !state.currentToolGroup.isEmpty || !state.currentThinking.isEmpty else {
+        guard !group.isEmpty else {
             return
         }
 
-        let groupPubkey = state.currentToolGroup.last?.pubkey ?? state.currentThinking.last?.pubkey
-        let toolGroup = ToolGroupItem(
-            tools: state.currentToolGroup,
-            thinking: state.currentThinking,
-            isActive: isActive,
-            isConsecutive: !state.items.isEmpty && state.lastPubkey == state.currentToolGroup.first?.pubkey,
-            hasNextConsecutive: nextMessagePubkey == groupPubkey
-        )
-        state.items.append(.toolGroup(toolGroup))
-        state.currentToolGroup = []
-        state.currentThinking = []
-    }
-
-    private static func appendVisibleOrMetadata(
-        _ message: Message,
-        isConsecutive: Bool,
-        hasNextConsecutive: Bool,
-        state: inout BuilderState
-    ) {
-        if message.phase != nil, message.content.isEmpty {
-            state.items.append(.metadata(MetadataItem(message: message)))
+        if group.count == 1 {
+            // Single message → VisibleItem
+            items.append(.visible(VisibleItem(message: group[0], isConsecutive: isConsecutive)))
         } else {
-            let visibleItem = VisibleItem(
-                message: message,
-                isConsecutive: isConsecutive,
-                hasNextConsecutive: hasNextConsecutive,
-                isLastReasoningMessage: false
-            )
-            state.items.append(.visible(visibleItem))
+            // Multiple messages → AgentGroupItem
+            items.append(.agentGroup(AgentGroupItem(messages: group, isConsecutive: isConsecutive)))
         }
+
+        group = []
     }
 }

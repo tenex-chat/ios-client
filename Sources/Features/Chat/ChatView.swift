@@ -379,9 +379,6 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                 .onChange(of: messages.count) { _, newCount in
                     self.handleMessageCountChange(proxy: proxy, newCount: newCount)
                 }
-                .onChange(of: viewModel.conversationState.streamingSessions.count) { _, _ in
-                    self.handleStreamingSessionsChange(proxy: proxy)
-                }
         }
     }
 
@@ -389,7 +386,6 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 self.messageRows(viewModel: viewModel, messages: messages)
-                self.typingIndicatorView(viewModel: viewModel)
                 self.bottomAnchor
             }
             .padding(.vertical, 16)
@@ -425,12 +421,8 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                     isLastMessage: isLastItem
                 )
 
-            case let .toolGroup(groupItem):
-                ToolGroupView(
-                    group: groupItem,
-                    isConsecutive: groupItem.isConsecutive,
-                    hasNextConsecutive: groupItem.hasNextConsecutive
-                )
+            case let .agentGroup(groupItem):
+                agentGroupView(groupItem: groupItem, viewModel: viewModel)
 
             case .metadata:
                 // Metadata items (phase changes) - currently not rendered
@@ -452,6 +444,29 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
         )
     }
 
+    @ViewBuilder
+    private func agentGroupView(groupItem: AgentGroupItem, viewModel: ChatViewModel) -> some View {
+        AgentMessageGroupView(
+            item: groupItem,
+            currentUserPubkey: self.currentUserPubkey,
+            onReplyTap: { message in self.replyToMessage(message) },
+            onAgentTap: { _ in },
+            onQuote: { message in self.quoteMessage(message, viewModel: viewModel) },
+            onPlayTTS: { message in
+                if TTSCache.shared.hasCached(messageID: message.id) {
+                    self.playTTSForMessage(message.id)
+                }
+            },
+            onSuggestionTap: { suggestion in
+                if let askMessage = groupItem.messages.first(where: { $0.hasAskTag }) {
+                    self.handleSuggestionTap(suggestion: suggestion, askMessage: askMessage, viewModel: viewModel)
+                }
+            },
+            showDebugInfo: false
+        )
+        .padding(.horizontal, 16)
+    }
+
     private func messageRowView(
         viewModel: ChatViewModel,
         visibleItem: VisibleItem,
@@ -463,7 +478,6 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                     message: visibleItem.message,
                     currentUserPubkey: self.currentUserPubkey,
                     isConsecutive: visibleItem.isConsecutive,
-                    hasNextConsecutive: visibleItem.hasNextConsecutive,
                     onReplyTap: { self.replyToMessage(visibleItem.message) },
                     onAgentTap: visibleItem.message.pubkey != self.currentUserPubkey ? {} : nil,
                     onQuote: { self.quoteMessage(visibleItem.message, viewModel: viewModel) },
@@ -488,15 +502,6 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
             if isLastMessage {
                 self.scrollPositionTracker
             }
-        }
-    }
-
-    @ViewBuilder
-    private func typingIndicatorView(viewModel: ChatViewModel) -> some View {
-        if !viewModel.typingUsers.isEmpty {
-            self.typingIndicator(viewModel: viewModel)
-                .padding(.horizontal, 16)
-                .padding(.top, 16)
         }
     }
 
@@ -539,28 +544,6 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
             }
         }
         self.lastMessageCount = newCount
-    }
-
-    private func handleStreamingSessionsChange(proxy: ScrollViewProxy) {
-        // Scroll when streaming starts if at bottom
-        if self.shouldAutoScroll {
-            withAnimation {
-                proxy.scrollTo("bottom", anchor: .bottom)
-            }
-        }
-    }
-
-    private func typingIndicator(viewModel: ChatViewModel) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: "ellipsis.bubble.fill")
-                .font(.title3)
-                .foregroundStyle(.blue)
-                .symbolEffect(.pulse)
-
-            Text(self.typingText(viewModel: viewModel))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
     }
 
     /// Get messages to display based on current focus
@@ -632,15 +615,6 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
             return "New Thread"
         }
         return viewModel.threadTitle ?? "Thread"
-    }
-
-    private func typingText(viewModel: ChatViewModel) -> String {
-        let count = viewModel.typingUsers.count
-        if count == 1 {
-            return "Someone is typing..."
-        } else {
-            return "\(count) people are typing..."
-        }
     }
 
     private func quoteMessage(_ message: Message, viewModel _: ChatViewModel) {
