@@ -57,6 +57,11 @@ public final class ThreadListViewModel {
     public var threads: [ThreadSummary] {
         var filteredThreads = showArchived ? store.sortedThreads : filterArchivedThreads(from: store.sortedThreads)
 
+        // Apply "Only by me" filter if enabled
+        if filtersStore.isOnlyByMeEnabled(for: projectID), let userPubkey = currentUserPubkey {
+            filteredThreads = filteredThreads.filter { $0.pubkey == userPubkey }
+        }
+
         // Apply time-based filter if one is set
         let activeFilter = filtersStore.getFilter(for: projectID)
         if let filter = activeFilter {

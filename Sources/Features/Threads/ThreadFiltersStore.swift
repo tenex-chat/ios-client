@@ -93,6 +93,10 @@ public final class ThreadFiltersStore {
            let decoded = try? JSONDecoder().decode([String: ThreadFilter].self, from: data) {
             filters = decoded
         }
+        if let data = UserDefaults.standard.data(forKey: onlyByMeStorageKey),
+           let decoded = try? JSONDecoder().decode([String: Bool].self, from: data) {
+            onlyByMeFilters = decoded
+        }
     }
 
     // MARK: Public
@@ -114,18 +118,41 @@ public final class ThreadFiltersStore {
         } else {
             filters.removeValue(forKey: projectID)
         }
-        save()
+        saveFilters()
+    }
+
+    /// Get whether "Only by me" filter is enabled for a project
+    /// - Parameter projectID: The project coordinate
+    /// - Returns: True if the filter is enabled
+    public func isOnlyByMeEnabled(for projectID: String) -> Bool {
+        onlyByMeFilters[projectID] ?? false
+    }
+
+    /// Toggle the "Only by me" filter for a project
+    /// - Parameter projectID: The project coordinate
+    public func toggleOnlyByMe(for projectID: String) {
+        onlyByMeFilters[projectID] = !isOnlyByMeEnabled(for: projectID)
+        saveOnlyByMe()
     }
 
     // MARK: Private
 
     private var filters: [String: ThreadFilter] = [:]
+    private var onlyByMeFilters: [String: Bool] = [:]
     private let storageKey = "thread-filters"
+    private let onlyByMeStorageKey = "thread-filters-only-by-me"
 
     /// Save the current filters to UserDefaults
-    private func save() {
+    private func saveFilters() {
         if let encoded = try? JSONEncoder().encode(filters) {
             UserDefaults.standard.set(encoded, forKey: storageKey)
+        }
+    }
+
+    /// Save the "Only by me" filters to UserDefaults
+    private func saveOnlyByMe() {
+        if let encoded = try? JSONEncoder().encode(onlyByMeFilters) {
+            UserDefaults.standard.set(encoded, forKey: onlyByMeStorageKey)
         }
     }
 }

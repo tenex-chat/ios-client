@@ -144,50 +144,60 @@ public struct ProjectDetailView: View {
 
     @ViewBuilder private var filterMenu: some View {
         let activeFilter = self.filtersStore.getFilter(for: self.project.coordinate)
+        let onlyByMe = self.filtersStore.isOnlyByMeEnabled(for: self.project.coordinate)
 
         Menu {
-            // Clear filter button
-            Button {
-                self.filtersStore.setFilter(nil, for: self.project.coordinate)
-            } label: {
-                Label("All conversations", systemImage: "circle")
-            }
-
-            Divider()
-
-            // Activity filters section
-            Section("Activity filters") {
-                ForEach([ThreadFilter.oneHour, .fourHours, .oneDay], id: \.self) { filter in
-                    Button {
-                        self.filtersStore.setFilter(filter, for: self.project.coordinate)
-                    } label: {
-                        Label(filter.displayName, systemImage: filter.systemImage)
-                    }
-                }
-            }
-
-            Divider()
-
-            // Needs response filters section
-            Section("Response filters") {
-                ForEach(
-                    [ThreadFilter.needsResponseOneHour, .needsResponseFourHours, .needsResponseOneDay],
-                    id: \.self
-                ) { filter in
-                    Button {
-                        self.filtersStore.setFilter(filter, for: self.project.coordinate)
-                    } label: {
-                        Label(filter.displayName, systemImage: filter.systemImage)
-                    }
-                }
-            }
+            filterMenuContent(onlyByMe: onlyByMe)
         } label: {
             Label(
-                activeFilter?.displayName ?? "Filter",
-                systemImage: activeFilter != nil
+                activeFilter?.displayName ?? (onlyByMe ? "Only by me" : "Filter"),
+                systemImage: activeFilter != nil || onlyByMe
                     ? "line.3.horizontal.decrease.circle.fill"
                     : "line.3.horizontal.decrease.circle"
             )
+        }
+    }
+
+    @ViewBuilder private func filterMenuContent(onlyByMe: Bool) -> some View {
+        Button {
+            self.filtersStore.setFilter(nil, for: self.project.coordinate)
+        } label: {
+            Label("All conversations", systemImage: "circle")
+        }
+
+        Divider()
+
+        Button {
+            self.filtersStore.toggleOnlyByMe(for: self.project.coordinate)
+        } label: {
+            Label("Only by me", systemImage: onlyByMe ? "person.fill.checkmark" : "person")
+        }
+
+        Divider()
+
+        Section("Activity filters") {
+            ForEach([ThreadFilter.oneHour, .fourHours, .oneDay], id: \.self) { filter in
+                Button {
+                    self.filtersStore.setFilter(filter, for: self.project.coordinate)
+                } label: {
+                    Label(filter.displayName, systemImage: filter.systemImage)
+                }
+            }
+        }
+
+        Divider()
+
+        Section("Response filters") {
+            ForEach(
+                [ThreadFilter.needsResponseOneHour, .needsResponseFourHours, .needsResponseOneDay],
+                id: \.self
+            ) { filter in
+                Button {
+                    self.filtersStore.setFilter(filter, for: self.project.coordinate)
+                } label: {
+                    Label(filter.displayName, systemImage: filter.systemImage)
+                }
+            }
         }
     }
 
