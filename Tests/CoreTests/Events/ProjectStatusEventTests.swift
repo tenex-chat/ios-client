@@ -145,6 +145,75 @@ struct ProjectStatusEventTests {
         #expect(gpt?.tools.contains("web-search") == true)
     }
 
+    @Test("Parse unassigned tools into allAvailableTools")
+    func parseUnassignedTools() throws {
+        // Given: Event with tools - some assigned to agents, some not
+        let event = NDKEvent.test(
+            kind: 24_010,
+            content: "",
+            tags: [
+                ["a", "31933:owner:test-project"],
+                ["agent", "abc123", "Claude"],
+                ["tool", "shell", "Claude"], // Assigned to Claude
+                ["tool", "web_search"], // Not assigned to any agent
+                ["tool", "web_fetch"], // Not assigned to any agent
+                ["tool", "read_path", "Claude"], // Assigned to Claude
+            ],
+            pubkey: "testpubkey"
+        )
+
+        // When: Converting to ProjectStatus
+        let status = try #require(ProjectStatus.from(event: event))
+
+        // Then: allAvailableTools contains ALL tools (assigned and unassigned)
+        #expect(status.allAvailableTools.count == 4)
+        #expect(status.allAvailableTools.contains("shell"))
+        #expect(status.allAvailableTools.contains("web_search"))
+        #expect(status.allAvailableTools.contains("web_fetch"))
+        #expect(status.allAvailableTools.contains("read_path"))
+
+        // And: agentTools only contains tools assigned to agents
+        #expect(status.agentTools.count == 2)
+        #expect(status.agentTools.contains("shell"))
+        #expect(status.agentTools.contains("read_path"))
+        #expect(status.agentTools.contains("web_search") == false)
+        #expect(status.agentTools.contains("web_fetch") == false)
+
+        // And: tools property returns all available tools sorted
+        #expect(status.tools.count == 4)
+        #expect(status.tools == status.allAvailableTools.sorted())
+    }
+
+    @Test("tools property returns all available tools for agent configuration")
+    func toolsPropertyReturnsAllAvailable() throws {
+        // Given: Event simulating real-world 24010 with mixed tool tags
+        let event = NDKEvent.test(
+            kind: 24_010,
+            content: "",
+            tags: [
+                ["a", "31933:owner:test-project"],
+                ["agent", "abc123", "claude-code"],
+                ["tool", "shell", "claude-code"],
+                ["tool", "discover_capabilities", "claude-code"],
+                ["tool", "web_fetch"], // Global/unassigned
+                ["tool", "web_search"], // Global/unassigned
+                ["tool", "conversation_get"], // Global/unassigned
+            ],
+            pubkey: "testpubkey"
+        )
+
+        // When: Converting to ProjectStatus
+        let status = try #require(ProjectStatus.from(event: event))
+
+        // Then: tools contains all 5 tools for agent configuration UI
+        #expect(status.tools.count == 5)
+        #expect(status.tools.contains("shell"))
+        #expect(status.tools.contains("discover_capabilities"))
+        #expect(status.tools.contains("web_fetch"))
+        #expect(status.tools.contains("web_search"))
+        #expect(status.tools.contains("conversation_get"))
+    }
+
     @Test("Handle no online agents gracefully")
     func handleNoOnlineAgents() throws {
         // Given: Event without agent tags

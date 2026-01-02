@@ -24,6 +24,10 @@ public struct ProjectStatus: Sendable {
     /// Online agents parsed from agent/model/tool tags
     public let agents: [ProjectAgent]
 
+    /// All available tools in the project (including unassigned ones)
+    /// These are tools that can be configured for agents
+    public let allAvailableTools: [String]
+
     /// Available branches parsed from branch tags
     /// The first branch is considered the default branch
     public let branches: [String]
@@ -55,9 +59,14 @@ public struct ProjectStatus: Sendable {
         Array(Set(self.agents.compactMap(\.model))).sorted()
     }
 
-    /// All unique tools used by agents
-    public var tools: [String] {
+    /// All unique tools used by agents (subset of allAvailableTools)
+    public var agentTools: [String] {
         Array(Set(self.agents.flatMap(\.tools))).sorted()
+    }
+
+    /// All tools available for configuration (alias for allAvailableTools, sorted)
+    public var tools: [String] {
+        self.allAvailableTools.sorted()
     }
 
     /// Create a ProjectStatus from a Nostr event
@@ -81,6 +90,9 @@ public struct ProjectStatus: Sendable {
         // Parse agents from tags
         let agents = self.parseAgents(from: event)
 
+        // Parse ALL available tools from tags (including unassigned ones)
+        let allTools = self.parseAllTools(from: event)
+
         // Parse branches from tags
         let branches = self.parseBranches(from: event)
 
@@ -91,6 +103,7 @@ public struct ProjectStatus: Sendable {
             projectCoordinate: projectCoordinate,
             pubkey: event.pubkey,
             agents: agents,
+            allAvailableTools: allTools,
             branches: branches,
             createdAt: createdAt
         )
@@ -169,6 +182,21 @@ public struct ProjectStatus: Sendable {
                 }
             }
         }
+    }
+
+    /// Parse ALL tool tags: ["tool", <tool-name>, <agent-name>?, ...]
+    /// Returns all unique tool names, including those not assigned to any agent
+    private static func parseAllTools(from event: NDKEvent) -> [String] {
+        var tools = Set<String>()
+        for tag in event.tags(withName: "tool") {
+            // Only require tag to have at least 2 elements: ["tool", "<tool-name>"]
+            // Agent names are optional (index 2+)
+            guard tag.count > 1, !tag[1].isEmpty else {
+                continue
+            }
+            tools.insert(tag[1])
+        }
+        return Array(tools)
     }
 
     /// Parse branch tags: ["branch", <branch-name>]
