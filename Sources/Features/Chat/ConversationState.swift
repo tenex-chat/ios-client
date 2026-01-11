@@ -42,9 +42,8 @@ public final class ConversationState {
     public private(set) var messages: [String: Message] = [:]
 
     /// Flat display list - all messages sorted by time
-    public var displayMessages: [Message] {
-        messages.values.sorted { $0.createdAt < $1.createdAt }
-    }
+    /// Maintained in sorted order to avoid expensive sorting on every access
+    public private(set) var displayMessages: [Message] = []
 
     /// Process an incoming event and update state accordingly.
     /// - Parameter event: The NDKEvent to process
@@ -63,7 +62,18 @@ public final class ConversationState {
             replyTo: event.tagValue("e"),
             kind: UInt16(event.kind)
         )
+
+        // Check if this is a new message or an update
+        let isNewMessage = messages[event.id] == nil
         messages[event.id] = message
+
+        if isNewMessage {
+            // Insert in sorted order using binary search
+            insertMessageSorted(message)
+        } else {
+            // Message was updated, rebuild displayMessages from scratch
+            rebuildDisplayMessages()
+        }
 
         // Trigger callback for agent messages (for auto-TTS)
         onAgentMessage?(message)
@@ -72,11 +82,32 @@ public final class ConversationState {
     /// Clear all state.
     public func clear() {
         messages.removeAll()
+        displayMessages.removeAll()
+    }
+
+    // MARK: Private
+
+    /// Insert a message into displayMessages in sorted order using binary search
+    private func insertMessageSorted(_ message: Message) {
+        let insertIndex = displayMessages.firstIndex { $0.createdAt > message.createdAt } ?? displayMessages.endIndex
+        displayMessages.insert(message, at: insertIndex)
+    }
+
+    /// Rebuild displayMessages from messages dictionary
+    private func rebuildDisplayMessages() {
+        displayMessages = messages.values.sorted { $0.createdAt < $1.createdAt }
     }
 
     /// Add a message directly (e.g., the root thread event)
     /// - Parameter message: The message to add
     public func addMessage(_ message: Message) {
+        let isNewMessage = messages[message.id] == nil
         messages[message.id] = message
+
+        if isNewMessage {
+            insertMessageSorted(message)
+        } else {
+            rebuildDisplayMessages()
+        }
     }
 }
