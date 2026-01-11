@@ -270,7 +270,8 @@ public struct Message: Identifiable, Sendable {
         suggestions: [String] = [],
         rawEventJSON: String? = nil,
         projectCoordinate: String? = nil,
-        hasAskTag: Bool = false
+        hasAskTag: Bool = false,
+        askQuestions: AskQuestions? = nil
     ) {
         self.id = id
         self.pubkey = pubkey
@@ -291,6 +292,7 @@ public struct Message: Identifiable, Sendable {
         self.rawEventJSON = rawEventJSON
         self.projectCoordinate = projectCoordinate
         self.hasAskTag = hasAskTag
+        self.askQuestions = askQuestions
     }
 
     // MARK: Public
@@ -352,8 +354,14 @@ public struct Message: Identifiable, Sendable {
     /// Whether this message has an "ask" tag (agent escalation)
     public let hasAskTag: Bool
 
+    /// Parsed ask questions from the event (if this is a multi-question ask event)
+    public let askQuestions: AskQuestions?
+
     /// Whether this message is a tool call
     public var isToolCall: Bool { self.toolCall != nil }
+
+    /// Whether this is an ask event (has ask tag set to true/1)
+    public var isAskEvent: Bool { hasAskTag && askQuestions != nil }
 
     /// Create a Message from a Nostr event
     /// - Parameter event: The NDKEvent (must be kind:1)
@@ -406,7 +414,8 @@ public struct Message: Identifiable, Sendable {
             suggestions: self.suggestions,
             rawEventJSON: self.rawEventJSON,
             projectCoordinate: self.projectCoordinate,
-            hasAskTag: self.hasAskTag
+            hasAskTag: self.hasAskTag,
+            askQuestions: self.askQuestions
         )
     }
 
@@ -435,7 +444,8 @@ public struct Message: Identifiable, Sendable {
             suggestions: self.suggestions,
             rawEventJSON: self.rawEventJSON,
             projectCoordinate: self.projectCoordinate,
-            hasAskTag: self.hasAskTag
+            hasAskTag: self.hasAskTag,
+            askQuestions: self.askQuestions
         )
     }
 
@@ -450,6 +460,7 @@ public struct Message: Identifiable, Sendable {
         let suggestions: [String]
         let rawEventJSON: String?
         let hasAskTag: Bool
+        let askQuestions: AskQuestions?
     }
 
     private static func createThreadRoot(from event: NDKEvent, metadata: EventMetadata) -> Self {
@@ -468,7 +479,8 @@ public struct Message: Identifiable, Sendable {
             suggestions: metadata.suggestions,
             rawEventJSON: metadata.rawEventJSON,
             projectCoordinate: event.tagValue("a"),
-            hasAskTag: metadata.hasAskTag
+            hasAskTag: metadata.hasAskTag,
+            askQuestions: metadata.askQuestions
         )
     }
 
@@ -498,7 +510,8 @@ public struct Message: Identifiable, Sendable {
             suggestions: metadata.suggestions,
             rawEventJSON: metadata.rawEventJSON,
             projectCoordinate: event.tagValue("a"),
-            hasAskTag: metadata.hasAskTag
+            hasAskTag: metadata.hasAskTag,
+            askQuestions: metadata.askQuestions
         )
     }
 
@@ -509,7 +522,8 @@ public struct Message: Identifiable, Sendable {
         let phase = event.tags(withName: "phase").first?[safe: 1]
         let pTaggedPubkeys = event.tags(withName: "p").compactMap { $0[safe: 1] }
         let suggestions = event.tags(withName: "suggestion").compactMap { $0[safe: 1] }
-        let hasAskTag = event.tags(withName: "ask").first != nil
+        let hasAskTag = AskQuestions.isAskEvent(event)
+        let askQuestions = AskQuestions.from(event: event)
 
         let eventDict: [String: Any] = [
             "id": event.id,
@@ -538,7 +552,8 @@ public struct Message: Identifiable, Sendable {
             pTaggedPubkeys: pTaggedPubkeys,
             suggestions: suggestions,
             rawEventJSON: rawEventJSON,
-            hasAskTag: hasAskTag
+            hasAskTag: hasAskTag,
+            askQuestions: askQuestions
         )
     }
 }
