@@ -133,6 +133,7 @@ public struct ChatInputView: View {
             self.mentionAutocompleteView
             self.mainInputArea
         }
+        #if os(macOS)
         .overlay {
             if self.isDropTargeted {
                 self.dropTargetOverlay
@@ -145,6 +146,7 @@ public struct ChatInputView: View {
                 self.isDropTargeted = isTargeted
             }
         }
+        #endif
         .onChange(of: self.viewModel.inputText) { _, newValue in
             self.handleTextChange(newValue)
         }
@@ -198,8 +200,11 @@ public struct ChatInputView: View {
     @State private var showNudgeSelector = false
     @State private var showBranchSelector = false
     @State private var showAgentConfig = false
-    @State private var isDropTargeted = false
     @FocusState private var isInputFocused: Bool
+
+    #if os(macOS)
+    @State private var isDropTargeted = false
+    #endif
 
     // Pulsing animation state for active agents indicator
     @State private var pulseScale: CGFloat = 1.0
@@ -603,7 +608,8 @@ public struct ChatInputView: View {
         )
     }
 
-    // MARK: - Drag and Drop
+    #if os(macOS)
+    // MARK: - Drag and Drop (macOS only)
 
     private var dropTargetOverlay: some View {
         RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -650,6 +656,7 @@ public struct ChatInputView: View {
 
         return addedAny
     }
+    #endif
 
     /// Process raw data into image data, mime type, and thumbnail
     private func processImageData(_ data: Data) -> (Data, String, Image)? {
