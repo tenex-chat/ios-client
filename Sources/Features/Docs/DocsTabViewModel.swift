@@ -7,6 +7,7 @@
 import Foundation
 import NDKSwiftCore
 import Observation
+import TENEXCore
 
 // MARK: - DocsTabViewModel
 
@@ -31,13 +32,18 @@ public final class DocsTabViewModel {
     /// Search query for filtering documents
     public var searchQuery = ""
 
-    /// All documents (kind 30023) from the feed
-    public var documents: [NDKEvent] {
+    /// All document events (kind 30023) from the feed
+    public var documentEvents: [NDKEvent] {
         feed.events.filter { $0.kind == 30_023 }
     }
 
+    /// All documents parsed from events
+    public var documents: [Document] {
+        documentEvents.compactMap { Document.from(event: $0) }
+    }
+
     /// Filtered and sorted documents based on search
-    public var filteredDocuments: [NDKEvent] {
+    public var filteredDocuments: [Document] {
         var result = documents
 
         // Apply search filter
@@ -52,10 +58,7 @@ public final class DocsTabViewModel {
 
     /// Subscribe to project documents (kind 30023)
     public func subscribe() {
-        let filter = NDKFilter(
-            kinds: [30_023],
-            tags: ["a": [projectID]]
-        )
+        let filter = Document.filter(for: projectID)
         let subscription = ndk.subscribe(filter: filter)
         feed.observe(subscription)
     }
@@ -67,27 +70,26 @@ public final class DocsTabViewModel {
     private let feed = NDKFeed()
 
     /// Check if a document matches the search query
-    private func documentMatchesSearch(_ event: NDKEvent, query: String) -> Bool {
+    private func documentMatchesSearch(_ document: Document, query: String) -> Bool {
         let lowerQuery = query.lowercased()
 
         // Check title
-        if let title = event.tagValue("title"), title.lowercased().contains(lowerQuery) {
+        if document.title.lowercased().contains(lowerQuery) {
             return true
         }
 
         // Check summary
-        if let summary = event.tagValue("summary"), summary.lowercased().contains(lowerQuery) {
+        if let summary = document.summary, summary.lowercased().contains(lowerQuery) {
             return true
         }
 
         // Check content
-        if event.content.lowercased().contains(lowerQuery) {
+        if document.content.lowercased().contains(lowerQuery) {
             return true
         }
 
         // Check hashtags
-        let hashtags = event.tags(withName: "t").compactMap { $0[safe: 1] }
-        for hashtag in hashtags where hashtag.lowercased().contains(lowerQuery) {
+        for hashtag in document.hashtags where hashtag.lowercased().contains(lowerQuery) {
             return true
         }
 

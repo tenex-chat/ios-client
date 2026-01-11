@@ -126,7 +126,6 @@ public struct RecentConversationsView: View {
                         } label: {
                             RecentConversationRow(
                                 threadID: threadID,
-                                thread: vm.getThread(id: threadID),
                                 project: vm.getProject(for: threadID),
                                 latestMessage: latestMessage,
                                 conversationMetadata: vm.getConversationMetadata(for: threadID)
@@ -164,7 +163,6 @@ public struct RecentConversationsView: View {
                         } label: {
                             RecentConversationRow(
                                 threadID: threadID,
-                                thread: viewModel.getThread(id: threadID),
                                 project: viewModel.getProject(for: threadID),
                                 latestMessage: latestMessage,
                                 conversationMetadata: viewModel.getConversationMetadata(for: threadID)
@@ -192,9 +190,6 @@ public struct RecentConversationsView: View {
             )
         } else {
             ProgressView("Loading thread...")
-                .task {
-                    _ = viewModel.getThread(id: threadID)
-                }
         }
     }
 }

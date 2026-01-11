@@ -69,12 +69,7 @@ public final class RecentConversationsViewModel {
             return Array(conversationsByThread.keys)
         }
 
-        return conversationsByThread.keys.filter { threadID in
-            // Check if we have thread metadata with author info
-            if let thread = threadCache[threadID] {
-                return thread.pubkey == userPubkey
-            }
-
+        return Array(conversationsByThread.keys).filter { threadID in
             // Check if we have thread event with author info
             if let threadEvent = threadEventCache[threadID] {
                 return threadEvent.pubkey == userPubkey
@@ -82,7 +77,6 @@ public final class RecentConversationsViewModel {
 
             // Fallback: check the messages in the conversation
             // The thread root would be a message where id == threadID
-            // Or check if any message's threadID author matches user
             if let messages = conversationsByThread[threadID] {
                 // Look for a message that IS the thread root (id == threadID)
                 if let rootMessage = messages.first(where: { $0.id == threadID }) {
@@ -97,22 +91,6 @@ public final class RecentConversationsViewModel {
     }
 
     // MARK: - Public Methods
-
-    /// Fetch thread metadata (kind:11 events) for display
-    /// - Parameter id: The thread ID
-    /// - Returns: The Thread object if found
-    public func getThread(id: String) -> TENEXCore.Thread? {
-        if let cached = threadCache[id] {
-            return cached
-        }
-
-        // Trigger async fetch
-        Task {
-            await self.fetchThread(id: id)
-        }
-
-        return nil
-    }
 
     /// Get thread event for navigation to ChatView
     /// - Parameter id: The thread ID
@@ -169,48 +147,10 @@ public final class RecentConversationsViewModel {
 
     // MARK: - State
 
-    private var threadCache: [String: TENEXCore.Thread] = [:]
     private var threadEventCache: [String: NDKEvent] = [:]
     private var conversationMetadataCache: [String: ConversationMetadata] = [:]
 
     // MARK: - Private Methods
-
-    private func fetchThread(id: String) async {
-        self.logger.debug("Fetching thread: \(id)")
-
-        let filter = NDKFilter(ids: [id], kinds: [11])
-        let subscription = self.ndk.subscribe(filter: filter)
-
-        var eventFound = false
-        for await events in subscription.events.prefix(1) {
-            guard let event = events.first else { continue }
-            eventFound = true
-
-            self.threadEventCache[id] = event
-
-            if let thread = Thread.from(event: event) {
-                self.threadCache[id] = thread
-                self.logger.debug("Successfully cached thread: \(thread.title ?? id)")
-            } else {
-                self.logger.error("Failed to parse thread from event: \(id)")
-            }
-
-            if self.threadEventCache.count > 100 {
-                let keysToRemove = self.threadEventCache.keys.prefix(self.threadEventCache.count - 100)
-                for key in keysToRemove {
-                    self.threadEventCache.removeValue(forKey: key)
-                    self.threadCache.removeValue(forKey: key)
-                }
-                self.logger.debug("Evicted \(keysToRemove.count) threads from cache")
-            }
-        }
-
-        if !eventFound {
-            self.logger.warning("Thread not found: \(id)")
-        }
-
-        await self.fetchConversationMetadata(for: id)
-    }
 
     private func fetchConversationMetadata(for threadID: String) async {
         self.logger.debug("Fetching conversation metadata for thread: \(threadID)")

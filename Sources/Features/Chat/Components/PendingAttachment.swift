@@ -7,6 +7,7 @@
 import Foundation
 import NDKSwiftCore
 import SwiftUI
+import TENEXCore
 
 #if os(iOS)
 import UIKit
@@ -17,7 +18,11 @@ import UIKit
 /// Represents an image attachment pending upload or already uploaded
 @MainActor
 @Observable
-public final class PendingAttachment: Identifiable {
+public final class PendingAttachment: Identifiable, Equatable {
+    public static func == (lhs: PendingAttachment, rhs: PendingAttachment) -> Bool {
+        lhs.id == rhs.id
+    }
+
     public let id: UUID
     public let imageData: Data
     public let thumbnail: Image

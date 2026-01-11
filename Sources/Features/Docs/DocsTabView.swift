@@ -6,6 +6,7 @@
 
 import NDKSwiftCore
 import SwiftUI
+import TENEXCore
 
 // MARK: - DocsTabView
 
@@ -17,7 +18,7 @@ public struct DocsTabView: View {
     /// - Parameters:
     ///   - projectID: The project identifier
     ///   - onDocumentClick: Optional callback when a document is tapped
-    public init(projectID: String, onDocumentClick: ((NDKEvent) -> Void)? = nil) {
+    public init(projectID: String, onDocumentClick: ((Document) -> Void)? = nil) {
         self.projectID = projectID
         self.onDocumentClick = onDocumentClick
     }
@@ -38,11 +39,11 @@ public struct DocsTabView: View {
 
     @Environment(\.ndk) private var ndk
     @State private var viewModel: DocsTabViewModel?
-    @State private var selectedDocument: NDKEvent?
+    @State private var selectedDocument: Document?
     @State private var showingCreateSheet = false
 
     private let projectID: String
-    private let onDocumentClick: ((NDKEvent) -> Void)?
+    private let onDocumentClick: ((Document) -> Void)?
 
     private var emptyView: some View {
         VStack(spacing: 20) {
@@ -118,7 +119,7 @@ public struct DocsTabView: View {
             vm.subscribe()
         }
         .sheet(item: $selectedDocument) { document in
-            DocumentDetailView(document: document, ndk: ndk)
+            DocumentDetailView(document: document.event, ndk: ndk)
         }
         .sheet(isPresented: $showingCreateSheet) {
             DocumentCreateView(ndk: ndk, projectID: projectID)
@@ -136,7 +137,7 @@ public struct DocsTabView: View {
 
     private func documentList(viewModel: DocsTabViewModel, ndk: NDK) -> some View {
         List {
-            ForEach(viewModel.filteredDocuments, id: \.id) { document in
+            ForEach(viewModel.filteredDocuments) { document in
                 DocumentRow(document: document, ndk: ndk)
                     .listRowInsets(EdgeInsets())
                     .listRowSeparator(.hidden)
@@ -186,7 +187,3 @@ private struct DocsSearchBar: View {
         }
     }
 }
-
-// MARK: - NDKEvent + @retroactive Identifiable
-
-extension NDKEvent: @retroactive Identifiable {}
