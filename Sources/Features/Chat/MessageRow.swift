@@ -53,12 +53,19 @@ public struct MessageRow: View {
             .sheet(isPresented: self.$showRawEvent) {
                 RawEventSheet(rawEventJSON: self.message.rawEventJSON, isPresented: self.$showRawEvent)
             }
+            .sheet(isPresented: self.$showLLMMetadata) {
+                LLMMetadataSheet(
+                    isPresented: self.$showLLMMetadata,
+                    metadata: LLMMetadata.from(rawEventJSON: self.message.rawEventJSON)
+                )
+            }
     }
 
     // MARK: Private
 
     @Environment(\.ndk) private var ndk
     @State private var showRawEvent = false
+    @State private var showLLMMetadata = false
 
     private let message: Message
     private let currentUserPubkey: String?
@@ -181,6 +188,12 @@ public struct MessageRow: View {
                 self.showRawEvent = true
             } label: {
                 Label("View Raw Event", systemImage: "chevron.left.forwardslash.chevron.right")
+            }
+
+            Button {
+                self.showLLMMetadata = true
+            } label: {
+                Label("View LLM Metadata", systemImage: "cpu")
             }
         }
     }
