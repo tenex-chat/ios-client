@@ -23,6 +23,7 @@ struct AgentMessageGroupView: View {
         onTimestampTap: ((Message) -> Void)? = nil,
         onPlayTTS: ((Message) -> Void)? = nil,
         onSuggestionTap: ((String) -> Void)? = nil,
+        onSendInNewConversation: ((Message) -> Void)? = nil,
         showDebugInfo: Bool = false
     ) {
         self.item = item
@@ -33,6 +34,7 @@ struct AgentMessageGroupView: View {
         self.onTimestampTap = onTimestampTap
         self.onPlayTTS = onPlayTTS
         self.onSuggestionTap = onSuggestionTap
+        self.onSendInNewConversation = onSendInNewConversation
         self.showDebugInfo = showDebugInfo
     }
 
@@ -80,6 +82,7 @@ struct AgentMessageGroupView: View {
     private let onTimestampTap: ((Message) -> Void)?
     private let onPlayTTS: ((Message) -> Void)?
     private let onSuggestionTap: ((String) -> Void)?
+    private let onSendInNewConversation: ((Message) -> Void)?
     private let showDebugInfo: Bool
 
     private var firstMessage: Message {
@@ -121,6 +124,7 @@ struct AgentMessageGroupView: View {
             onTimestampTap: onTimestampTap.map { callback in { callback(message) } },
             onPlayTTS: onPlayTTS.map { callback in { callback(message) } },
             onSuggestionTap: onSuggestionTap,
+            onSendInNewConversation: onSendInNewConversation.map { callback in { callback(message) } },
             showDebugInfo: showDebugInfo
         )
     }

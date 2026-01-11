@@ -34,14 +34,17 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     ///   - threadEvent: The thread event (kind:11) to display messages for, or nil for new thread mode
     ///   - projectReference: The project reference in format "31933:pubkey:d-tag"
     ///   - currentUserPubkey: The current user's pubkey
+    ///   - initialText: Optional text to pre-populate the input field
     public init(
         threadEvent: NDKEvent?,
         projectReference: String,
-        currentUserPubkey: String
+        currentUserPubkey: String,
+        initialText: String? = nil
     ) {
         self.threadEvent = threadEvent
         self.projectReference = projectReference
         self.currentUserPubkey = currentUserPubkey
+        self.initialText = initialText
     }
 
     // MARK: Public
@@ -79,6 +82,10 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     private let threadEvent: NDKEvent?
     private let projectReference: String
     private let currentUserPubkey: String
+    private let initialText: String?
+
+    // State for "Send in New Conversation" sheet
+    @State private var newConversationContent: String?
 
     /// Online agents from DataStore
     private var onlineAgents: [ProjectAgent] {
@@ -179,7 +186,8 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                     let conversationID = vm.threadID ?? self.projectReference
                     self.inputViewModel = ChatInputViewModel(
                         conversationID: conversationID,
-                        isNewThread: vm.isNewThread
+                        isNewThread: vm.isNewThread,
+                        initialText: self.initialText
                     )
                 }
             }
@@ -307,6 +315,26 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                 } message: {
                     if let errorMessage = callViewErrorMessage {
                         Text(errorMessage)
+                    }
+                }
+                .sheet(isPresented: Binding(
+                    get: { self.newConversationContent != nil },
+                    set: { if !$0 { self.newConversationContent = nil } }
+                )) {
+                    NavigationView {
+                        Self(
+                            threadEvent: nil,
+                            projectReference: self.projectReference,
+                            currentUserPubkey: self.currentUserPubkey,
+                            initialText: self.newConversationContent
+                        )
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Cancel") {
+                                    self.newConversationContent = nil
+                                }
+                            }
+                        }
                     }
                 }
     }
@@ -463,6 +491,9 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                     self.handleSuggestionTap(suggestion: suggestion, askMessage: askMessage, viewModel: viewModel)
                 }
             },
+            onSendInNewConversation: { message in
+                self.newConversationContent = message.content
+            },
             showDebugInfo: false
         )
         .padding(.horizontal, 16)
@@ -491,6 +522,9 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                             askMessage: visibleItem.message,
                             viewModel: viewModel
                         )
+                    },
+                    onSendInNewConversation: {
+                        self.newConversationContent = visibleItem.message.content
                     },
                     showDebugInfo: false
                 )

@@ -12,8 +12,6 @@ import TENEXCore
 
 // MARK: - CallView
 
-// swiftlint:disable type_body_length file_length
-
 /// Enhanced call view with auto-TTS, STT, and VOD recording
 /// Displays agent avatar, conversation history, audio controls, and status
 public struct CallView: View {
@@ -642,8 +640,6 @@ public struct CallView: View {
         }
     }
 }
-
-// swiftlint:enable type_body_length
 
 // MARK: - Preview
 

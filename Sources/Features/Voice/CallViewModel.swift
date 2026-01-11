@@ -13,8 +13,6 @@ import TENEXCore
 
 // MARK: - CallViewModel
 
-// swiftlint:disable type_body_length file_length
-
 /// Enhanced view model for agent calls with auto-TTS, STT, and VOD recording
 @MainActor
 @Observable
@@ -791,5 +789,3 @@ public final class CallViewModel {
         }
     }
 }
-
-// swiftlint:enable type_body_length file_length

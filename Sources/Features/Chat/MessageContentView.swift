@@ -8,6 +8,12 @@ import NDKSwiftUI
 import SwiftUI
 import TENEXCore
 
+// MARK: - URL Identifiable Extension
+
+extension URL: @retroactive Identifiable {
+    public var id: String { absoluteString }
+}
+
 // MARK: - MessageContentView
 
 /// View for rendering message content with markdown and code blocks
@@ -25,8 +31,27 @@ public struct MessageContentView: View {
             } else {
                 NDKMarkdown(content: message.content)
                     .textSelection(.enabled)
+                    .onImageTap { url, _ in
+                        self.selectedImageURL = url
+                    }
             }
         }
+        #if os(iOS)
+        .fullScreenCover(item: $selectedImageURL) { url in
+            ImageLightboxView(url: url, isPresented: Binding(
+                get: { self.selectedImageURL != nil },
+                set: { if !$0 { self.selectedImageURL = nil } }
+            ))
+        }
+        #else
+        .sheet(item: $selectedImageURL) { url in
+            ImageLightboxView(url: url, isPresented: Binding(
+                get: { self.selectedImageURL != nil },
+                set: { if !$0 { self.selectedImageURL = nil } }
+            ))
+            .frame(minWidth: 600, minHeight: 400)
+        }
+        #endif
     }
 
     // MARK: Internal
@@ -36,6 +61,7 @@ public struct MessageContentView: View {
     // MARK: Private
 
     @State private var cursorVisible = false
+    @State private var selectedImageURL: URL?
 
     private var streamingMarkdownText: AttributedString {
         do {

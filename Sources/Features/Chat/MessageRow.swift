@@ -25,6 +25,7 @@ public struct MessageRow: View {
         onTimestampTap: (() -> Void)? = nil,
         onPlayTTS: (() -> Void)? = nil,
         onSuggestionTap: ((String) -> Void)? = nil,
+        onSendInNewConversation: (() -> Void)? = nil,
         showDebugInfo: Bool = false
     ) {
         self.message = message
@@ -36,6 +37,7 @@ public struct MessageRow: View {
         self.onTimestampTap = onTimestampTap
         self.onPlayTTS = onPlayTTS
         self.onSuggestionTap = onSuggestionTap
+        self.onSendInNewConversation = onSendInNewConversation
         self.showDebugInfo = showDebugInfo
         self.isAgent = currentUserPubkey != nil && message.pubkey != currentUserPubkey
     }
@@ -67,6 +69,7 @@ public struct MessageRow: View {
     private let onTimestampTap: (() -> Void)?
     private let onPlayTTS: (() -> Void)?
     private let onSuggestionTap: ((String) -> Void)?
+    private let onSendInNewConversation: (() -> Void)?
     private let showDebugInfo: Bool
     private let isAgent: Bool
 
@@ -142,6 +145,14 @@ public struct MessageRow: View {
                 onPlayTTS()
             } label: {
                 Label("Play Audio", systemImage: "speaker.wave.2.fill")
+            }
+        }
+
+        if let onSendInNewConversation {
+            Button {
+                onSendInNewConversation()
+            } label: {
+                Label("Send in New Conversation", systemImage: "plus.message")
             }
         }
 

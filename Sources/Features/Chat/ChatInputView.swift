@@ -133,6 +133,18 @@ public struct ChatInputView: View {
             self.mentionAutocompleteView
             self.mainInputArea
         }
+        .overlay {
+            if self.isDropTargeted {
+                self.dropTargetOverlay
+            }
+        }
+        .dropDestination(for: Data.self) { items, _ in
+            self.handleDroppedData(items)
+        } isTargeted: { isTargeted in
+            withAnimation(.easeInOut(duration: 0.2)) {
+                self.isDropTargeted = isTargeted
+            }
+        }
         .onChange(of: self.viewModel.inputText) { _, newValue in
             self.handleTextChange(newValue)
         }
@@ -186,6 +198,7 @@ public struct ChatInputView: View {
     @State private var showNudgeSelector = false
     @State private var showBranchSelector = false
     @State private var showAgentConfig = false
+    @State private var isDropTargeted = false
     @FocusState private var isInputFocused: Bool
 
     // Pulsing animation state for active agents indicator
@@ -588,5 +601,122 @@ public struct ChatInputView: View {
             eventId: eventId,
             agentPubkey: nil // nil means stop all
         )
+    }
+
+    // MARK: - Drag and Drop
+
+    private var dropTargetOverlay: some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .strokeBorder(Color.accentColor, lineWidth: 3)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.accentColor.opacity(0.1))
+            )
+            .overlay {
+                VStack(spacing: 8) {
+                    Image(systemName: "photo.badge.plus")
+                        .font(.system(size: 32, weight: .medium))
+                        .foregroundStyle(Color.accentColor)
+                    Text("Drop images here")
+                        .font(.headline)
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+    }
+
+    /// Handle dropped image data
+    private func handleDroppedData(_ items: [Data]) -> Bool {
+        var addedAny = false
+
+        for data in items {
+            if let (imageData, mimeType, thumbnail) = self.processImageData(data) {
+                self.viewModel.addAttachment(
+                    imageData: imageData,
+                    mimeType: mimeType,
+                    thumbnail: thumbnail
+                )
+                addedAny = true
+            }
+        }
+
+        // Trigger upload for new attachments
+        if addedAny {
+            Task {
+                for attachment in self.viewModel.pendingAttachments where attachment.uploadState == .pending {
+                    await attachment.upload(ndk: self.ndk)
+                }
+            }
+        }
+
+        return addedAny
+    }
+
+    /// Process raw data into image data, mime type, and thumbnail
+    private func processImageData(_ data: Data) -> (Data, String, Image)? {
+        #if os(iOS)
+        guard let uiImage = UIImage(data: data) else {
+            return nil
+        }
+
+        // Determine mime type from data
+        let mimeType = self.detectImageMimeType(data)
+
+        // Convert to JPEG for consistent upload format
+        guard let jpegData = uiImage.jpegData(compressionQuality: 0.8) else {
+            return nil
+        }
+
+        let thumbnail = Image(uiImage: uiImage)
+        return (jpegData, mimeType, thumbnail)
+        #else
+        guard let nsImage = NSImage(data: data) else {
+            return nil
+        }
+
+        let mimeType = self.detectImageMimeType(data)
+
+        // Convert to JPEG for consistent upload format
+        guard let tiffRep = nsImage.tiffRepresentation,
+              let bitmapRep = NSBitmapImageRep(data: tiffRep),
+              let jpegData = bitmapRep.representation(using: .jpeg, properties: [.compressionFactor: 0.8])
+        else {
+            return nil
+        }
+
+        let thumbnail = Image(nsImage: nsImage)
+        return (jpegData, mimeType, thumbnail)
+        #endif
+    }
+
+    /// Detect image mime type from data header bytes
+    private func detectImageMimeType(_ data: Data) -> String {
+        guard data.count >= 8 else {
+            return "image/jpeg"
+        }
+
+        let bytes = [UInt8](data.prefix(8))
+
+        // PNG: 89 50 4E 47 0D 0A 1A 0A
+        if bytes[0] == 0x89, bytes[1] == 0x50, bytes[2] == 0x4E, bytes[3] == 0x47 {
+            return "image/png"
+        }
+
+        // JPEG: FF D8 FF
+        if bytes[0] == 0xFF, bytes[1] == 0xD8, bytes[2] == 0xFF {
+            return "image/jpeg"
+        }
+
+        // GIF: 47 49 46 38
+        if bytes[0] == 0x47, bytes[1] == 0x49, bytes[2] == 0x46, bytes[3] == 0x38 {
+            return "image/gif"
+        }
+
+        // WebP: 52 49 46 46 ... 57 45 42 50
+        if bytes[0] == 0x52, bytes[1] == 0x49, bytes[2] == 0x46, bytes[3] == 0x46 {
+            return "image/webp"
+        }
+
+        // Default to JPEG
+        return "image/jpeg"
     }
 }

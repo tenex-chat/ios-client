@@ -29,18 +29,24 @@ public final class ChatInputViewModel {
     /// - Parameters:
     ///   - conversationID: The conversation/thread ID (or project reference if new thread)
     ///   - isNewThread: Whether this is a new thread (requires agent selection)
+    ///   - initialText: Optional text to pre-populate the input field (takes priority over draft)
     ///   - draftStorage: Storage for persisting drafts (optional, defaults to UserDefaults)
     public init(
         conversationID: String,
         isNewThread: Bool = false,
+        initialText: String? = nil,
         draftStorage: ChatDraftStorage = UserDefaultsChatDraftStorage()
     ) {
         self.conversationID = conversationID
         self.isNewThread = isNewThread
         self.draftStorage = draftStorage
 
-        // Restore draft if one exists
-        self.restoreDraft()
+        // If initial text is provided, use it; otherwise restore draft
+        if let initialText, !initialText.isEmpty {
+            self.inputText = initialText
+        } else {
+            self.restoreDraft()
+        }
     }
 
     // MARK: Public
