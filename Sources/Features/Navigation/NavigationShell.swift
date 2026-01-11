@@ -191,7 +191,7 @@ public struct NavigationShell: View {
     // MARK: - Destination Views
 
     @ViewBuilder
-    // swiftlint:disable cyclomatic_complexity
+    // swiftlint:disable cyclomatic_complexity function_body_length
     private func destinationView(for route: AppRoute) -> some View {
         switch route {
         case .projectList:
@@ -244,6 +244,13 @@ public struct NavigationShell: View {
                 Text("Loading...")
             }
 
+        case let .lesson(lessonId):
+            if let ndk {
+                LessonDetailView(lessonId: lessonId, ndk: ndk)
+            } else {
+                Text("Loading...")
+            }
+
         case .mcpToolList:
             if let dataStore {
                 MCPToolListView(viewModel: MCPToolListViewModel(dataStore: dataStore))
@@ -256,7 +263,7 @@ public struct NavigationShell: View {
         }
     }
 
-    // swiftlint:enable cyclomatic_complexity
+    // swiftlint:enable cyclomatic_complexity function_body_length
 
     // MARK: - Deep Link Handling
 

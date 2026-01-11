@@ -11,6 +11,7 @@ import SwiftUI
 /// Tabs available in the agent profile
 enum AgentProfileTab: String, CaseIterable {
     case feed = "Feed"
+    case lessons = "Lessons"
     case settings = "Settings"
 }
 

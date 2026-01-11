@@ -10,12 +10,13 @@ import TENEXCore
 
 // MARK: - AgentProfileView
 
-/// View displaying an agent's profile with Feed and Settings tabs
+/// View displaying an agent's profile with Feed, Lessons, and Settings tabs
 public struct AgentProfileView: View {
     // MARK: Lifecycle
 
     public init(pubkey: String, ndk: NDK) {
         self.pubkey = pubkey
+        self.ndk = ndk
         _viewModel = State(initialValue: AgentProfileViewModel(pubkey: pubkey, ndk: ndk))
     }
 
@@ -30,6 +31,8 @@ public struct AgentProfileView: View {
                 switch self.selectedTab {
                 case .feed:
                     AgentFeedTabView(viewModel: self.viewModel)
+                case .lessons:
+                    AgentLessonsTab(agentPubkey: self.pubkey, ndk: self.ndk)
                 case .settings:
                     SettingsTabView(pubkey: self.pubkey)
                 }
@@ -51,6 +54,7 @@ public struct AgentProfileView: View {
     @State private var selectedTab: AgentProfileTab = .feed
 
     private let pubkey: String
+    private let ndk: NDK
 }
 
 // MARK: - AgentFeedTabView

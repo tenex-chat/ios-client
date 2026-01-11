@@ -18,6 +18,7 @@ public enum AppRoute: Hashable, Codable {
     case agents(projectID: String)
     case agentProfile(pubkey: String)
     case agentList
+    case lesson(String)
     case mcpToolList
     case settings
 }
