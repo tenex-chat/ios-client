@@ -1,8 +1,10 @@
 # TENEX iOS/macOS Implementation Plan
 
-> **Last Updated:** 2025-12-14
+> **Last Updated:** 2026-01-11
 > **Current Milestone:** 6 - iPad & macOS Adaptation
 > **Status:** Milestones 1-5 complete with additional features (Project Creation Wizard, MCP CRUD, Settings, Voice Mode)
+>
+> **IMPORTANT NOTE (2026-01-11):** Cleaned up legacy kind:11 and kind:1111 references. The system uses **kind:1** for all messages (both thread roots and replies), distinguished by presence/absence of e-tags. Thread roots have NO e-tags, replies have e-tags pointing to the root. Metadata uses kind:513. The Thread model (Sources/Core/Events/Thread.swift) and all kind:11/1111 references have been removed.
 
 ## Overview
 

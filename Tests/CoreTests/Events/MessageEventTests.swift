@@ -12,15 +12,15 @@ import Testing
 
 @Suite("Message Event Tests")
 struct MessageEventTests {
-    @Test("Parse valid kind:11 thread event into Message model")
+    @Test("Parse valid kind:1 thread event into Message model")
     func parseValidThreadEvent() throws {
-        // Given: A valid kind:11 thread event (original post)
+        // Given: A valid kind:1 thread event (original post)
         let pubkey = "npub1testpubkey1234567890abcdef"
         let content = "This is the original post starting the thread"
         let createdAt = Timestamp(Date().timeIntervalSince1970)
 
         let event = NDKEvent.test(
-            kind: 11,
+            kind: 1,
             content: content,
             tags: [],
             pubkey: pubkey,
@@ -38,9 +38,9 @@ struct MessageEventTests {
         #expect(message.replyTo == nil) // Original post has no parent
     }
 
-    @Test("Parse valid kind:1111 event into Message model")
+    @Test("Parse valid kind:1 event into Message model")
     func parseValidMessageEvent() throws {
-        // Given: A valid kind:1111 event
+        // Given: A valid kind:1 event
         let pubkey = "npub1testpubkey1234567890abcdef"
         let threadID = "11:pubkey:thread-id"
         let content = "This is a test message with **markdown**"
@@ -48,7 +48,7 @@ struct MessageEventTests {
         let replyTo = "parent-event-id"
 
         let event = NDKEvent.test(
-            kind: 1111,
+            kind: 1,
             content: content,
             tags: [
                 ["a", threadID],
@@ -75,7 +75,7 @@ struct MessageEventTests {
     func parseMessageWithoutParent() throws {
         // Given: Event without e tag (top-level message)
         let event = NDKEvent.test(
-            kind: 1111,
+            kind: 1,
             content: "Top-level message",
             tags: [
                 ["a", "11:pubkey:thread-id"],
@@ -95,7 +95,7 @@ struct MessageEventTests {
         // Given: Event with thread reference in a tag
         let threadID = "11:creator-pubkey:my-awesome-thread"
         let event = NDKEvent.test(
-            kind: 1111,
+            kind: 1,
             content: "Message content",
             tags: [
                 ["a", threadID],
@@ -123,7 +123,7 @@ struct MessageEventTests {
         ```
         """
         let event = NDKEvent.test(
-            kind: 1111,
+            kind: 1,
             content: markdownContent,
             tags: [
                 ["a", "11:pubkey:thread-id"],
@@ -142,7 +142,7 @@ struct MessageEventTests {
     func handleEmptyContent() throws {
         // Given: Event with empty content
         let event = NDKEvent.test(
-            kind: 1111,
+            kind: 1,
             content: "",
             tags: [
                 ["a", "11:pubkey:thread-id"],
@@ -162,7 +162,7 @@ struct MessageEventTests {
         // Given: Event with multiple e tags
         let firstReply = "first-parent-id"
         let event = NDKEvent.test(
-            kind: 1111,
+            kind: 1,
             content: "Reply message",
             tags: [
                 ["a", "11:pubkey:thread-id"],
@@ -183,7 +183,7 @@ struct MessageEventTests {
     func returnNilForMissingATag() {
         // Given: Event without a tag (thread reference)
         let event = NDKEvent.test(
-            kind: 1111,
+            kind: 1,
             content: "Message",
             tags: [
                 ["p", "some-pubkey"],
@@ -202,7 +202,7 @@ struct MessageEventTests {
     func returnNilForEmptyATag() {
         // Given: Event with empty a tag value
         let event = NDKEvent.test(
-            kind: 1111,
+            kind: 1,
             content: "Message",
             tags: [
                 ["a", ""],
@@ -221,7 +221,7 @@ struct MessageEventTests {
     func returnNilForWrongKind() {
         // Given: Event with wrong kind
         let event = NDKEvent.test(
-            kind: 1, // Wrong kind (should be 1111)
+            kind: 513, // Wrong kind (should be 1)
             content: "Message",
             tags: [
                 ["a", "11:pubkey:thread-id"],
@@ -245,7 +245,7 @@ struct MessageEventTests {
         let filter = Message.filter(for: threadID)
 
         // Then: Filter has correct parameters (uses 'e' tag for thread/conversation ID)
-        #expect(filter.kinds == [1111])
+        #expect(filter.kinds == [1])
         #expect(filter.tags?["e"] == [threadID])
     }
 }

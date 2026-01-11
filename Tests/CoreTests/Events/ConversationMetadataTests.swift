@@ -73,7 +73,7 @@ struct ConversationMetadataTests {
     @Test("Reject non-513 event")
     func rejectNon513Event() {
         let event = NDKEvent.test(
-            kind: 11, // Wrong kind
+            kind: 1, // Wrong kind
             content: "",
             tags: [
                 ["e", "thread-123"],

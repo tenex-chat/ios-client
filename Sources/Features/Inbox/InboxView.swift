@@ -156,7 +156,7 @@ public struct InboxView: View {
 
         self.logger.debug("Fetching thread for inbox: \(id)")
 
-        let filter = NDKFilter(ids: [id], kinds: [11])
+        let filter = NDKFilter(ids: [id], kinds: [1])
         let subscription = ndk.subscribe(filter: filter)
 
         var eventFound = false

@@ -11,7 +11,6 @@ struct RecentConversationRow: View {
     // MARK: Internal
 
     let threadID: String
-    let thread: TENEXCore.Thread?
     let project: Project?
     let latestMessage: Message
     let conversationMetadata: ConversationMetadata?
@@ -56,9 +55,6 @@ struct RecentConversationRow: View {
     private var displayTitle: String {
         if let metadata = conversationMetadata, let title = metadata.title, !title.isEmpty {
             return title
-        }
-        if let thread, !thread.title.isEmpty {
-            return thread.title
         }
         return "Thread"
     }

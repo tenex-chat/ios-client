@@ -238,7 +238,7 @@ extension Message {
             content: processed.content,
             createdAt: processed.createdAt,
             replyTo: processed.replyToMessageID,
-            kind: 1111
+            kind: 1
         )
     }
 }

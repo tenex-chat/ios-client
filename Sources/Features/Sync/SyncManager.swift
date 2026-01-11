@@ -27,7 +27,7 @@ public final class SyncManager {
     // MARK: Public
 
     /// Event kinds to sync for each project
-    public static let syncEventKinds: [Int] = [11, 513, 1111, 21_111]
+    public static let syncEventKinds: [Int] = [1, 513, 21_111]
 
     /// Maximum number of events to fetch per project
     public static let maxEventsPerProject = 500

@@ -120,7 +120,7 @@ struct StreamingEventTests {
     func returnNilForWrongKind() {
         // Given: Event with wrong kind
         let event = NDKEvent.test(
-            kind: 1111, // Wrong kind (should be 21111)
+            kind: 1, // Wrong kind (should be 21111)
             content: "delta",
             tags: [
                 ["e", "message-id"],

@@ -162,7 +162,7 @@ public actor ConversationProcessor {
             return
         }
 
-        guard let eTag = event.tags(withName: "E").first,
+        guard let eTag = event.tags(withName: "e").first,
               eTag.count > 1
         else {
             return
