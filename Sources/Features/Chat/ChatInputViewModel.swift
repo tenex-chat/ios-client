@@ -5,9 +5,16 @@
 //
 
 import Foundation
+import NDKSwiftCore
 import Observation
 import OSLog
+import SwiftUI
 import TENEXCore
+
+#if os(iOS)
+import PhotosUI
+import UIKit
+#endif
 
 // MARK: - ChatInputViewModel
 
@@ -52,6 +59,20 @@ public final class ChatInputViewModel {
 
     /// Pubkeys mentioned in the message (for p-tags)
     public private(set) var mentionedPubkeys: [String] = []
+
+    /// Pending image attachments
+    public private(set) var pendingAttachments: [PendingAttachment] = []
+
+    #if os(iOS)
+    /// Selected photo items from PhotosPicker
+    public var selectedPhotoItems: [PhotosPickerItem] = [] {
+        didSet {
+            Task {
+                await processSelectedPhotos()
+            }
+        }
+    }
+    #endif
 
     /// Whether this is a new thread (determines if agent selection is required)
     public var isNewThread = false
@@ -116,13 +137,16 @@ public final class ChatInputViewModel {
     /// Whether the send button should be enabled
     /// For new threads: requires either an agent, a selected hashtag, or a hashtag in the message content
     /// For replies: can send without routing
+    /// If attachments exist, they must all be uploaded
     public var canSend: Bool {
         let hasText = !self.inputText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasContent = hasText || hasAttachments
         let hasRoutingIfRequired = !self.requiresRouting ||
             self.selectedAgent != nil ||
             self.selectedHashtag != nil ||
             self.firstExtractedHashtag != nil
-        return hasText && hasRoutingIfRequired
+        let attachmentsReady = !hasAttachments || allAttachmentsUploaded
+        return hasContent && hasRoutingIfRequired && attachmentsReady && !isUploadingAttachments
     }
 
     /// Select an agent
@@ -174,13 +198,14 @@ public final class ChatInputViewModel {
         self.replyToMessage = nil
     }
 
-    /// Clear the input text, mentions, nudges, hashtag, and reply context
+    /// Clear the input text, mentions, nudges, hashtag, reply context, and attachments
     public func clearInput() {
         self.inputText = ""
         self.mentionedPubkeys = []
         self.selectedNudges = []
         self.selectedHashtag = nil
         self.replyToMessage = nil
+        self.pendingAttachments = []
 
         // Delete draft when input is cleared (e.g., after sending)
         deleteDraft()
@@ -282,5 +307,85 @@ public final class ChatInputViewModel {
                 Self.logger.error("Failed to delete draft: \(error.localizedDescription)")
             }
         }
+    }
+
+    // MARK: - Attachment Management
+
+    #if os(iOS)
+    /// Process selected photos from PhotosPicker
+    private func processSelectedPhotos() async {
+        for item in selectedPhotoItems {
+            do {
+                guard let imageData = try await item.loadTransferable(type: Data.self) else {
+                    continue
+                }
+
+                guard let uiImage = UIImage(data: imageData) else {
+                    continue
+                }
+
+                if let attachment = PendingAttachment(image: uiImage) {
+                    pendingAttachments.append(attachment)
+                }
+            } catch {
+                Self.logger.error("Failed to load photo: \(error.localizedDescription)")
+            }
+        }
+        selectedPhotoItems = []
+    }
+    #endif
+
+    /// Add an attachment from image data
+    public func addAttachment(imageData: Data, mimeType: String, thumbnail: Image) {
+        let attachment = PendingAttachment(
+            imageData: imageData,
+            mimeType: mimeType,
+            thumbnail: thumbnail
+        )
+        pendingAttachments.append(attachment)
+    }
+
+    /// Remove a pending attachment
+    public func removeAttachment(_ attachment: PendingAttachment) {
+        pendingAttachments.removeAll { $0.id == attachment.id }
+    }
+
+    /// Upload all pending attachments
+    public func uploadAttachments(ndk: NDK) async {
+        await withTaskGroup(of: Void.self) { group in
+            let needsUpload = pendingAttachments.filter {
+                $0.uploadState == .pending || $0.uploadState == .failed
+            }
+            for attachment in needsUpload {
+                group.addTask {
+                    await attachment.upload(ndk: ndk)
+                }
+            }
+        }
+    }
+
+    /// Whether all attachments are uploaded successfully
+    public var allAttachmentsUploaded: Bool {
+        pendingAttachments.allSatisfy { $0.uploadState == .completed }
+    }
+
+    /// Whether any attachment upload is in progress
+    public var isUploadingAttachments: Bool {
+        pendingAttachments.contains { $0.uploadState == .uploading }
+    }
+
+    /// Whether there are pending attachments
+    public var hasAttachments: Bool {
+        !pendingAttachments.isEmpty
+    }
+
+    /// Get URLs of all successfully uploaded attachments
+    public var uploadedAttachmentURLs: [String] {
+        pendingAttachments.compactMap { $0.uploadResult?.url }
+    }
+
+    /// Clear all attachments
+    public func clearAttachments() {
+        pendingAttachments.removeAll()
     }
 }

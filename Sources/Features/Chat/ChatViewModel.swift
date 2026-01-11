@@ -163,11 +163,16 @@ public final class ChatViewModel {
         selectedNudges: [String] = [],
         selectedBranch: String? = nil,
         customTags: [[String]] = [],
-        hashtag: String? = nil
+        hashtag: String? = nil,
+        attachmentURLs: [String] = []
     ) async {
-        // Validate message text
-        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedText.isEmpty else {
+        // Build content with attachment URLs appended
+        var contentParts = [text.trimmingCharacters(in: .whitespacesAndNewlines)]
+        contentParts.append(contentsOf: attachmentURLs)
+        let finalContent = contentParts.joined(separator: "\n")
+
+        // Validate message content (must have text or attachments)
+        guard !finalContent.isEmpty else {
             return
         }
 
@@ -178,7 +183,7 @@ public final class ChatViewModel {
                 return
             }
             await self.createThread(
-                content: trimmedText,
+                content: finalContent,
                 agentPubkey: targetAgentPubkey,
                 hashtag: hashtag,
                 mentionedPubkeys: mentionedPubkeys,
@@ -190,7 +195,7 @@ public final class ChatViewModel {
 
         // Existing thread - send reply
         await self.sendReply(
-            text: trimmedText,
+            text: finalContent,
             targetAgentPubkey: targetAgentPubkey,
             mentionedPubkeys: mentionedPubkeys,
             replyTo: replyTo,

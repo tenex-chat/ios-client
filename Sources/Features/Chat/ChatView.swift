@@ -338,7 +338,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                 onlineAgents: self.onlineAgents,
                 availableHashtags: self.availableHashtags,
                 lastAgentPubkey: self.mostRecentAgentPubkey(from: viewModel.displayMessages)
-            ) { text, agentPubkey, mentions, hashtag in
+            ) { text, agentPubkey, mentions, hashtag, attachmentURLs in
                 Task {
                     await viewModel.sendMessage(
                         text: text,
@@ -347,7 +347,8 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                         replyTo: inputVM.replyToMessage,
                         selectedNudges: inputVM.selectedNudges,
                         selectedBranch: inputVM.selectedBranch,
-                        hashtag: hashtag
+                        hashtag: hashtag,
+                        attachmentURLs: attachmentURLs
                     )
                 }
             }
@@ -641,8 +642,8 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     /// Handle suggestion tap - publish a kind 1111 event with the suggestion text
     /// Event should include:
     /// - a tag: project coordinate
-    /// - e tag: the ask event ID (lowercase)
-    /// - E tag: the conversation/thread ID (uppercase)
+    /// - e tag: the ask event ID
+    /// - e tag: the conversation/thread ID
     /// - p tag: the agent that authored the ask event
     private func handleSuggestionTap(suggestion: String, askMessage: Message, viewModel: ChatViewModel) {
         guard let ndk else {

@@ -9,6 +9,7 @@ import SwiftUI
 import TENEXCore
 
 #if os(iOS)
+    import PhotosUI
     import UIKit
 #else
     import AppKit
@@ -88,7 +89,7 @@ public struct ChatInputView: View {
     ///   - onlineAgents: List of online agents in the project
     ///   - availableHashtags: List of available hashtags for routing
     ///   - lastAgentPubkey: The last agent that spoke (for auto-updating selection)
-    ///   - onSend: Callback when message is sent (text, agentPubkey, mentions, hashtag)
+    ///   - onSend: Callback when message is sent (text, agentPubkey, mentions, hashtag, attachmentURLs)
     public init(
         viewModel: ChatInputViewModel,
         dataStore: DataStore,
@@ -99,7 +100,7 @@ public struct ChatInputView: View {
         onlineAgents: [ProjectAgent] = [],
         availableHashtags: [String] = [],
         lastAgentPubkey: String? = nil,
-        onSend: @escaping (String, String?, [String], String?) -> Void
+        onSend: @escaping (String, String?, [String], String?, [String]) -> Void
     ) {
         self.ndk = ndk
         self.dataStore = dataStore
@@ -127,6 +128,7 @@ public struct ChatInputView: View {
     public var body: some View {
         VStack(spacing: 0) {
             self.replyContextView
+            self.attachmentPreviewView
             self.nudgesPillsView
             self.mentionAutocompleteView
             self.mainInputArea
@@ -204,7 +206,7 @@ public struct ChatInputView: View {
     private let onlineAgents: [ProjectAgent]
     private let availableHashtags: [String]
     private let lastAgentPubkey: String?
-    private let onSend: (String, String?, [String], String?) -> Void
+    private let onSend: (String, String?, [String], String?, [String]) -> Void
 
     /// Available models from project status
     private var availableModels: [String] {
@@ -275,6 +277,14 @@ public struct ChatInputView: View {
         }
     }
 
+    @ViewBuilder private var attachmentPreviewView: some View {
+        if self.viewModel.hasAttachments {
+            AttachmentPreviewRow(attachments: self.viewModel.pendingAttachments) { attachment in
+                self.viewModel.removeAttachment(attachment)
+            }
+        }
+    }
+
     @ViewBuilder private var nudgesPillsView: some View {
         if !self.viewModel.selectedNudges.isEmpty {
             SelectedNudgesPills(
@@ -306,6 +316,9 @@ public struct ChatInputView: View {
     private var compactInputBar: some View {
         HStack(alignment: .bottom, spacing: 6) {
             self.atButton
+            #if os(iOS)
+            self.imageButton
+            #endif
             self.textInputField
             self.plusMenuButton
         }
@@ -364,6 +377,37 @@ public struct ChatInputView: View {
         )
         .padding(.bottom, 2)
     }
+
+    #if os(iOS)
+    private var imageButton: some View {
+        PhotosPicker(
+            selection: self.$viewModel.selectedPhotoItems,
+            maxSelectionCount: 4,
+            matching: .images,
+            photoLibrary: .shared()
+        ) {
+            Image(systemName: "photo")
+                .font(.system(size: 18, weight: .medium))
+                .foregroundStyle(
+                    self.viewModel.hasAttachments
+                        ? Color.primary
+                        : .secondary
+                )
+                .frame(width: 36, height: 36)
+                .modifier(GlassCircleButtonModifier())
+        }
+        .buttonStyle(.plain)
+        .padding(.bottom, 2)
+        .onChange(of: self.viewModel.pendingAttachments) { _, attachments in
+            // Auto-upload attachments when added
+            Task {
+                for attachment in attachments where attachment.uploadState == .pending {
+                    await attachment.upload(ndk: self.ndk)
+                }
+            }
+        }
+    }
+    #endif
 
     private var plusMenuButton: some View {
         Menu {
@@ -496,7 +540,8 @@ public struct ChatInputView: View {
         let mentions = self.viewModel.mentionedPubkeys
         // Use selected hashtag from dropdown, or extract from content (e.g., "hello #world")
         let hashtag = self.agentSelectorVM.selectedHashtag ?? self.viewModel.firstExtractedHashtag
-        self.onSend(text, agentPubkey, mentions, hashtag)
+        let attachmentURLs = self.viewModel.uploadedAttachmentURLs
+        self.onSend(text, agentPubkey, mentions, hashtag, attachmentURLs)
         self.viewModel.clearInput()
     }
 
