@@ -380,17 +380,26 @@ public final class ChatViewModel {
             return
         }
 
-        // Subscribe to kind:1 messages that e-tag this thread
-        let filter = NDKFilter(
-            kinds: [1],
-            tags: ["e": Set([threadID])]
-        )
+        // Subscribe to root event and replies in parallel
+        let rootSubscription = ndk.subscribe(filter: NDKFilter(ids: [threadID]))
+        let repliesSubscription = ndk.subscribe(filter: NDKFilter(kinds: [1], tags: ["e": Set([threadID])]))
 
-        let subscription = ndk.subscribe(filter: filter)
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { @MainActor in
+                for await events in rootSubscription.events {
+                    for event in events {
+                        self.threadEvent = event
+                        self.conversationState.processEvent(event)
+                    }
+                }
+            }
 
-        for await events in subscription.events {
-            for event in events {
-                await conversationState.processEvent(event)
+            group.addTask { @MainActor in
+                for await events in repliesSubscription.events {
+                    for event in events {
+                        self.conversationState.processEvent(event)
+                    }
+                }
             }
         }
     }
