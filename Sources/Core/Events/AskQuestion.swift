@@ -44,12 +44,55 @@ public struct AskQuestion: Sendable, Identifiable {
 public struct AskQuestions: Sendable {
     public let questions: [AskQuestion]
     public let title: String?
+    public let context: String?
 
     public var count: Int { questions.count }
 
-    public init(questions: [AskQuestion], title: String?) {
+    public init(questions: [AskQuestion], title: String?, context: String? = nil) {
         self.questions = questions
         self.title = title
+        self.context = context
+    }
+
+    /// Parse ask questions from tool-args JSON (used by ask tool calls)
+    /// - Parameter toolArgs: Dictionary parsed from tool-args JSON
+    /// - Returns: AskQuestions if valid, nil otherwise
+    public static func from(toolArgs: [String: Any]) -> Self? {
+        guard let questionsArray = toolArgs["questions"] as? [[String: Any]] else {
+            return nil
+        }
+
+        let title = toolArgs["title"] as? String
+        let context = toolArgs["context"] as? String
+
+        let questions: [AskQuestion] = questionsArray.compactMap { questionDict in
+            guard let questionText = questionDict["question"] as? String else {
+                return nil
+            }
+
+            let typeString = questionDict["type"] as? String ?? "question"
+            let isMultiSelect = typeString == "multiselect"
+            let id = questionDict["title"] as? String ?? ""
+
+            // Options can be in "suggestions" array
+            let suggestions = questionDict["suggestions"] as? [String] ?? []
+            let options = suggestions.enumerated().map { index, label in
+                AskOption(id: "\(id)_opt_\(index)", label: label)
+            }
+
+            return AskQuestion(
+                id: id,
+                question: questionText,
+                options: options,
+                isMultiSelect: isMultiSelect
+            )
+        }
+
+        guard !questions.isEmpty else {
+            return nil
+        }
+
+        return Self(questions: questions, title: title, context: context)
     }
 
     /// Parse ask questions from an NDKEvent

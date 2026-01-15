@@ -494,6 +494,12 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
             onSendInNewConversation: { message in
                 self.newConversationContent = message.content
             },
+            askAnswerLookup: { askEventId in
+                self.findAskAnswer(for: askEventId, in: viewModel)
+            },
+            onAskAnswer: { message, responses in
+                self.handleAskAnswer(responses: responses, askMessage: message, viewModel: viewModel)
+            },
             showDebugInfo: false
         )
         .padding(.horizontal, 16)
@@ -504,38 +510,113 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
         visibleItem: VisibleItem,
         isLastMessage: Bool
     ) -> some View {
-        VStack(spacing: 0) {
-            NavigationLink(value: AppRoute.agentProfile(pubkey: visibleItem.message.pubkey)) {
-                MessageRow(
-                    message: visibleItem.message,
-                    currentUserPubkey: self.currentUserPubkey,
-                    isConsecutive: visibleItem.isConsecutive,
-                    onReplyTap: { self.replyToMessage(visibleItem.message) },
-                    onAgentTap: visibleItem.message.pubkey != self.currentUserPubkey ? {} : nil,
-                    onQuote: { self.quoteMessage(visibleItem.message, viewModel: viewModel) },
-                    onPlayTTS: TTSCache.shared
-                        .hasCached(messageID: visibleItem.message.id) ?
-                        { self.playTTSForMessage(visibleItem.message.id) } : nil,
-                    onSuggestionTap: { suggestion in
-                        self.handleSuggestionTap(
-                            suggestion: suggestion,
-                            askMessage: visibleItem.message,
-                            viewModel: viewModel
-                        )
-                    },
-                    onSendInNewConversation: {
-                        self.newConversationContent = visibleItem.message.content
-                    },
-                    showDebugInfo: false
-                )
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 16)
-            .id(visibleItem.message.id)
+        let askAnswer = visibleItem.message.isAskEvent
+            ? findAskAnswer(for: visibleItem.message.id, in: viewModel)
+            : nil
 
-            // Track visibility of last message to detect scroll position
+        return VStack(spacing: 0) {
+            messageRowLink(visibleItem: visibleItem, viewModel: viewModel, askAnswer: askAnswer)
+
             if isLastMessage {
                 self.scrollPositionTracker
+            }
+        }
+    }
+
+    private func messageRowLink(
+        visibleItem: VisibleItem,
+        viewModel: ChatViewModel,
+        askAnswer: Message?
+    ) -> some View {
+        NavigationLink(value: AppRoute.agentProfile(pubkey: visibleItem.message.pubkey)) {
+            createMessageRow(visibleItem: visibleItem, viewModel: viewModel, askAnswer: askAnswer)
+        }
+        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .id(visibleItem.message.id)
+    }
+
+    private func createMessageRow(
+        visibleItem: VisibleItem,
+        viewModel: ChatViewModel,
+        askAnswer: Message?
+    ) -> MessageRow {
+        let hasCachedTTS = TTSCache.shared.hasCached(messageID: visibleItem.message.id)
+
+        return MessageRow(
+            message: visibleItem.message,
+            currentUserPubkey: self.currentUserPubkey,
+            isConsecutive: visibleItem.isConsecutive,
+            isAskAnswered: askAnswer != nil,
+            askAnswerContent: askAnswer?.content,
+            onReplyTap: { self.replyToMessage(visibleItem.message) },
+            onAgentTap: visibleItem.message.pubkey != self.currentUserPubkey ? {} : nil,
+            onQuote: { self.quoteMessage(visibleItem.message, viewModel: viewModel) },
+            onPlayTTS: hasCachedTTS ? { self.playTTSForMessage(visibleItem.message.id) } : nil,
+            onSuggestionTap: { suggestion in
+                self.handleSuggestionTap(
+                    suggestion: suggestion,
+                    askMessage: visibleItem.message,
+                    viewModel: viewModel
+                )
+            },
+            onSendInNewConversation: { self.newConversationContent = visibleItem.message.content },
+            onAskAnswer: askAnswer == nil
+                ? { responses in
+                    self.handleAskAnswer(
+                        responses: responses,
+                        askMessage: visibleItem.message,
+                        viewModel: viewModel
+                    )
+                }
+                : nil,
+            showDebugInfo: false
+        )
+    }
+
+    /// Find an answer to an ask event by looking for messages that e-tag the ask event
+    private func findAskAnswer(for askEventId: String, in viewModel: ChatViewModel) -> Message? {
+        viewModel.allMessages.values.first { message in
+            message.replyTo == askEventId && !message.isAskEvent
+        }
+    }
+
+    /// Handle ask event answer submission
+    private func handleAskAnswer(
+        responses: [String: [String]],
+        askMessage: Message,
+        viewModel: ChatViewModel
+    ) {
+        guard let ndk else {
+            return
+        }
+
+        // Format the responses into a readable answer
+        let answerParts = responses.map { questionId, answers in
+            if answers.count == 1 {
+                return "\(questionId): \(answers[0])"
+            }
+            return "\(questionId): \(answers.joined(separator: ", "))"
+        }
+        let answerContent = answerParts.joined(separator: "\n")
+
+        Task {
+            do {
+                let publisher = MessagePublisher()
+                guard let threadEvent = viewModel.threadEvent else {
+                    return
+                }
+
+                _ = try await publisher.publishReply(
+                    ndk: ndk,
+                    threadEvent: threadEvent,
+                    content: answerContent,
+                    projectRef: self.projectReference,
+                    agentPubkey: askMessage.pubkey,
+                    replyTo: askMessage.id
+                )
+            } catch {
+                // Error handled by NDK
             }
         }
     }

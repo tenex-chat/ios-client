@@ -19,6 +19,8 @@ public struct MessageRow: View {
         message: Message,
         currentUserPubkey: String?,
         isConsecutive: Bool = false,
+        isAskAnswered: Bool = false,
+        askAnswerContent: String? = nil,
         onReplyTap: (() -> Void)? = nil,
         onAgentTap: (() -> Void)? = nil,
         onQuote: (() -> Void)? = nil,
@@ -26,11 +28,14 @@ public struct MessageRow: View {
         onPlayTTS: (() -> Void)? = nil,
         onSuggestionTap: ((String) -> Void)? = nil,
         onSendInNewConversation: (() -> Void)? = nil,
+        onAskAnswer: (([String: [String]]) -> Void)? = nil,
         showDebugInfo: Bool = false
     ) {
         self.message = message
         self.currentUserPubkey = currentUserPubkey
         self.isConsecutive = isConsecutive
+        self.isAskAnswered = isAskAnswered
+        self.askAnswerContent = askAnswerContent
         self.onReplyTap = onReplyTap
         self.onAgentTap = onAgentTap
         self.onQuote = onQuote
@@ -38,6 +43,7 @@ public struct MessageRow: View {
         self.onPlayTTS = onPlayTTS
         self.onSuggestionTap = onSuggestionTap
         self.onSendInNewConversation = onSendInNewConversation
+        self.onAskAnswer = onAskAnswer
         self.showDebugInfo = showDebugInfo
         self.isAgent = currentUserPubkey != nil && message.pubkey != currentUserPubkey
     }
@@ -70,6 +76,8 @@ public struct MessageRow: View {
     private let message: Message
     private let currentUserPubkey: String?
     private let isConsecutive: Bool
+    private let isAskAnswered: Bool
+    private let askAnswerContent: String?
     private let onReplyTap: (() -> Void)?
     private let onAgentTap: (() -> Void)?
     private let onQuote: (() -> Void)?
@@ -77,6 +85,7 @@ public struct MessageRow: View {
     private let onPlayTTS: (() -> Void)?
     private let onSuggestionTap: ((String) -> Void)?
     private let onSendInNewConversation: (() -> Void)?
+    private let onAskAnswer: (([String: [String]]) -> Void)?
     private let showDebugInfo: Bool
     private let isAgent: Bool
 
@@ -92,7 +101,12 @@ public struct MessageRow: View {
                 )
             }
 
-            MessageContentView(message: self.message)
+            MessageContentView(
+                message: self.message,
+                isAskAnswered: self.isAskAnswered,
+                askAnswerContent: self.askAnswerContent,
+                onAskAnswer: self.onAskAnswer
+            )
 
             if self.message.replyCount > 0, let onReplyTap, let ndk {
                 ReplyIndicatorView(

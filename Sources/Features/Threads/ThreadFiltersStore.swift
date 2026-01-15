@@ -82,6 +82,8 @@ public enum ThreadFilter: String, CaseIterable, Codable {
 // MARK: - ThreadFiltersStore
 
 /// Store for persisting thread filter selections per project
+/// Note: The "Only by me" filter has been removed in favor of project-based filtering
+/// in ConversationsFilterStore.
 @MainActor
 @Observable
 public final class ThreadFiltersStore {
@@ -93,10 +95,8 @@ public final class ThreadFiltersStore {
            let decoded = try? JSONDecoder().decode([String: ThreadFilter].self, from: data) {
             filters = decoded
         }
-        if let data = UserDefaults.standard.data(forKey: onlyByMeStorageKey),
-           let decoded = try? JSONDecoder().decode([String: Bool].self, from: data) {
-            onlyByMeFilters = decoded
-        }
+        // Clean up old "only by me" UserDefaults key if it exists
+        UserDefaults.standard.removeObject(forKey: "thread-filters-only-by-me")
     }
 
     // MARK: Public
@@ -121,38 +121,15 @@ public final class ThreadFiltersStore {
         saveFilters()
     }
 
-    /// Get whether "Only by me" filter is enabled for a project
-    /// - Parameter projectID: The project coordinate
-    /// - Returns: True if the filter is enabled
-    public func isOnlyByMeEnabled(for projectID: String) -> Bool {
-        onlyByMeFilters[projectID] ?? false
-    }
-
-    /// Toggle the "Only by me" filter for a project
-    /// - Parameter projectID: The project coordinate
-    public func toggleOnlyByMe(for projectID: String) {
-        onlyByMeFilters[projectID] = !isOnlyByMeEnabled(for: projectID)
-        saveOnlyByMe()
-    }
-
     // MARK: Private
 
     private var filters: [String: ThreadFilter] = [:]
-    private var onlyByMeFilters: [String: Bool] = [:]
     private let storageKey = "thread-filters"
-    private let onlyByMeStorageKey = "thread-filters-only-by-me"
 
     /// Save the current filters to UserDefaults
     private func saveFilters() {
         if let encoded = try? JSONEncoder().encode(filters) {
             UserDefaults.standard.set(encoded, forKey: storageKey)
-        }
-    }
-
-    /// Save the "Only by me" filters to UserDefaults
-    private func saveOnlyByMe() {
-        if let encoded = try? JSONEncoder().encode(onlyByMeFilters) {
-            UserDefaults.standard.set(encoded, forKey: onlyByMeStorageKey)
         }
     }
 }

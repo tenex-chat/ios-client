@@ -144,33 +144,24 @@ public struct ProjectDetailView: View {
 
     @ViewBuilder private var filterMenu: some View {
         let activeFilter = self.filtersStore.getFilter(for: self.project.coordinate)
-        let onlyByMe = self.filtersStore.isOnlyByMeEnabled(for: self.project.coordinate)
 
         Menu {
-            filterMenuContent(onlyByMe: onlyByMe)
+            filterMenuContent()
         } label: {
             Label(
-                activeFilter?.displayName ?? (onlyByMe ? "Only by me" : "Filter"),
-                systemImage: activeFilter != nil || onlyByMe
+                activeFilter?.displayName ?? "Filter",
+                systemImage: activeFilter != nil
                     ? "line.3.horizontal.decrease.circle.fill"
                     : "line.3.horizontal.decrease.circle"
             )
         }
     }
 
-    @ViewBuilder private func filterMenuContent(onlyByMe: Bool) -> some View {
+    @ViewBuilder private func filterMenuContent() -> some View {
         Button {
             self.filtersStore.setFilter(nil, for: self.project.coordinate)
         } label: {
             Label("All conversations", systemImage: "circle")
-        }
-
-        Divider()
-
-        Button {
-            self.filtersStore.toggleOnlyByMe(for: self.project.coordinate)
-        } label: {
-            Label("Only by me", systemImage: onlyByMe ? "person.fill.checkmark" : "person")
         }
 
         Divider()

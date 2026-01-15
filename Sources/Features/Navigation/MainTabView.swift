@@ -11,16 +11,19 @@ import TENEXShared
 // MARK: - Tab
 
 private enum Tab: Int, Hashable {
-    case projects = 0
-    case recent = 1
-    case inbox = 2
+    case conversations = 0
+    case status = 1
+    case projects = 2
+    case inbox = 3
 
     var title: String {
         switch self {
+        case .conversations:
+            "Conversations"
+        case .status:
+            "Status"
         case .projects:
             "Projects"
-        case .recent:
-            "Recent"
         case .inbox:
             "Inbox"
         }
@@ -28,10 +31,12 @@ private enum Tab: Int, Hashable {
 
     var icon: String {
         switch self {
+        case .conversations:
+            "bubble.left.and.bubble.right"
+        case .status:
+            "waveform"
         case .projects:
             "folder"
-        case .recent:
-            "bubble.left.and.bubble.right"
         case .inbox:
             "tray"
         }
@@ -56,7 +61,7 @@ public struct MainTabView: View {
     // MARK: Private
 
     @Environment(DataStore.self) private var dataStore
-    @State private var selectedTab: Tab = .projects
+    @State private var selectedTab: Tab = .conversations
 
     #if os(macOS)
     // macOS: Apple Mail-style segmented control in toolbar
@@ -85,19 +90,27 @@ public struct MainTabView: View {
     // iOS: Standard TabView with bottom tabs
     private var iOSBody: some View {
         TabView(selection: $selectedTab) {
+            NavigationStack {
+                ConversationsView()
+            }
+            .tabItem {
+                Label("Conversations", systemImage: "bubble.left.and.bubble.right")
+            }
+            .tag(Tab.conversations)
+
+            NavigationStack {
+                StatusFeedView()
+            }
+            .tabItem {
+                Label("Status", systemImage: "waveform")
+            }
+            .tag(Tab.status)
+
             NavigationShell()
                 .tabItem {
                     Label("Projects", systemImage: "folder")
                 }
                 .tag(Tab.projects)
-
-            NavigationStack {
-                RecentConversationsView()
-            }
-            .tabItem {
-                Label("Recent", systemImage: "clock")
-            }
-            .tag(Tab.recent)
 
             NavigationStack {
                 InboxView()
@@ -113,10 +126,12 @@ public struct MainTabView: View {
     @ViewBuilder
     private var contentView: some View {
         switch selectedTab {
+        case .conversations:
+            ConversationsView()
+        case .status:
+            StatusFeedView()
         case .projects:
             NavigationShell()
-        case .recent:
-            RecentConversationsView()
         case .inbox:
             InboxView()
         }
@@ -125,8 +140,9 @@ public struct MainTabView: View {
     private var segmentedControl: some View {
         AppleMailSegmentedControl(selection: $selectedTab) {
             var content = SegmentedControlContent<Tab>()
+            content.segment("Conversations", value: .conversations, icon: "bubble.left.and.bubble.right")
+            content.segment("Status", value: .status, icon: "waveform")
             content.segment("Projects", value: .projects, icon: "folder")
-            content.segment("Recent", value: .recent, icon: "clock")
             content.segment(
                 "Inbox",
                 value: .inbox,

@@ -24,6 +24,8 @@ struct AgentMessageGroupView: View {
         onPlayTTS: ((Message) -> Void)? = nil,
         onSuggestionTap: ((String) -> Void)? = nil,
         onSendInNewConversation: ((Message) -> Void)? = nil,
+        askAnswerLookup: ((String) -> Message?)? = nil,
+        onAskAnswer: ((Message, [String: [String]]) -> Void)? = nil,
         showDebugInfo: Bool = false
     ) {
         self.item = item
@@ -35,6 +37,8 @@ struct AgentMessageGroupView: View {
         self.onPlayTTS = onPlayTTS
         self.onSuggestionTap = onSuggestionTap
         self.onSendInNewConversation = onSendInNewConversation
+        self.askAnswerLookup = askAnswerLookup
+        self.onAskAnswer = onAskAnswer
         self.showDebugInfo = showDebugInfo
     }
 
@@ -83,6 +87,8 @@ struct AgentMessageGroupView: View {
     private let onPlayTTS: ((Message) -> Void)?
     private let onSuggestionTap: ((String) -> Void)?
     private let onSendInNewConversation: ((Message) -> Void)?
+    private let askAnswerLookup: ((String) -> Message?)?
+    private let onAskAnswer: ((Message, [String: [String]]) -> Void)?
     private let showDebugInfo: Bool
 
     private var firstMessage: Message {
@@ -114,10 +120,14 @@ struct AgentMessageGroupView: View {
         for message: Message,
         isConsecutive: Bool
     ) -> some View {
+        let askAnswer = message.isAskEvent ? askAnswerLookup?(message.id) : nil
+
         MessageRow(
             message: message,
             currentUserPubkey: currentUserPubkey,
             isConsecutive: isConsecutive,
+            isAskAnswered: askAnswer != nil,
+            askAnswerContent: askAnswer?.content,
             onReplyTap: onReplyTap.map { callback in { callback(message) } },
             onAgentTap: onAgentTap.map { callback in { callback(message) } },
             onQuote: onQuote.map { callback in { callback(message) } },
@@ -125,6 +135,9 @@ struct AgentMessageGroupView: View {
             onPlayTTS: onPlayTTS.map { callback in { callback(message) } },
             onSuggestionTap: onSuggestionTap,
             onSendInNewConversation: onSendInNewConversation.map { callback in { callback(message) } },
+            onAskAnswer: askAnswer == nil
+                ? onAskAnswer.map { callback in { responses in callback(message, responses) } }
+                : nil,
             showDebugInfo: showDebugInfo
         )
     }

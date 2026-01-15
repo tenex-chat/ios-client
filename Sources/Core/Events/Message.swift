@@ -90,6 +90,16 @@ public struct ToolCall: Sendable {
         return delegationsArray.compactMap { Delegation.from(dictionary: $0) }
     }
 
+    /// Get ask questions (for ask tool)
+    public func askQuestions() -> AskQuestions? {
+        // Convert AnySendable args to [String: Any]
+        var rawArgs: [String: Any] = [:]
+        for (key, value) in args {
+            rawArgs[key] = value.value
+        }
+        return AskQuestions.from(toolArgs: rawArgs)
+    }
+
     // MARK: - Path Helpers
 
     /// Get a display-friendly path for a file argument

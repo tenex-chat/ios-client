@@ -18,14 +18,44 @@ extension URL: @retroactive Identifiable {
 
 /// View for rendering message content with markdown and code blocks
 public struct MessageContentView: View {
+    // MARK: Lifecycle
+
+    public init(
+        message: Message,
+        isAskAnswered: Bool = false,
+        askAnswerContent: String? = nil,
+        onAskAnswer: (([String: [String]]) -> Void)? = nil
+    ) {
+        self.message = message
+        self.isAskAnswered = isAskAnswered
+        self.askAnswerContent = askAnswerContent
+        self.onAskAnswer = onAskAnswer
+    }
+
     // MARK: Public
 
     public var body: some View {
         Group {
             if self.message.isReasoning {
                 ReasoningBlockView(message: self.message)
+            } else if let toolCall = message.toolCall, toolCall.name == "ask",
+                      let askQuestions = toolCall.askQuestions() {
+                // Ask tool call - render interactive ask UI
+                AskToolRenderer(
+                    askQuestions: askQuestions,
+                    isAnswered: self.isAskAnswered,
+                    answerContent: self.askAnswerContent,
+                    onAnswer: self.onAskAnswer ?? { _ in }
+                )
             } else if let toolCall = message.toolCall {
                 ToolCallView(toolCall: toolCall)
+            } else if self.message.isAskEvent {
+                AskEventView(
+                    message: self.message,
+                    isAnswered: self.isAskAnswered,
+                    answerContent: self.askAnswerContent,
+                    onAnswer: self.onAskAnswer ?? { _ in }
+                )
             } else if self.message.isStreaming {
                 self.streamingContent
             } else {
@@ -57,6 +87,9 @@ public struct MessageContentView: View {
     // MARK: Internal
 
     let message: Message
+    let isAskAnswered: Bool
+    let askAnswerContent: String?
+    let onAskAnswer: (([String: [String]]) -> Void)?
 
     // MARK: Private
 
