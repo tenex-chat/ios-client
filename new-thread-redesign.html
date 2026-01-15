@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TENEX iOS - New Thread & Chat Input Redesign</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* iPhone Frame */
+        .iphone-frame {
+            width: 375px;
+            height: 812px;
+            background: #000;
+            border-radius: 55px;
+            padding: 12px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .iphone-screen {
+            width: 100%;
+            height: 100%;
+            background: #fff;
+            border-radius: 45px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .iphone-notch {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150px;
+            height: 35px;
+            background: #000;
+            border-radius: 0 0 20px 20px;
+            z-index: 10;
+        }
+
+        .iphone-status-bar {
+            height: 44px;
+            background: transparent;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 24px;
+            font-size: 14px;
+            font-weight: 600;
+            position: relative;
+            z-index: 5;
+        }
+
+        .iphone-content {
+            height: calc(100% - 44px);
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .iphone-home-indicator {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 134px;
+            height: 5px;
+            background: #000;
+            border-radius: 3px;
+            z-index: 20;
+        }
+
+        /* Nav styles */
+        .nav-item.active {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+        }
+
+        .nav-item:hover:not(.active) {
+            background: #374151;
+        }
+
+        /* Glass effect */
+        .glass-input {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+
+        /* Animations */
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .slide-up {
+            animation: slideUp 0.3s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.2s ease-out forwards;
+        }
+
+        /* Checkmark animation */
+        @keyframes checkPop {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        .check-pop {
+            animation: checkPop 0.3s ease-out forwards;
+        }
+
+        /* Online pulse */
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+        }
+
+        .online-pulse {
+            animation: pulse 2s infinite;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="flex min-h-screen">
+        <!-- Left Navigation -->
+        <nav class="w-80 bg-gray-800 p-6 flex-shrink-0 border-r border-gray-700 overflow-y-auto">
+            <div class="mb-8">
+                <h1 class="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">TENEX iOS</h1>
+                <p class="text-gray-400 text-sm mt-1">New Thread & Input Redesign</p>
+            </div>
+
+            <div class="space-y-2">
+                <button onclick="showScreen('new-thread')" class="nav-item active w-full text-left px-4 py-3 rounded-lg transition-all duration-200" id="nav-new-thread">
+                    <div class="font-medium">New Thread with Agent</div>
+                    <div class="text-xs opacity-70">Quick agent selection</div>
+                </button>
+
+                <button onclick="showScreen('compose-sheet')" class="nav-item w-full text-left px-4 py-3 rounded-lg transition-all duration-200" id="nav-compose-sheet">
+                    <div class="font-medium">Compose Sheet</div>
+                    <div class="text-xs opacity-70">Expanded input view</div>
+                </button>
+
+                <button onclick="showScreen('compose-with-images')" class="nav-item w-full text-left px-4 py-3 rounded-lg transition-all duration-200" id="nav-compose-with-images">
+                    <div class="font-medium">With Attachments</div>
+                    <div class="text-xs opacity-70">Images & context</div>
+                </button>
+
+                <button onclick="showScreen('inline-collapsed')" class="nav-item w-full text-left px-4 py-3 rounded-lg transition-all duration-200" id="nav-inline-collapsed">
+                    <div class="font-medium">Collapsed Input</div>
+                    <div class="text-xs opacity-70">Tap to expand</div>
+                </button>
+            </div>
+
+            <div class="mt-8 p-4 bg-gray-700/50 rounded-lg">
+                <h3 class="font-medium text-sm text-gray-300 mb-2">Design Rationale</h3>
+                <ul class="text-xs text-gray-400 space-y-2">
+                    <li><span class="text-indigo-400 font-bold">1.</span> Agent selector in new thread picker with project context</li>
+                    <li><span class="text-indigo-400 font-bold">2.</span> Full-screen compose sheet for visibility</li>
+                    <li><span class="text-indigo-400 font-bold">3.</span> Clear attachment previews before sending</li>
+                    <li><span class="text-indigo-400 font-bold">4.</span> Collapsed state shows agent chip, expands on tap</li>
+                </ul>
+            </div>
+
+            <div class="mt-4 p-4 bg-indigo-900/30 border border-indigo-500/30 rounded-lg">
+                <h3 class="font-medium text-sm text-indigo-300 mb-2">Key Changes</h3>
+                <ul class="text-xs text-gray-300 space-y-1">
+                    <li>+ Agent selection in new thread flow</li>
+                    <li>+ Sheet-based compose for more space</li>
+                    <li>+ Better attachment visibility</li>
+                    <li>+ Online status indicators</li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-8 overflow-y-auto">
+            <!-- Screen 1: New Thread with Agent Selection -->
+            <section id="screen-new-thread" class="screen-section">
+                <div class="flex gap-12 items-start">
+                    <div class="flex-1 max-w-lg">
+                        <h2 class="text-3xl font-bold mb-4">New Thread with Agent</h2>
+                        <p class="text-gray-300 mb-6">Combined project + agent selection in a single flow. User picks a project, then immediately sees available agents for that project.</p>
+
+                        <div class="bg-gray-800 rounded-lg p-4 mb-4">
+                            <h3 class="font-semibold text-white mb-2">Flow</h3>
+                            <ol class="space-y-2 text-sm text-gray-300">
+                                <li class="flex gap-2"><span class="text-indigo-400">1.</span> User taps + to start new thread</li>
+                                <li class="flex gap-2"><span class="text-indigo-400">2.</span> Sheet shows projects with their online agents</li>
+                                <li class="flex gap-2"><span class="text-indigo-400">3.</span> Tapping project shows agent picker inline</li>
+                                <li class="flex gap-2"><span class="text-indigo-400">4.</span> Selected agent is p-tagged in first message</li>
+                            </ol>
+                        </div>
+
+                        <div class="bg-green-900/30 border border-green-500/30 rounded-lg p-4">
+                            <h3 class="font-semibold text-green-300 mb-2">Benefits</h3>
+                            <ul class="text-sm text-gray-300 space-y-1">
+                                <li>+ User knows who they're talking to upfront</li>
+                                <li>+ Shows online status before starting</li>
+                                <li>+ One fewer step than separate selection</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- iPhone Mockup -->
+                    <div class="iphone-frame">
+                        <div class="iphone-screen bg-gray-900/80">
+                            <div class="iphone-notch"></div>
+                            <div class="iphone-status-bar text-white">
+                                <span>9:41</span>
+                                <div class="flex items-center gap-1">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3C7.46 3 3.34 4.78.29 7.67c-.18.18-.29.43-.29.71s.11.53.29.71l10.79 10.79c.39.39 1.02.39 1.41 0l10.79-10.79c.18-.18.29-.43.29-.71s-.11-.53-.29-.71C20.66 4.78 16.54 3 12 3z"/></svg>
+                                    <div class="w-6 h-3 border border-current rounded-sm relative">
+                                        <div class="absolute inset-0.5 bg-current rounded-sm" style="width: 80%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="iphone-content relative">
+                                <!-- Blurred background -->
+                                <div class="p-4 opacity-30 blur-sm">
+                                    <div class="space-y-3">
+                                        <div class="bg-white/20 rounded-xl h-16"></div>
+                                        <div class="bg-white/20 rounded-xl h-16"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Bottom Sheet -->
+                                <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl slide-up" style="height: 85%;">
+                                    <div class="flex justify-center pt-3 pb-2">
+                                        <div class="w-10 h-1 bg-gray-300 rounded-full"></div>
+                                    </div>
+
+                                    <div class="px-4 pb-3 flex items-center justify-between">
+                                        <button class="text-indigo-600 font-medium">Cancel</button>
+                                        <span class="font-semibold text-gray-900">New Thread</span>
+                                        <div class="w-14"></div>
+                                    </div>
+
+                                    <!-- Project with expanded agents -->
+                                    <div class="px-4 space-y-3 overflow-y-auto" style="max-height: calc(100% - 80px);">
+                                        <!-- TENEX iOS - Expanded -->
+                                        <div class="bg-gray-50 rounded-2xl overflow-hidden">
+                                            <div class="p-4 flex items-center gap-3 border-b border-gray-200">
+                                                <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center">
+                                                    <span class="text-white font-bold">T</span>
+                                                </div>
+                                                <div class="flex-1">
+                                                    <div class="font-semibold text-gray-900">TENEX iOS Client</div>
+                                                    <div class="text-xs text-gray-500">3 agents online</div>
+                                                </div>
+                                                <svg class="w-5 h-5 text-gray-400 transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                            </div>
+
+                                            <!-- Agent List -->
+                                            <div class="p-2 space-y-1">
+                                                <!-- PM - Selected -->
+                                                <div class="flex items-center gap-3 p-3 bg-indigo-50 rounded-xl border-2 border-indigo-500">
+                                                    <div class="relative">
+                                                        <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+                                                            <span class="text-white font-bold text-sm">PM</span>
+                                                        </div>
+                                                        <div class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white online-pulse"></div>
+                                                    </div>
+                                                    <div class="flex-1">
+                                                        <div class="font-medium text-gray-900 text-sm">project-manager</div>
+                                                        <div class="text-xs text-gray-500">Coordinates tasks</div>
+                                                    </div>
+                                                    <svg class="w-5 h-5 text-indigo-600 check-pop" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+                                                </div>
+
+                                                <!-- EC -->
+                                                <div class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 transition cursor-pointer">
+                                                    <div class="relative">
+                                                        <div class="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
+                                                            <span class="text-white font-bold text-sm">EC</span>
+                                                        </div>
+                                                        <div class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white"></div>
+                                                    </div>
+                                                    <div class="flex-1">
+                                                        <div class="font-medium text-gray-900 text-sm">execution-coordinator</div>
+                                                        <div class="text-xs text-gray-500">Writes & reviews code</div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- claude-code -->
+                                                <div class="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-100 transition cursor-pointer">
+                                                    <div class="relative">
+                                                        <div class="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center">
+                                                            <span class="text-white font-bold text-sm">CC</span>
+                                                        </div>
+                                                        <div class="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 rounded-full border-2 border-white"></div>
+                                                    </div>
+                                                    <div class="flex-1">
+                                                        <div class="font-medium text-gray-900 text-sm">claude-code</div>
+                                                        <div class="text-xs text-gray-500">Direct implementation</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- TENEX Web - Collapsed -->
+                                        <div class="bg-white rounded-2xl p-4 flex items-center gap-3 border border-gray-200 cursor-pointer hover:bg-gray-50 transition">
+                                            <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-teal-500 rounded-xl flex items-center justify-center">
+                                                <span class="text-white font-bold">W</span>
+                                            </div>
+                                            <div class="flex-1">
+                                                <div class="font-semibold text-gray-900">TENEX Web Svelte</div>
+                                                <div class="text-xs text-gray-500">2 agents online</div>
+                                            </div>
+                                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                        </div>
+
+                                        <!-- TENEX TUI - Collapsed -->
+                                        <div class="bg-white rounded-2xl p-4 flex items-center gap-3 border border-gray-200 cursor-pointer hover:bg-gray-50 transition">
+                                            <div class="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center">
+                                                <span class="text-white font-bold">R</span>
+                                            </div>
+                                            <div class="flex-1">
+                                                <div class="font-semibold text-gray-900">TENEX TUI Rust</div>
+                                                <div class="text-xs text-gray-500">1 agent online</div>
+                                            </div>
+                                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                        </div>
+                                    </div>
+
+                                    <!-- Start Button -->
+                                    <div class="absolute bottom-8 left-4 right-4">
+                                        <button class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-2xl font-semibold shadow-lg flex items-center justify-center gap-2">
+                                            <span>Start with @project-manager</span>
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="iphone-home-indicator"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Screen 2: Compose Sheet -->
+            <section id="screen-compose-sheet" class="screen-section hidden">
+                <div class="flex gap-12 items-start">
+                    <div class="flex-1 max-w-lg">
+                        <h2 class="text-3xl font-bold mb-4">Compose Sheet</h2>
+                        <p class="text-gray-300 mb-6">Full-screen sheet for composing messages. Opens when tapping the input bar. Much more space to see what you're typing and manage attachments.</p>
+
+                        <div class="bg-gray-800 rounded-lg p-4 mb-4">
+                            <h3 class="font-semibold text-white mb-2">Key Elements</h3>
+                            <ul class="space-y-2 text-sm text-gray-300">
+                                <li class="flex gap-2"><span class="text-indigo-400">-</span> Agent chip shows who you're talking to</li>
+                                <li class="flex gap-2"><span class="text-indigo-400">-</span> Large text area for message composition</li>
+                                <li class="flex gap-2"><span class="text-indigo-400">-</span> Toolbar at bottom with actions</li>
+                                <li class="flex gap-2"><span class="text-indigo-400">-</span> Character/nudge options easily accessible</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-green-900/30 border border-green-500/30 rounded-lg p-4">
+                            <h3 class="font-semibold text-green-300 mb-2">Benefits</h3>
+                            <ul class="text-sm text-gray-300 space-y-1">
+                                <li>+ Much more typing space</li>
+                                <li>+ See full message before sending</li>
+                                <li>+ Better keyboard experience</li>
+                                <li>+ Easier to add attachments</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- iPhone Mockup -->
+                    <div class="iphone-frame">
+                        <div class="iphone-screen bg-white">
+                            <div class="iphone-notch"></div>
+                            <div class="iphone-status-bar text-black">
+                                <span>9:41</span>
+                                <div class="flex items-center gap-1">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3C7.46 3 3.34 4.78.29 7.67c-.18.18-.29.43-.29.71s.11.53.29.71l10.79 10.79c.39.39 1.02.39 1.41 0l10.79-10.79c.18-.18.29-.43.29-.71s-.11-.53-.29-.71C20.66 4.78 16.54 3 12 3z"/></svg>
+                                    <div class="w-6 h-3 border border-current rounded-sm relative">
+                                        <div class="absolute inset-0.5 bg-current rounded-sm" style="width: 80%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="iphone-content bg-gray-50">
+                                <!-- Header -->
+                                <div class="bg-white px-4 py-3 border-b flex items-center justify-between">
+                                    <button class="text-indigo-600 font-medium">Cancel</button>
+                                    <span class="font-semibold text-gray-900">New Message</span>
+                                    <button class="bg-indigo-600 text-white px-4 py-1.5 rounded-full text-sm font-semibold">
+                                        Send
+                                    </button>
+                                </div>
+
+                                <!-- To Agent -->
+                                <div class="bg-white px-4 py-3 border-b flex items-center gap-3">
+                                    <span class="text-gray-400 text-sm">To:</span>
+                                    <button class="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 rounded-full">
+                                        <div class="w-6 h-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
+                                            <span class="text-white font-bold text-xs">EC</span>
+                                        </div>
+                                        <span class="text-sm font-medium text-indigo-700">execution-coordinator</span>
+                                        <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                </div>
+
+                                <!-- Message Area -->
+                                <div class="flex-1 p-4">
+                                    <textarea
+                                        class="w-full h-64 bg-transparent text-gray-900 placeholder-gray-400 focus:outline-none resize-none text-base leading-relaxed"
+                                        placeholder="What would you like help with?"
+                                    >Can you help me debug the image upload crash? It happens when users try to upload images larger than 5MB on iOS 17 devices.
+
+I've looked at the logs and it seems like there might be a memory issue in the image processing pipeline.</textarea>
+                                </div>
+
+                                <!-- Options Pills -->
+                                <div class="px-4 pb-4">
+                                    <div class="flex flex-wrap gap-2">
+                                        <button class="px-3 py-1.5 bg-white border border-gray-200 rounded-full text-sm text-gray-700 flex items-center gap-1.5 hover:bg-gray-50 transition">
+                                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
+                                            Branch: master
+                                        </button>
+                                        <button class="px-3 py-1.5 bg-white border border-gray-200 rounded-full text-sm text-gray-700 flex items-center gap-1.5 hover:bg-gray-50 transition">
+                                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                            Add nudge
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Toolbar -->
+                                <div class="bg-white border-t px-4 py-3 flex items-center gap-4">
+                                    <button class="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition">
+                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                    </button>
+                                    <button class="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition">
+                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                                    </button>
+                                    <button class="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition">
+                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+                                    </button>
+                                    <div class="flex-1"></div>
+                                    <span class="text-xs text-gray-400">248 characters</span>
+                                </div>
+                            </div>
+                            <div class="iphone-home-indicator"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Screen 3: With Attachments -->
+            <section id="screen-compose-with-images" class="screen-section hidden">
+                <div class="flex gap-12 items-start">
+                    <div class="flex-1 max-w-lg">
+                        <h2 class="text-3xl font-bold mb-4">With Attachments</h2>
+                        <p class="text-gray-300 mb-6">Shows how attachments appear in the compose sheet. Clear previews, easy to remove, upload status visible.</p>
+
+                        <div class="bg-gray-800 rounded-lg p-4 mb-4">
+                            <h3 class="font-semibold text-white mb-2">Attachment Features</h3>
+                            <ul class="space-y-2 text-sm text-gray-300">
+                                <li class="flex gap-2"><span class="text-indigo-400">-</span> Grid layout for multiple images</li>
+                                <li class="flex gap-2"><span class="text-indigo-400">-</span> Upload progress indicator</li>
+                                <li class="flex gap-2"><span class="text-indigo-400">-</span> Easy removal with X button</li>
+                                <li class="flex gap-2"><span class="text-indigo-400">-</span> Tap to preview full size</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-yellow-900/30 border border-yellow-500/30 rounded-lg p-4">
+                            <h3 class="font-semibold text-yellow-300 mb-2">Upload States</h3>
+                            <ul class="text-sm text-gray-300 space-y-1">
+                                <li>- Pending: Gray overlay with spinner</li>
+                                <li>- Uploading: Progress bar</li>
+                                <li>- Complete: Green checkmark</li>
+                                <li>- Failed: Red X with retry option</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- iPhone Mockup -->
+                    <div class="iphone-frame">
+                        <div class="iphone-screen bg-white">
+                            <div class="iphone-notch"></div>
+                            <div class="iphone-status-bar text-black">
+                                <span>9:41</span>
+                                <div class="flex items-center gap-1">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3C7.46 3 3.34 4.78.29 7.67c-.18.18-.29.43-.29.71s.11.53.29.71l10.79 10.79c.39.39 1.02.39 1.41 0l10.79-10.79c.18-.18.29-.43.29-.71s-.11-.53-.29-.71C20.66 4.78 16.54 3 12 3z"/></svg>
+                                    <div class="w-6 h-3 border border-current rounded-sm relative">
+                                        <div class="absolute inset-0.5 bg-current rounded-sm" style="width: 80%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="iphone-content bg-gray-50">
+                                <!-- Header -->
+                                <div class="bg-white px-4 py-3 border-b flex items-center justify-between">
+                                    <button class="text-indigo-600 font-medium">Cancel</button>
+                                    <span class="font-semibold text-gray-900">New Message</span>
+                                    <button class="bg-indigo-600 text-white px-4 py-1.5 rounded-full text-sm font-semibold">
+                                        Send
+                                    </button>
+                                </div>
+
+                                <!-- To Agent -->
+                                <div class="bg-white px-4 py-3 border-b flex items-center gap-3">
+                                    <span class="text-gray-400 text-sm">To:</span>
+                                    <button class="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 rounded-full">
+                                        <div class="w-6 h-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
+                                            <span class="text-white font-bold text-xs">EC</span>
+                                        </div>
+                                        <span class="text-sm font-medium text-indigo-700">execution-coordinator</span>
+                                        <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                </div>
+
+                                <!-- Message Area (shorter to make room for attachments) -->
+                                <div class="p-4">
+                                    <textarea
+                                        class="w-full h-32 bg-transparent text-gray-900 placeholder-gray-400 focus:outline-none resize-none text-base leading-relaxed"
+                                        placeholder="What would you like help with?"
+                                    >Here's the crash I'm seeing. The first screenshot shows the error, and the second shows the memory graph from Instruments.</textarea>
+                                </div>
+
+                                <!-- Attachment Previews -->
+                                <div class="px-4 pb-4">
+                                    <div class="grid grid-cols-2 gap-2">
+                                        <!-- Image 1 - Uploaded -->
+                                        <div class="relative aspect-square bg-gray-200 rounded-xl overflow-hidden">
+                                            <div class="absolute inset-0 bg-gradient-to-br from-red-100 to-red-200 flex items-center justify-center">
+                                                <div class="text-center">
+                                                    <svg class="w-8 h-8 text-red-400 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                                    <span class="text-xs text-red-600 font-medium">Crash Log</span>
+                                                </div>
+                                            </div>
+                                            <button class="absolute top-2 right-2 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center">
+                                                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                            </button>
+                                            <!-- Upload complete indicator -->
+                                            <div class="absolute bottom-2 left-2 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                                                <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+                                            </div>
+                                        </div>
+
+                                        <!-- Image 2 - Uploading -->
+                                        <div class="relative aspect-square bg-gray-200 rounded-xl overflow-hidden">
+                                            <div class="absolute inset-0 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+                                                <div class="text-center">
+                                                    <svg class="w-8 h-8 text-blue-400 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                                                    <span class="text-xs text-blue-600 font-medium">Memory Graph</span>
+                                                </div>
+                                            </div>
+                                            <button class="absolute top-2 right-2 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center">
+                                                <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                            </button>
+                                            <!-- Upload progress -->
+                                            <div class="absolute bottom-0 left-0 right-0 h-1 bg-black/20">
+                                                <div class="h-full bg-indigo-500 transition-all" style="width: 65%"></div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Add more button -->
+                                        <div class="aspect-square border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition">
+                                            <div class="text-center">
+                                                <svg class="w-8 h-8 text-gray-400 mx-auto mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                                <span class="text-xs text-gray-500">Add more</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Options Pills -->
+                                <div class="px-4 pb-4">
+                                    <div class="flex flex-wrap gap-2">
+                                        <button class="px-3 py-1.5 bg-orange-100 border border-orange-200 rounded-full text-sm text-orange-700 flex items-center gap-1.5">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                            think-hard
+                                            <button class="hover:text-orange-900">&times;</button>
+                                        </button>
+                                        <button class="px-3 py-1.5 bg-white border border-gray-200 rounded-full text-sm text-gray-700 flex items-center gap-1.5 hover:bg-gray-50 transition">
+                                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                            Add nudge
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Toolbar -->
+                                <div class="bg-white border-t px-4 py-3 flex items-center gap-4">
+                                    <button class="w-10 h-10 flex items-center justify-center text-indigo-600 bg-indigo-50 rounded-full">
+                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                    </button>
+                                    <button class="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition">
+                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                                    </button>
+                                    <div class="flex-1"></div>
+                                    <span class="text-xs text-gray-400">2 attachments</span>
+                                </div>
+                            </div>
+                            <div class="iphone-home-indicator"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Screen 4: Collapsed Input -->
+            <section id="screen-inline-collapsed" class="screen-section hidden">
+                <div class="flex gap-12 items-start">
+                    <div class="flex-1 max-w-lg">
+                        <h2 class="text-3xl font-bold mb-4">Collapsed Input Bar</h2>
+                        <p class="text-gray-300 mb-6">The input bar in its collapsed state at the bottom of the chat. Shows the selected agent, tapping opens the compose sheet.</p>
+
+                        <div class="bg-gray-800 rounded-lg p-4 mb-4">
+                            <h3 class="font-semibold text-white mb-2">Collapsed State Shows</h3>
+                            <ul class="space-y-2 text-sm text-gray-300">
+                                <li class="flex gap-2"><span class="text-indigo-400">-</span> Agent avatar + name chip</li>
+                                <li class="flex gap-2"><span class="text-indigo-400">-</span> Placeholder text</li>
+                                <li class="flex gap-2"><span class="text-indigo-400">-</span> Quick action buttons (image, plus)</li>
+                            </ul>
+                        </div>
+
+                        <div class="bg-gray-800 rounded-lg p-4 mb-4">
+                            <h3 class="font-semibold text-white mb-2">Interaction Flow</h3>
+                            <ol class="space-y-2 text-sm text-gray-300">
+                                <li><span class="text-indigo-400">1.</span> Tap input area = Opens compose sheet</li>
+                                <li><span class="text-indigo-400">2.</span> Tap agent chip = Opens agent selector</li>
+                                <li><span class="text-indigo-400">3.</span> Tap image = Opens photo picker</li>
+                                <li><span class="text-indigo-400">4.</span> Tap + = Shows more options menu</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- iPhone Mockup -->
+                    <div class="iphone-frame">
+                        <div class="iphone-screen bg-gray-50">
+                            <div class="iphone-notch"></div>
+                            <div class="iphone-status-bar text-black">
+                                <span>9:41</span>
+                                <div class="flex items-center gap-1">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3C7.46 3 3.34 4.78.29 7.67c-.18.18-.29.43-.29.71s.11.53.29.71l10.79 10.79c.39.39 1.02.39 1.41 0l10.79-10.79c.18-.18.29-.43.29-.71s-.11-.53-.29-.71C20.66 4.78 16.54 3 12 3z"/></svg>
+                                    <div class="w-6 h-3 border border-current rounded-sm relative">
+                                        <div class="absolute inset-0.5 bg-current rounded-sm" style="width: 80%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="iphone-content">
+                                <!-- Nav bar -->
+                                <div class="bg-white px-4 py-3 border-b flex items-center gap-3">
+                                    <button class="text-indigo-600">
+                                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                                    </button>
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-gray-900">TENEX iOS</div>
+                                        <div class="text-xs text-gray-500">3 agents online</div>
+                                    </div>
+                                    <button class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                                        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/></svg>
+                                    </button>
+                                </div>
+
+                                <!-- Chat messages -->
+                                <div class="p-4 space-y-4">
+                                    <!-- User message -->
+                                    <div class="flex justify-end">
+                                        <div class="bg-indigo-600 text-white px-4 py-2 rounded-2xl rounded-br-md max-w-[80%]">
+                                            <p class="text-sm">Can you help me fix the image upload crash?</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Agent message -->
+                                    <div class="flex gap-2">
+                                        <div class="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                            <span class="text-white font-bold text-xs">EC</span>
+                                        </div>
+                                        <div class="bg-white px-4 py-2 rounded-2xl rounded-bl-md shadow-sm max-w-[80%]">
+                                            <p class="text-sm text-gray-900">I'll help you debug that. Can you share more details about when the crash happens? Specifically:</p>
+                                            <ul class="text-sm text-gray-700 mt-2 space-y-1 list-disc list-inside">
+                                                <li>What iOS version?</li>
+                                                <li>Image file size?</li>
+                                                <li>Any error logs?</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+
+                                    <!-- Typing indicator -->
+                                    <div class="flex gap-2 opacity-50">
+                                        <div class="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                            <span class="text-white font-bold text-xs">EC</span>
+                                        </div>
+                                        <div class="bg-white px-4 py-3 rounded-2xl shadow-sm">
+                                            <div class="flex gap-1">
+                                                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+                                                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+                                                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Spacer -->
+                                <div class="flex-1"></div>
+
+                                <!-- Input Bar - Collapsed -->
+                                <div class="bg-white/90 backdrop-blur-xl border-t px-4 py-3 absolute bottom-0 left-0 right-0">
+                                    <div class="flex items-center gap-2">
+                                        <!-- Agent Chip -->
+                                        <button class="flex items-center gap-1.5 px-2 py-1 bg-gray-100 rounded-full hover:bg-gray-200 transition">
+                                            <div class="relative">
+                                                <div class="w-6 h-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
+                                                    <span class="text-white font-bold text-xs">EC</span>
+                                                </div>
+                                                <div class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border border-white"></div>
+                                            </div>
+                                            <svg class="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                        </button>
+
+                                        <!-- Input Field (tap to expand) -->
+                                        <div class="flex-1 bg-gray-100 rounded-full px-4 py-2 flex items-center cursor-pointer hover:bg-gray-200 transition">
+                                            <span class="text-gray-400 text-sm">Message @execution-coordinator</span>
+                                        </div>
+
+                                        <!-- Image button -->
+                                        <button class="w-9 h-9 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                        </button>
+
+                                        <!-- Plus button -->
+                                        <button class="w-9 h-9 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                        </button>
+                                    </div>
+
+                                    <!-- Home indicator spacing -->
+                                    <div class="h-5"></div>
+                                </div>
+                            </div>
+                            <div class="iphone-home-indicator"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        function showScreen(id) {
+            // Hide all screens
+            document.querySelectorAll('.screen-section').forEach(section => {
+                section.classList.add('hidden');
+            });
+
+            // Show selected screen
+            document.getElementById('screen-' + id).classList.remove('hidden');
+
+            // Update navigation
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.getElementById('nav-' + id).classList.add('active');
+        }
+    </script>
+</body>
+</html>

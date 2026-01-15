@@ -339,14 +339,12 @@ private struct ProjectResultRow: View {
 
     private func kindName(_ kind: Int) -> String {
         switch kind {
-        case 11:
-            return "Kind 11 (Threads)"
+        case 1:
+            return "Kind 1 (Notes/Threads)"
         case 513:
-            return "Kind 513 (Updates)"
-        case 1111:
-            return "Kind 1111 (Messages)"
+            return "Kind 513 (Metadata)"
         case 21_111:
-            return "Kind 21111 (Agent Messages)"
+            return "Kind 21111 (Agent Streaming)"
         default:
             return "Kind \(kind)"
         }

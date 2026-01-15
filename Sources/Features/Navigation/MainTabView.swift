@@ -12,16 +12,13 @@ import TENEXShared
 
 private enum Tab: Int, Hashable {
     case conversations = 0
-    case status = 1
-    case projects = 2
-    case inbox = 3
+    case projects = 1
+    case inbox = 2
 
     var title: String {
         switch self {
         case .conversations:
             "Conversations"
-        case .status:
-            "Status"
         case .projects:
             "Projects"
         case .inbox:
@@ -33,8 +30,6 @@ private enum Tab: Int, Hashable {
         switch self {
         case .conversations:
             "bubble.left.and.bubble.right"
-        case .status:
-            "waveform"
         case .projects:
             "folder"
         case .inbox:
@@ -98,14 +93,6 @@ public struct MainTabView: View {
             }
             .tag(Tab.conversations)
 
-            NavigationStack {
-                StatusFeedView()
-            }
-            .tabItem {
-                Label("Status", systemImage: "waveform")
-            }
-            .tag(Tab.status)
-
             NavigationShell()
                 .tabItem {
                     Label("Projects", systemImage: "folder")
@@ -128,8 +115,6 @@ public struct MainTabView: View {
         switch selectedTab {
         case .conversations:
             ConversationsView()
-        case .status:
-            StatusFeedView()
         case .projects:
             NavigationShell()
         case .inbox:
@@ -141,7 +126,6 @@ public struct MainTabView: View {
         AppleMailSegmentedControl(selection: $selectedTab) {
             var content = SegmentedControlContent<Tab>()
             content.segment("Conversations", value: .conversations, icon: "bubble.left.and.bubble.right")
-            content.segment("Status", value: .status, icon: "waveform")
             content.segment("Projects", value: .projects, icon: "folder")
             content.segment(
                 "Inbox",

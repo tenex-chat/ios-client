@@ -36,6 +36,14 @@ public struct ConversationStoreState: Sendable {
     /// All unique hashtags collected from threads, sorted alphabetically
     public let hashtags: [String]
 
+    /// Pre-computed hierarchical thread list for tree display
+    /// Follows Svelte/TUI pattern: roots first, children indented with depth info
+    public let hierarchicalThreads: [HierarchicalThread]
+
+    /// Parent to children mapping (parentID -> Set of childIDs)
+    /// Used for navigating delegation relationships
+    public let parentToChildren: [String: Set<String>]
+
     /// Empty state initializer
     public static func empty(projectCoordinate: String) -> Self {
         Self(
@@ -47,7 +55,9 @@ public struct ConversationStoreState: Sendable {
             projectCoordinate: projectCoordinate,
             snapshotTimestamp: Date(),
             lastReplyByThreadAndAuthor: [:],
-            hashtags: []
+            hashtags: [],
+            hierarchicalThreads: [],
+            parentToChildren: [:]
         )
     }
 }

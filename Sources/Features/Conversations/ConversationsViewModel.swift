@@ -10,6 +10,7 @@ import os
 import TENEXCore
 
 /// Manages the main Conversations tab with filtering by project and time
+/// Uses DataStore as single source of truth for conversation metadata
 @MainActor
 @Observable
 public final class ConversationsViewModel {
@@ -17,8 +18,8 @@ public final class ConversationsViewModel {
 
     /// Initialize with dependencies
     /// - Parameters:
-    ///   - dataStore: The data store for accessing conversation and project data
-    ///   - ndk: The NDK instance for fetching thread metadata
+    ///   - dataStore: The data store (single source of truth for all data)
+    ///   - ndk: The NDK instance for fetching thread events
     ///   - filterStore: The store for filter state persistence
     ///   - archiveStorage: Storage for archived project IDs
     public init(
@@ -28,8 +29,8 @@ public final class ConversationsViewModel {
         archiveStorage: ArchiveStorage = UserDefaultsArchiveStorage()
     ) {
         self.dataStore = dataStore
+        self.ndk = ndk
         self.filterStore = filterStore
-        self.metadataFetcher = MetadataFetcher(ndk: ndk)
         self.archiveStorage = archiveStorage
     }
 
@@ -131,7 +132,7 @@ public final class ConversationsViewModel {
     /// - Parameter id: The thread ID
     /// - Returns: The NDKEvent if found
     public func getThreadEvent(id: String) -> NDKEvent? {
-        metadataFetcher.getThreadEvent(for: id)
+        threadEventCache[id]
     }
 
     /// Get project for a thread based on the project coordinate
@@ -158,30 +159,64 @@ public final class ConversationsViewModel {
         conversationsByThread[threadID]?.max { $0.createdAt < $1.createdAt }
     }
 
-    /// Get conversation metadata (kind 513) for a thread
+    /// Get conversation metadata (kind 513) for a thread from DataStore
     /// - Parameter threadID: The thread ID
     /// - Returns: The ConversationMetadata if found
     public func getConversationMetadata(for threadID: String) -> ConversationMetadata? {
-        if let cached = metadataFetcher.getConversationMetadata(for: threadID) {
-            return cached
+        // Read directly from DataStore - single source of truth
+        dataStore.getConversationMetadata(for: threadID)
+    }
+
+    /// Get hierarchy info for a thread
+    /// - Parameter threadID: The thread ID
+    /// - Returns: Tuple of (depth, hasChildren, childCount)
+    public func getHierarchyInfo(for threadID: String) -> (depth: Int, hasChildren: Bool, childCount: Int) {
+        // Look up hierarchy info from conversation stores
+        guard let projectCoordinate = getProjectCoordinate(for: threadID),
+              let store = dataStore.conversationStore(for: projectCoordinate)
+        else {
+            return (0, false, 0)
         }
 
-        // Prefetch in background
-        metadataFetcher.prefetchConversationMetadata(for: threadID)
+        // Find the hierarchical thread in the store's state
+        if let hierarchicalThread = store.state.hierarchicalThreads.first(where: { $0.id == threadID }) {
+            return (hierarchicalThread.depth, hierarchicalThread.hasChildren, hierarchicalThread.childCount)
+        }
 
-        return nil
+        // Fallback: check if this thread has children in the parent-to-children map
+        let children = store.state.parentToChildren[threadID] ?? []
+        return (0, !children.isEmpty, children.count)
     }
 
     /// Fetch thread event if not cached
     /// - Parameter threadID: The thread ID to fetch
     public func fetchThreadEventIfNeeded(for threadID: String) {
-        metadataFetcher.prefetchThreadEvent(for: threadID)
+        guard threadEventCache[threadID] == nil else {
+            return
+        }
+
+        Task {
+            logger.debug("Fetching thread event: \(threadID)")
+            let filter = NDKFilter(ids: [threadID], kinds: [1])
+            let subscription = ndk.subscribe(filter: filter)
+
+            for await events in subscription.events.prefix(1) {
+                if let event = events.first {
+                    threadEventCache[threadID] = event
+                    logger.debug("Cached thread event: \(threadID)")
+                }
+            }
+        }
     }
 
     // MARK: Private
 
     private let dataStore: DataStore
+    private let ndk: NDK
     private let filterStore: ConversationsFilterStore
-    private let metadataFetcher: MetadataFetcher
     private let archiveStorage: ArchiveStorage
+    private let logger = Logger(subsystem: "com.tenex.ios", category: "ConversationsViewModel")
+
+    // Thread event cache for navigation (transient UI state, not global data)
+    private var threadEventCache: [String: NDKEvent] = [:]
 }

@@ -9,7 +9,8 @@ import NDKSwiftCore
 import os
 import TENEXCore
 
-/// Manages the status feed by subscribing to kind:513 conversation metadata events
+/// Manages the status feed by reading from DataStore's centralized conversation metadata
+/// NO LONGER creates its own subscription - uses DataStore as single source of truth
 @MainActor
 @Observable
 public final class StatusFeedViewModel {
@@ -17,41 +18,37 @@ public final class StatusFeedViewModel {
 
     /// Initialize with dependencies
     /// - Parameters:
-    ///   - dataStore: The data store for accessing project data
-    ///   - ndk: The NDK instance for fetching metadata events
+    ///   - dataStore: The data store (single source of truth for metadata)
+    ///   - ndk: The NDK instance for fetching thread events
     public init(dataStore: DataStore, ndk: NDK) {
         self.dataStore = dataStore
         self.ndk = ndk
-        self.metadataFetcher = MetadataFetcher(ndk: ndk)
     }
 
     // MARK: Public
 
-    /// All conversation metadata items, sorted by latest timestamp (newest first)
-    public private(set) var items: [ConversationMetadata] = []
-
-    /// Whether the feed is currently loading
-    public private(set) var isLoading = false
-
-    /// Start subscribing to conversation metadata events
-    public func startSubscription() {
-        guard !isSubscribed else {
-            return
-        }
-        isSubscribed = true
-        isLoading = true
-
-        subscriptionTask = Task {
-            await subscribeToMetadataEvents()
-        }
+    /// All conversation metadata items from DataStore, sorted by latest timestamp (newest first)
+    /// Reads directly from DataStore - no duplicate storage
+    public var items: [ConversationMetadata] {
+        dataStore.allConversationMetadata
     }
 
-    /// Stop the subscription
+    /// Whether the feed is currently loading (based on DataStore having no data yet)
+    public var isLoading: Bool {
+        dataStore.conversationMetadata.isEmpty && dataStore.isLoadingProjects
+    }
+
+    /// Start subscription - now just a no-op since DataStore handles subscriptions
+    /// Kept for API compatibility during transition
+    public func startSubscription() {
+        // DataStore manages subscriptions centrally - nothing to do here
+        logger.debug("StatusFeedViewModel: Using DataStore for metadata (no local subscription)")
+    }
+
+    /// Stop subscription - now just a no-op since DataStore handles subscriptions
+    /// Kept for API compatibility during transition
     public func stopSubscription() {
-        subscriptionTask?.cancel()
-        subscriptionTask = nil
-        subscription = nil
-        isSubscribed = false
+        // DataStore manages subscriptions centrally - nothing to do here
     }
 
     /// Get the project for a conversation metadata item
@@ -70,87 +67,36 @@ public final class StatusFeedViewModel {
     /// - Parameter metadata: The conversation metadata
     /// - Returns: The NDKEvent if cached
     public func getThreadEvent(for metadata: ConversationMetadata) -> NDKEvent? {
-        metadataFetcher.getThreadEvent(for: metadata.threadID)
+        threadEventCache[metadata.threadID]
     }
 
     /// Fetch thread event for a conversation if not already cached
     /// - Parameter threadID: The thread ID to fetch
     public func fetchThreadEventIfNeeded(for threadID: String) {
-        metadataFetcher.prefetchThreadEvent(for: threadID)
+        guard threadEventCache[threadID] == nil else {
+            return
+        }
+
+        Task {
+            logger.debug("Fetching thread event: \(threadID)")
+            let filter = NDKFilter(ids: [threadID], kinds: [1])
+            let subscription = ndk.subscribe(filter: filter)
+
+            for await events in subscription.events.prefix(1) {
+                if let event = events.first {
+                    threadEventCache[threadID] = event
+                    logger.debug("Cached thread event: \(threadID)")
+                }
+            }
+        }
     }
 
     // MARK: Private
 
     private let dataStore: DataStore
     private let ndk: NDK
-    private let metadataFetcher: MetadataFetcher
     private let logger = Logger(subsystem: "com.tenex.ios", category: "StatusFeed")
 
-    private var subscription: NDKSubscription<NDKEvent>?
-    private var subscriptionTask: Task<Void, Never>?
-    private var isSubscribed = false
-    private var conversationMap: [String: ConversationMetadata] = [:]
-
-    private func subscribeToMetadataEvents() async {
-        logger.debug("Starting subscription to kind:513 metadata events")
-
-        let filter = ConversationMetadata.allFilter()
-        subscription = ndk.subscribe(filter: filter)
-
-        guard let subscription else {
-            logger.error("Failed to create subscription")
-            isLoading = false
-            return
-        }
-
-        for await events in subscription.events {
-            isLoading = false
-
-            for event in events {
-                processEvent(event)
-            }
-            updateItems()
-        }
-    }
-
-    private func processEvent(_ event: NDKEvent) {
-        guard let metadata = ConversationMetadata.from(event: event) else {
-            logger.debug("Failed to parse metadata from event")
-            return
-        }
-
-        let existing = conversationMap[metadata.threadID]
-
-        // Update if newer or doesn't exist
-        if existing == nil {
-            conversationMap[metadata.threadID] = metadata
-            logger.debug("Added new metadata for thread: \(metadata.threadID)")
-        } else if let existingMetadata = existing, metadata.createdAt > existingMetadata.createdAt {
-            conversationMap[metadata.threadID] = metadata
-            logger.debug("Updated metadata for thread: \(metadata.threadID)")
-        } else if let existingMetadata = existing {
-            // Older event - merge fields that are missing
-            if existingMetadata.title == nil, let newTitle = metadata.title {
-                let updated = ConversationMetadata(
-                    threadID: existingMetadata.threadID,
-                    pubkey: existingMetadata.pubkey,
-                    title: newTitle,
-                    summary: existingMetadata.summary ?? metadata.summary,
-                    statusLabel: existingMetadata.statusLabel ?? metadata.statusLabel,
-                    statusCurrentActivity: existingMetadata.statusCurrentActivity ?? metadata.statusCurrentActivity,
-                    tags: existingMetadata.tags.isEmpty ? metadata.tags : existingMetadata.tags,
-                    projectCoordinate: existingMetadata.projectCoordinate ?? metadata.projectCoordinate,
-                    createdAt: existingMetadata.createdAt,
-                    event: existingMetadata.event
-                )
-                conversationMap[metadata.threadID] = updated
-            }
-        }
-    }
-
-    private func updateItems() {
-        // Sort by latest timestamp descending (newest first)
-        items = Array(conversationMap.values)
-            .sorted { $0.createdAt > $1.createdAt }
-    }
+    // Thread event cache for navigation (this is transient UI state, not global data)
+    private var threadEventCache: [String: NDKEvent] = [:]
 }

@@ -152,7 +152,7 @@ Use `fetchEvents` when you need events once and don't want continuous updates:
 
 ```swift
 let filter = NDKFilter(
-    kinds: [11], // Thread events
+    kinds: [1], // Thread events (kind:1 with a-tag, no e-tags)
     tags: ["d": Set(["project-id"])],
     limit: 100
 )
@@ -202,7 +202,7 @@ await subscription.close()
 // Create event
 let event = NDKEvent(
     pubkey: "", // Will be set by signer
-    kind: 1111, // GenericReply
+    kind: 1, // Reply (kind:1 with e-tag)
     tags: [
         ["e", rootEventId, "", "root"],
         ["p", recipientPubkey]
@@ -403,7 +403,7 @@ let filter = NDKFilter(kinds: [1, 6, 7])
 // By authors
 let filter = NDKFilter(
     authors: [pubkey1, pubkey2],
-    kinds: [1111]
+    kinds: [1]
 )
 
 // By IDs
@@ -429,7 +429,7 @@ filter.addTagFilter("p", values: [pubkey])
 
 // Using tags parameter
 let filter = NDKFilter(
-    kinds: [11],
+    kinds: [1],
     tags: ["a": Set(["31933:pubkey:project-id"])]
 )
 ```
@@ -439,7 +439,7 @@ let filter = NDKFilter(
 ```swift
 let filter = NDKFilter(
     authors: [userPubkey],
-    kinds: [11, 1111],
+    kinds: [1], // All conversations are kind:1
     since: Timestamp(Date().timeIntervalSince1970 - 3600),
     limit: 100
 )
@@ -548,7 +548,7 @@ struct TENEXExample {
 
         // Subscribe to messages
         let filter = NDKFilter(
-            kinds: [1111], // GenericReply
+            kinds: [1], // GenericReply
             tags: ["p": Set([try! await signer.pubkey])],
             limit: 50
         )
@@ -562,10 +562,13 @@ struct TENEXExample {
             }
         }
 
-        // Publish a message
+        // Publish a message (kind:1 reply with e-tag)
         let event = NDKEvent(
-            kind: 1111,
-            tags: [["p", recipientPubkey]],
+            kind: 1,
+            tags: [
+                ["e", threadRootId, "", "root"],
+                ["p", recipientPubkey]
+            ],
             content: "Hello from TENEX!"
         )
 

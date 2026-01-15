@@ -44,7 +44,7 @@ public final class DataStore {
     /// All nudges (system prompt modifiers)
     public private(set) var nudges: [Nudge] = []
 
-    /// Recent conversation replies (kind:1111 with #K:11) across all projects
+    /// Recent conversation replies (kind:1 with e-tag) across all projects
     public private(set) var recentConversationReplies: [Message] = []
 
     /// Inbox messages (agent escalations p-tagging current user)
@@ -55,6 +55,9 @@ public final class DataStore {
 
     /// Active operations: eventId -> Set of agent pubkeys currently working
     public private(set) var activeOperations: [String: Set<String>] = [:]
+
+    /// Conversation metadata (kind:513) keyed by thread ID - SINGLE SOURCE OF TRUTH
+    public private(set) var conversationMetadata: [String: ConversationMetadata] = [:]
 
     /// Conversation stores keyed by project coordinate
     private var conversationStores: [String: ProjectConversationStore] = [:]
@@ -108,6 +111,7 @@ public final class DataStore {
         self.recentConversationsTask = Task { await self.subscribeToRecentConversations() }
         self.inboxTask = Task { await self.subscribeToInbox(userPubkey: userPubkey) }
         self.operationsTask = Task { await self.subscribeToOperationsStatus(userPubkey: userPubkey) }
+        self.metadataTask = Task { await self.subscribeToConversationMetadata() }
 
         self.logger.info("All subscriptions started")
     }
@@ -124,6 +128,7 @@ public final class DataStore {
         self.recentConversationsTask?.cancel()
         self.inboxTask?.cancel()
         self.operationsTask?.cancel()
+        self.metadataTask?.cancel()
 
         self.projectsTask = nil
         self.agentsTask = nil
@@ -133,6 +138,7 @@ public final class DataStore {
         self.recentConversationsTask = nil
         self.inboxTask = nil
         self.operationsTask = nil
+        self.metadataTask = nil
 
         // Clear state
         self.projects = []
@@ -144,6 +150,7 @@ public final class DataStore {
         self.inboxMessages = []
         self.inboxUnreadCount = 0
         self.activeOperations = [:]
+        self.conversationMetadata = [:]
         self.conversationStores = [:]
         self.userPubkey = nil
 
@@ -231,6 +238,32 @@ public final class DataStore {
     private var recentConversationsTask: Task<Void, Never>?
     private var inboxTask: Task<Void, Never>?
     private var operationsTask: Task<Void, Never>?
+    private var metadataTask: Task<Void, Never>?
+}
+
+// MARK: - Conversation Metadata Access (Single Source of Truth)
+
+public extension DataStore {
+    /// Get conversation metadata for a thread ID
+    /// - Parameter threadID: The thread ID
+    /// - Returns: The ConversationMetadata if available
+    func getConversationMetadata(for threadID: String) -> ConversationMetadata? {
+        conversationMetadata[threadID]
+    }
+
+    /// Get all conversation metadata for a specific project
+    /// - Parameter projectCoordinate: The project coordinate
+    /// - Returns: Array of ConversationMetadata sorted by creation date (newest first)
+    func getConversationMetadata(forProject projectCoordinate: String) -> [ConversationMetadata] {
+        conversationMetadata.values
+            .filter { $0.projectCoordinate == projectCoordinate }
+            .sorted { $0.createdAt > $1.createdAt }
+    }
+
+    /// Get all conversation metadata sorted by creation date (newest first)
+    var allConversationMetadata: [ConversationMetadata] {
+        conversationMetadata.values.sorted { $0.createdAt > $1.createdAt }
+    }
 }
 
 // MARK: - Subscription Methods
@@ -252,9 +285,10 @@ extension DataStore {
                         projectOrder.append(project.id)
                     }
                     projectsByID[project.id] = project
-                    self.projects = projectOrder.compactMap { projectsByID[$0] }
                 }
             }
+            // Update UI once per batch, not per event
+            self.projects = projectOrder.compactMap { projectsByID[$0] }
         }
     }
 
@@ -270,9 +304,10 @@ extension DataStore {
             for event in events {
                 if let agent = AgentDefinition.from(event: event) {
                     agentsByID[agent.id] = agent
-                    self.agents = Array(agentsByID.values)
                 }
             }
+            // Update UI once per batch, not per event
+            self.agents = Array(agentsByID.values)
         }
     }
 
@@ -288,9 +323,10 @@ extension DataStore {
             for event in events {
                 if let tool = MCPTool.from(event: event) {
                     toolsByID[tool.id] = tool
-                    self.tools = Array(toolsByID.values)
                 }
             }
+            // Update UI once per batch, not per event
+            self.tools = Array(toolsByID.values)
         }
     }
 
@@ -325,9 +361,10 @@ extension DataStore {
             for event in events {
                 if let nudge = Nudge.from(event: event) {
                     nudgesByID[nudge.id] = nudge
-                    self.nudges = Array(nudgesByID.values).sorted { $0.createdAt > $1.createdAt }
                 }
             }
+            // Update UI once per batch, not per event
+            self.nudges = Array(nudgesByID.values).sorted { $0.createdAt > $1.createdAt }
         }
     }
 
@@ -373,10 +410,11 @@ extension DataStore {
                 for event in events {
                     if let message = Message.from(event: event) {
                         messagesByID[message.id] = message
-                        self.recentConversationReplies = Array(messagesByID.values)
-                            .sorted { $0.createdAt > $1.createdAt }
                     }
                 }
+                // Update UI once per batch, not per event
+                self.recentConversationReplies = Array(messagesByID.values)
+                    .sorted { $0.createdAt > $1.createdAt }
             }
 
             // No sleep here - restart immediately when projects change
@@ -387,71 +425,71 @@ extension DataStore {
         var currentAgentPubkeys: Set<String> = []
 
         while !Task.isCancelled {
-            // Get all agent pubkeys from project statuses
-            let agentPubkeys = Set(
-                projectStatuses.values.flatMap { status in
-                    status.agents.map(\.pubkey)
-                }
-            )
+            let agentPubkeys = getAgentPubkeysFromStatuses()
 
             guard !agentPubkeys.isEmpty else {
                 try? await Task.sleep(for: .seconds(1))
                 continue
             }
-
-            // Only restart subscription if agent set changed
             guard agentPubkeys != currentAgentPubkeys else {
                 try? await Task.sleep(for: .seconds(1))
                 continue
             }
 
             currentAgentPubkeys = agentPubkeys
-
-            // Create filter for inbox messages
-            let filter = NDKFilter(
-                authors: Array(agentPubkeys),
-                kinds: [1],
-                limit: 100,
-                tags: ["p": Set([userPubkey])]
+            await runInboxSubscription(
+                userPubkey: userPubkey,
+                agentPubkeys: agentPubkeys,
+                currentAgentPubkeys: currentAgentPubkeys
             )
+        }
+    }
 
-            let subscription = self.ndk.subscribe(filter: filter)
-            var messagesByID: [String: Message] = [:]
+    private func getAgentPubkeysFromStatuses() -> Set<String> {
+        Set(projectStatuses.values.flatMap { $0.agents.map(\.pubkey) })
+    }
 
-            for await events in subscription.events {
-                // Check if agent set changed (break to restart subscription immediately)
-                let currentAgents = Set(
-                    projectStatuses.values.flatMap { status in
-                        status.agents.map(\.pubkey)
-                    }
-                )
-                if currentAgents != currentAgentPubkeys {
-                    break
-                }
+    private func runInboxSubscription(
+        userPubkey: String,
+        agentPubkeys: Set<String>,
+        currentAgentPubkeys: Set<String>
+    ) async {
+        let filter = NDKFilter(
+            authors: Array(agentPubkeys),
+            kinds: [1],
+            limit: 100,
+            tags: ["p": Set([userPubkey])]
+        )
 
-                for event in events {
-                    if let message = Message.from(event: event) {
-                        // Apply smart filtering
-                        if await self.shouldIncludeInInbox(event: event, userPubkey: userPubkey) {
-                            messagesByID[message.id] = message
+        let subscription = self.ndk.subscribe(filter: filter)
+        var messagesByID: [String: Message] = [:]
 
-                            // Sort: ask-tagged first, then by timestamp
-                            self.inboxMessages = Array(messagesByID.values).sorted { msg1, msg2 in
-                                if msg1.hasAskTag != msg2.hasAskTag {
-                                    return msg1.hasAskTag
-                                }
-                                return msg1.createdAt > msg2.createdAt
-                            }
+        for await events in subscription.events {
+            if getAgentPubkeysFromStatuses() != currentAgentPubkeys { break }
 
-                            // Update unread count
-                            self.inboxUnreadCount = self.inboxMessages.count { $0.createdAt > self.lastInboxVisit }
-                        }
-                    }
+            var batchHasNewMessages = false
+            for event in events {
+                if let message = Message.from(event: event),
+                   await self.shouldIncludeInInbox(event: event, userPubkey: userPubkey) {
+                    messagesByID[message.id] = message
+                    batchHasNewMessages = true
                 }
             }
 
-            // No sleep here - restart immediately when agent set changes
+            if batchHasNewMessages {
+                updateInboxUI(from: messagesByID)
+            }
         }
+    }
+
+    private func updateInboxUI(from messagesByID: [String: Message]) {
+        self.inboxMessages = Array(messagesByID.values).sorted { msg1, msg2 in
+            if msg1.hasAskTag != msg2.hasAskTag {
+                return msg1.hasAskTag
+            }
+            return msg1.createdAt > msg2.createdAt
+        }
+        self.inboxUnreadCount = self.inboxMessages.count { $0.createdAt > self.lastInboxVisit }
     }
 
     private func shouldIncludeInInbox(event: NDKEvent, userPubkey: String) async -> Bool {
@@ -559,6 +597,60 @@ extension DataStore {
         } else {
             self.activeOperations[eventId] = agentPubkeys
             self.logger.debug("Operations status updated for event \(eventId): \(agentPubkeys.count) agents")
+        }
+    }
+
+    /// Subscribe to conversation metadata (kind:513) for all projects
+    /// This is the SINGLE SOURCE OF TRUTH for conversation metadata
+    private func subscribeToConversationMetadata() async {
+        var currentProjectCoordinates: [String] = []
+
+        while !Task.isCancelled {
+            // Get current project coordinates
+            let projectCoordinates = self.projects.map(\.coordinate)
+
+            // Skip if no projects yet
+            guard !projectCoordinates.isEmpty else {
+                try? await Task.sleep(for: .seconds(1))
+                continue
+            }
+
+            // Only restart subscription if projects changed
+            guard projectCoordinates != currentProjectCoordinates else {
+                try? await Task.sleep(for: .seconds(1))
+                continue
+            }
+
+            currentProjectCoordinates = projectCoordinates
+            self.logger.info("Starting conversation metadata subscription for \(projectCoordinates.count) projects")
+
+            // Subscribe to kind:513 for all our projects
+            let filter = NDKFilter(
+                kinds: [513],
+                tags: ["a": Set(projectCoordinates)]
+            )
+
+            let subscription = self.ndk.subscribe(filter: filter)
+
+            for await events in subscription.events {
+                // Check if projects changed (break to restart subscription immediately)
+                if self.projects.map(\.coordinate) != currentProjectCoordinates {
+                    break
+                }
+
+                for event in events {
+                    if let metadata = ConversationMetadata.from(event: event) {
+                        // Only update if newer than existing
+                        if let existing = self.conversationMetadata[metadata.threadID] {
+                            guard metadata.createdAt > existing.createdAt else {
+                                continue
+                            }
+                        }
+                        self.conversationMetadata[metadata.threadID] = metadata
+                        self.logger.debug("Updated metadata for thread: \(metadata.threadID)")
+                    }
+                }
+            }
         }
     }
 }

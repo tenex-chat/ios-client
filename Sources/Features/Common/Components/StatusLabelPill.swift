@@ -46,7 +46,7 @@ public struct StatusLabelPill: View {
 
 // MARK: - TagPill
 
-/// A small pill for displaying tags
+/// A small pill for displaying tags with deterministic colors based on tag name
 public struct TagPill: View {
     // MARK: Lifecycle
 
@@ -62,19 +62,30 @@ public struct TagPill: View {
             .fontWeight(.medium)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(Color.green.opacity(0.15))
-            .foregroundStyle(.green)
+            .background(tagColor.opacity(0.15))
+            .foregroundStyle(tagColor)
             .clipShape(RoundedRectangle(cornerRadius: 4))
     }
 
     // MARK: Private
 
     private let tag: String
+
+    /// Generate a consistent color from the tag text using a stable hash
+    private var tagColor: Color {
+        // Use a simple deterministic hash based on character values
+        var hash: UInt64 = 5381
+        for char in tag.utf8 {
+            hash = ((hash << 5) &+ hash) &+ UInt64(char)
+        }
+        let hue = Double(hash % 360) / 360.0
+        return Color(hue: hue, saturation: 0.6, brightness: 0.7)
+    }
 }
 
 // MARK: - ActivityIndicator
 
-/// An animated indicator showing current activity
+/// An indicator showing current activity
 public struct ActivityIndicator: View {
     // MARK: Lifecycle
 
@@ -85,16 +96,9 @@ public struct ActivityIndicator: View {
     // MARK: Public
 
     public var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "waveform")
-                .foregroundStyle(.green)
-                .symbolEffect(.variableColor.iterative)
-                .font(.caption)
-
-            Text(activity)
-                .font(.caption)
-                .foregroundStyle(.green)
-        }
+        Text(activity)
+            .font(.caption)
+            .foregroundStyle(.green)
     }
 
     // MARK: Private
@@ -132,6 +136,83 @@ public struct ProjectIndicator: View {
 
     private let title: String
     private let color: Color
+}
+
+// MARK: - FlowLayout
+
+/// A layout that arranges views in a flowing grid, wrapping to new lines as needed
+public struct FlowLayout: Layout {
+    // MARK: Lifecycle
+
+    public init(spacing: CGFloat = 8) {
+        self.spacing = spacing
+    }
+
+    // MARK: Public
+
+    public var spacing: CGFloat = 8
+
+    public func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache _: inout ()) -> CGSize {
+        let result = layout(proposal: proposal, subviews: subviews)
+        return result.size
+    }
+
+    public func placeSubviews(
+        in bounds: CGRect,
+        proposal: ProposedViewSize,
+        subviews: Subviews,
+        cache _: inout ()
+    ) {
+        let result = layout(proposal: proposal, subviews: subviews)
+
+        for (index, placement) in result.placements.enumerated() {
+            subviews[index].place(
+                at: CGPoint(x: bounds.minX + placement.x, y: bounds.minY + placement.y),
+                proposal: ProposedViewSize(placement.size)
+            )
+        }
+    }
+
+    // MARK: Private
+
+    private struct LayoutResult {
+        var size: CGSize
+        var placements: [(x: CGFloat, y: CGFloat, size: CGSize)]
+    }
+
+    private func layout(proposal: ProposedViewSize, subviews: Subviews) -> LayoutResult {
+        let maxWidth = proposal.width ?? .infinity
+
+        var placements: [(x: CGFloat, y: CGFloat, size: CGSize)] = []
+        var currentX: CGFloat = 0
+        var currentY: CGFloat = 0
+        var lineHeight: CGFloat = 0
+        var totalHeight: CGFloat = 0
+        var totalWidth: CGFloat = 0
+
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+
+            if currentX + size.width > maxWidth, currentX > 0 {
+                currentX = 0
+                currentY += lineHeight + spacing
+                lineHeight = 0
+            }
+
+            placements.append((x: currentX, y: currentY, size: size))
+
+            lineHeight = max(lineHeight, size.height)
+            currentX += size.width + spacing
+            totalWidth = max(totalWidth, currentX - spacing)
+        }
+
+        totalHeight = currentY + lineHeight
+
+        return LayoutResult(
+            size: CGSize(width: totalWidth, height: totalHeight),
+            placements: placements
+        )
+    }
 }
 
 // MARK: - Previews

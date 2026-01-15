@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TENEX iOS - New Thread Screen Alternatives</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 3px;
+        }
+
+        /* iPhone Frame */
+        .iphone-frame {
+            width: 375px;
+            height: 812px;
+            background: #000;
+            border-radius: 55px;
+            padding: 12px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .iphone-screen {
+            width: 100%;
+            height: 100%;
+            background: #fff;
+            border-radius: 45px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .iphone-notch {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150px;
+            height: 35px;
+            background: #000;
+            border-radius: 0 0 20px 20px;
+            z-index: 10;
+        }
+
+        .iphone-status-bar {
+            height: 44px;
+            background: transparent;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 24px;
+            font-size: 14px;
+            font-weight: 600;
+            position: relative;
+            z-index: 5;
+        }
+
+        .iphone-content {
+            height: calc(100% - 44px);
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .iphone-home-indicator {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 134px;
+            height: 5px;
+            background: #000;
+            border-radius: 3px;
+        }
+
+        /* Navigation active state */
+        .nav-item.active {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+        }
+
+        .nav-item:hover:not(.active) {
+            background: #374151;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        /* Glass effect simulation */
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        /* Project color dots */
+        .project-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="flex min-h-screen">
+        <!-- Left Navigation -->
+        <nav class="w-80 bg-gray-800 p-6 flex-shrink-0 border-r border-gray-700 overflow-y-auto">
+            <div class="mb-8">
+                <h1 class="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">TENEX iOS Client</h1>
+                <p class="text-gray-400 text-sm mt-1">New Thread Screen Alternatives</p>
+            </div>
+
+            <div class="space-y-2">
+                <button onclick="showAlternative('task-focused')" class="nav-item active w-full text-left px-4 py-3 rounded-lg transition-all duration-200 flex items-center gap-3" id="nav-task-focused">
+                    <span class="text-xl">1</span>
+                    <div>
+                        <div class="font-medium">Task-Focused Start</div>
+                        <div class="text-xs text-gray-400">What do you want to do?</div>
+                    </div>
+                </button>
+
+                <button onclick="showAlternative('smart-suggestions')" class="nav-item w-full text-left px-4 py-3 rounded-lg transition-all duration-200 flex items-center gap-3" id="nav-smart-suggestions">
+                    <span class="text-xl">2</span>
+                    <div>
+                        <div class="font-medium">Smart Suggestions</div>
+                        <div class="text-xs text-gray-400">AI-powered task templates</div>
+                    </div>
+                </button>
+
+                <button onclick="showAlternative('quick-action')" class="nav-item w-full text-left px-4 py-3 rounded-lg transition-all duration-200 flex items-center gap-3" id="nav-quick-action">
+                    <span class="text-xl">3</span>
+                    <div>
+                        <div class="font-medium">Quick Action Sheet</div>
+                        <div class="text-xs text-gray-400">Bottom sheet with actions</div>
+                    </div>
+                </button>
+
+                <button onclick="showAlternative('agent-picker')" class="nav-item w-full text-left px-4 py-3 rounded-lg transition-all duration-200 flex items-center gap-3" id="nav-agent-picker">
+                    <span class="text-xl">4</span>
+                    <div>
+                        <div class="font-medium">Agent-First Picker</div>
+                        <div class="text-xs text-gray-400">Choose who to talk to</div>
+                    </div>
+                </button>
+
+                <button onclick="showAlternative('conversation-composer')" class="nav-item w-full text-left px-4 py-3 rounded-lg transition-all duration-200 flex items-center gap-3" id="nav-conversation-composer">
+                    <span class="text-xl">5</span>
+                    <div>
+                        <div class="font-medium">Conversation Composer</div>
+                        <div class="text-xs text-gray-400">Full compose experience</div>
+                    </div>
+                </button>
+            </div>
+
+            <div class="mt-8 p-4 bg-gray-700/50 rounded-lg">
+                <h3 class="font-medium text-sm text-gray-300 mb-2">Current Problem</h3>
+                <p class="text-xs text-gray-400 mb-3">The current "New Thread" screen is just a basic project picker list. It doesn't help users understand what they can do or make the experience feel purposeful.</p>
+                <h3 class="font-medium text-sm text-gray-300 mb-2">Design Goals</h3>
+                <ul class="text-xs text-gray-400 space-y-1">
+                    <li>- Guide users to meaningful interactions</li>
+                    <li>- Surface available agents & capabilities</li>
+                    <li>- Reduce cognitive load</li>
+                    <li>- Match iOS design patterns</li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="flex-1 p-8 overflow-y-auto">
+            <!-- Alternative 1: Task-Focused Start -->
+            <section id="alt-task-focused" class="alternative-section">
+                <div class="flex gap-12 items-start">
+                    <div class="flex-1 max-w-lg">
+                        <div class="mb-2 text-indigo-400 font-medium">Alternative 1</div>
+                        <h2 class="text-3xl font-bold mb-4">Task-Focused Start</h2>
+                        <div class="space-y-4 text-gray-300">
+                            <p>Instead of asking "which project?", this design asks "what do you want to do?" - putting the user's intent first.</p>
+
+                            <div class="bg-gray-800 rounded-lg p-4">
+                                <h3 class="font-semibold text-white mb-2">Key Design Decisions</h3>
+                                <ul class="space-y-2 text-sm">
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        Task input field at the top (immediate action)
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        Common task shortcuts as chips
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        Project selection is secondary
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        Recent projects visible but not dominant
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div class="bg-indigo-900/30 border border-indigo-500/30 rounded-lg p-4">
+                                <h3 class="font-semibold text-indigo-300 mb-2">Best For</h3>
+                                <p class="text-sm">Users who know what they want to do but might not know which project/agent to use.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- iPhone Mockup -->
+                    <div class="iphone-frame">
+                        <div class="iphone-screen bg-gray-50">
+                            <div class="iphone-notch"></div>
+                            <div class="iphone-status-bar text-black">
+                                <span>9:41</span>
+                                <div class="flex items-center gap-1">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3C7.46 3 3.34 4.78.29 7.67c-.18.18-.29.43-.29.71s.11.53.29.71l10.79 10.79c.39.39 1.02.39 1.41 0l10.79-10.79c.18-.18.29-.43.29-.71s-.11-.53-.29-.71C20.66 4.78 16.54 3 12 3z"/></svg>
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M2 22h20V2z"/></svg>
+                                    <div class="w-6 h-3 border border-current rounded-sm relative">
+                                        <div class="absolute inset-0.5 bg-current rounded-sm" style="width: 80%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="iphone-content bg-gray-50">
+                                <!-- Header -->
+                                <div class="bg-white px-4 py-3 border-b flex items-center justify-between">
+                                    <button class="text-indigo-600 font-medium">Cancel</button>
+                                    <span class="font-semibold text-gray-900">New Conversation</span>
+                                    <div class="w-12"></div>
+                                </div>
+
+                                <!-- Main Input -->
+                                <div class="p-4">
+                                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+                                        <label class="text-sm font-medium text-gray-600 mb-2 block">What do you want to do?</label>
+                                        <textarea
+                                            class="w-full bg-gray-50 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                                            rows="3"
+                                            placeholder="e.g., Help me debug the login flow..."
+                                        ></textarea>
+
+                                        <!-- Quick Actions -->
+                                        <div class="mt-3 flex flex-wrap gap-2">
+                                            <span class="px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium cursor-pointer hover:bg-indigo-100 transition">Debug issue</span>
+                                            <span class="px-3 py-1.5 bg-purple-50 text-purple-700 rounded-full text-xs font-medium cursor-pointer hover:bg-purple-100 transition">Code review</span>
+                                            <span class="px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-xs font-medium cursor-pointer hover:bg-green-100 transition">New feature</span>
+                                            <span class="px-3 py-1.5 bg-orange-50 text-orange-700 rounded-full text-xs font-medium cursor-pointer hover:bg-orange-100 transition">Explain code</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Project Selection -->
+                                <div class="px-4">
+                                    <h3 class="text-sm font-medium text-gray-500 mb-3">Select Project</h3>
+                                    <div class="space-y-2">
+                                        <div class="bg-white rounded-xl p-3 flex items-center gap-3 border-2 border-indigo-500 shadow-sm">
+                                            <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
+                                                <span class="text-white font-bold text-sm">T</span>
+                                            </div>
+                                            <div class="flex-1">
+                                                <div class="font-medium text-gray-900">TENEX iOS Client</div>
+                                                <div class="text-xs text-gray-500">Last active: 2h ago</div>
+                                            </div>
+                                            <svg class="w-5 h-5 text-indigo-500" fill="currentColor" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>
+                                        </div>
+
+                                        <div class="bg-white rounded-xl p-3 flex items-center gap-3 border border-gray-200">
+                                            <div class="w-10 h-10 bg-gradient-to-br from-green-500 to-teal-500 rounded-lg flex items-center justify-center">
+                                                <span class="text-white font-bold text-sm">W</span>
+                                            </div>
+                                            <div class="flex-1">
+                                                <div class="font-medium text-gray-900">TENEX Web Svelte</div>
+                                                <div class="text-xs text-gray-500">Last active: 1d ago</div>
+                                            </div>
+                                        </div>
+
+                                        <div class="bg-white rounded-xl p-3 flex items-center gap-3 border border-gray-200">
+                                            <div class="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
+                                                <span class="text-white font-bold text-sm">R</span>
+                                            </div>
+                                            <div class="flex-1">
+                                                <div class="font-medium text-gray-900">TENEX TUI Rust</div>
+                                                <div class="text-xs text-gray-500">Last active: 3d ago</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Start Button -->
+                                <div class="absolute bottom-12 left-4 right-4">
+                                    <button class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-4 rounded-2xl font-semibold text-lg shadow-lg">
+                                        Start Conversation
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="iphone-home-indicator"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Alternative 2: Smart Suggestions -->
+            <section id="alt-smart-suggestions" class="alternative-section hidden">
+                <div class="flex gap-12 items-start">
+                    <div class="flex-1 max-w-lg">
+                        <div class="mb-2 text-indigo-400 font-medium">Alternative 2</div>
+                        <h2 class="text-3xl font-bold mb-4">Smart Suggestions</h2>
+                        <div class="space-y-4 text-gray-300">
+                            <p>AI-powered suggestions based on project context, recent activity, and common workflows. Like Siri Suggestions for TENEX.</p>
+
+                            <div class="bg-gray-800 rounded-lg p-4">
+                                <h3 class="font-semibold text-white mb-2">Key Design Decisions</h3>
+                                <ul class="space-y-2 text-sm">
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        Contextual suggestions from recent activity
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        One-tap to start common tasks
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        Shows relevant agent for each task
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        "Continue where you left off" option
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div class="bg-indigo-900/30 border border-indigo-500/30 rounded-lg p-4">
+                                <h3 class="font-semibold text-indigo-300 mb-2">Best For</h3>
+                                <p class="text-sm">Power users with established workflows who want quick access to frequent tasks.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- iPhone Mockup -->
+                    <div class="iphone-frame">
+                        <div class="iphone-screen bg-gray-50">
+                            <div class="iphone-notch"></div>
+                            <div class="iphone-status-bar text-black">
+                                <span>9:41</span>
+                                <div class="flex items-center gap-1">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3C7.46 3 3.34 4.78.29 7.67c-.18.18-.29.43-.29.71s.11.53.29.71l10.79 10.79c.39.39 1.02.39 1.41 0l10.79-10.79c.18-.18.29-.43.29-.71s-.11-.53-.29-.71C20.66 4.78 16.54 3 12 3z"/></svg>
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M2 22h20V2z"/></svg>
+                                    <div class="w-6 h-3 border border-current rounded-sm relative">
+                                        <div class="absolute inset-0.5 bg-current rounded-sm" style="width: 80%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="iphone-content bg-gray-50">
+                                <!-- Header -->
+                                <div class="bg-white px-4 py-3 border-b flex items-center justify-between">
+                                    <button class="text-indigo-600 font-medium">Cancel</button>
+                                    <span class="font-semibold text-gray-900">New Conversation</span>
+                                    <div class="w-12"></div>
+                                </div>
+
+                                <!-- Search/Input -->
+                                <div class="p-4 bg-white border-b">
+                                    <div class="flex items-center gap-3 bg-gray-100 rounded-xl px-4 py-3">
+                                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                        <input type="text" placeholder="What do you need help with?" class="flex-1 bg-transparent text-gray-900 placeholder-gray-400 focus:outline-none">
+                                    </div>
+                                </div>
+
+                                <!-- Suggestions -->
+                                <div class="p-4 space-y-4">
+                                    <!-- Continue Section -->
+                                    <div>
+                                        <div class="flex items-center gap-2 mb-3">
+                                            <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                            <span class="text-sm font-medium text-gray-500">Continue Recent</span>
+                                        </div>
+                                        <div class="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
+                                            <div class="flex items-start gap-3">
+                                                <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                    <span class="text-white font-bold text-xs">EC</span>
+                                                </div>
+                                                <div class="flex-1 min-w-0">
+                                                    <div class="font-medium text-gray-900">Debug image upload crash</div>
+                                                    <div class="text-xs text-gray-500 mt-0.5">TENEX iOS - with execution-coordinator</div>
+                                                    <div class="text-xs text-indigo-600 mt-1">Paused at: investigating memory leak</div>
+                                                </div>
+                                                <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Suggested Actions -->
+                                    <div>
+                                        <div class="flex items-center gap-2 mb-3">
+                                            <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                                            <span class="text-sm font-medium text-gray-500">Suggested for You</span>
+                                        </div>
+                                        <div class="space-y-2">
+                                            <div class="bg-white rounded-xl p-3 border border-gray-200 flex items-center gap-3 cursor-pointer hover:bg-gray-50 transition">
+                                                <div class="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                                                    <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                </div>
+                                                <div class="flex-1">
+                                                    <div class="font-medium text-gray-900 text-sm">Review PR #47</div>
+                                                    <div class="text-xs text-gray-500">TENEX iOS - 2 files changed</div>
+                                                </div>
+                                                <span class="text-xs text-green-600 font-medium">New</span>
+                                            </div>
+
+                                            <div class="bg-white rounded-xl p-3 border border-gray-200 flex items-center gap-3 cursor-pointer hover:bg-gray-50 transition">
+                                                <div class="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                                                    <svg class="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                                </div>
+                                                <div class="flex-1">
+                                                    <div class="font-medium text-gray-900 text-sm">Fix failing tests</div>
+                                                    <div class="text-xs text-gray-500">3 tests failing in ChatViewTests</div>
+                                                </div>
+                                            </div>
+
+                                            <div class="bg-white rounded-xl p-3 border border-gray-200 flex items-center gap-3 cursor-pointer hover:bg-gray-50 transition">
+                                                <div class="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                                                    <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+                                                </div>
+                                                <div class="flex-1">
+                                                    <div class="font-medium text-gray-900 text-sm">Update color scheme</div>
+                                                    <div class="text-xs text-gray-500">Based on your recent changes</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Quick Start -->
+                                    <div>
+                                        <div class="flex items-center gap-2 mb-3">
+                                            <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                            <span class="text-sm font-medium text-gray-500">Quick Start</span>
+                                        </div>
+                                        <div class="flex flex-wrap gap-2">
+                                            <span class="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 cursor-pointer hover:bg-gray-50 transition">Ask a question</span>
+                                            <span class="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 cursor-pointer hover:bg-gray-50 transition">Start brainstorm</span>
+                                            <span class="px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 cursor-pointer hover:bg-gray-50 transition">Plan feature</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="iphone-home-indicator"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Alternative 3: Quick Action Sheet -->
+            <section id="alt-quick-action" class="alternative-section hidden">
+                <div class="flex gap-12 items-start">
+                    <div class="flex-1 max-w-lg">
+                        <div class="mb-2 text-indigo-400 font-medium">Alternative 3</div>
+                        <h2 class="text-3xl font-bold mb-4">Quick Action Sheet</h2>
+                        <div class="space-y-4 text-gray-300">
+                            <p>A bottom sheet approach similar to iOS share sheets. Quick to access, quick to dismiss, with clear action categories.</p>
+
+                            <div class="bg-gray-800 rounded-lg p-4">
+                                <h3 class="font-semibold text-white mb-2">Key Design Decisions</h3>
+                                <ul class="space-y-2 text-sm">
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        Native iOS bottom sheet pattern
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        Icon-based action grid
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        Recent projects as horizontal scroll
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        Swipe down to dismiss
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div class="bg-indigo-900/30 border border-indigo-500/30 rounded-lg p-4">
+                                <h3 class="font-semibold text-indigo-300 mb-2">Best For</h3>
+                                <p class="text-sm">Quick, lightweight interactions when users want to start something fast without leaving context.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- iPhone Mockup -->
+                    <div class="iphone-frame">
+                        <div class="iphone-screen bg-gray-900/80">
+                            <div class="iphone-notch"></div>
+                            <div class="iphone-status-bar text-white">
+                                <span>9:41</span>
+                                <div class="flex items-center gap-1">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3C7.46 3 3.34 4.78.29 7.67c-.18.18-.29.43-.29.71s.11.53.29.71l10.79 10.79c.39.39 1.02.39 1.41 0l10.79-10.79c.18-.18.29-.43.29-.71s-.11-.53-.29-.71C20.66 4.78 16.54 3 12 3z"/></svg>
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M2 22h20V2z"/></svg>
+                                    <div class="w-6 h-3 border border-current rounded-sm relative">
+                                        <div class="absolute inset-0.5 bg-current rounded-sm" style="width: 80%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="iphone-content relative">
+                                <!-- Background content (blurred conversations list) -->
+                                <div class="p-4 opacity-30 blur-sm">
+                                    <div class="space-y-3">
+                                        <div class="bg-white/20 rounded-xl h-20"></div>
+                                        <div class="bg-white/20 rounded-xl h-20"></div>
+                                        <div class="bg-white/20 rounded-xl h-20"></div>
+                                    </div>
+                                </div>
+
+                                <!-- Bottom Sheet -->
+                                <div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-3xl" style="height: 75%;">
+                                    <!-- Handle -->
+                                    <div class="flex justify-center pt-3 pb-2">
+                                        <div class="w-10 h-1 bg-gray-300 rounded-full"></div>
+                                    </div>
+
+                                    <!-- Title -->
+                                    <div class="px-6 pb-4">
+                                        <h2 class="text-xl font-bold text-gray-900">New Conversation</h2>
+                                    </div>
+
+                                    <!-- Recent Projects -->
+                                    <div class="px-6 mb-6">
+                                        <div class="text-sm font-medium text-gray-500 mb-3">Recent Projects</div>
+                                        <div class="flex gap-3 overflow-x-auto pb-2" style="scrollbar-width: none;">
+                                            <div class="flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer">
+                                                <div class="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-2xl flex items-center justify-center shadow-sm">
+                                                    <span class="text-white font-bold">T</span>
+                                                </div>
+                                                <span class="text-xs text-gray-600 text-center w-16 truncate">iOS</span>
+                                            </div>
+                                            <div class="flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer">
+                                                <div class="w-14 h-14 bg-gradient-to-br from-green-500 to-teal-500 rounded-2xl flex items-center justify-center shadow-sm">
+                                                    <span class="text-white font-bold">W</span>
+                                                </div>
+                                                <span class="text-xs text-gray-600 text-center w-16 truncate">Web</span>
+                                            </div>
+                                            <div class="flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer">
+                                                <div class="w-14 h-14 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center shadow-sm">
+                                                    <span class="text-white font-bold">R</span>
+                                                </div>
+                                                <span class="text-xs text-gray-600 text-center w-16 truncate">TUI</span>
+                                            </div>
+                                            <div class="flex-shrink-0 flex flex-col items-center gap-2 cursor-pointer">
+                                                <div class="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center border-2 border-dashed border-gray-300">
+                                                    <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                                </div>
+                                                <span class="text-xs text-gray-400 text-center w-16">All</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Action Categories -->
+                                    <div class="px-6">
+                                        <div class="text-sm font-medium text-gray-500 mb-3">What would you like to do?</div>
+                                        <div class="grid grid-cols-3 gap-4">
+                                            <div class="flex flex-col items-center gap-2 p-3 bg-gray-50 rounded-2xl cursor-pointer hover:bg-gray-100 transition">
+                                                <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                                                    <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                                                </div>
+                                                <span class="text-xs font-medium text-gray-700">Chat</span>
+                                            </div>
+                                            <div class="flex flex-col items-center gap-2 p-3 bg-gray-50 rounded-2xl cursor-pointer hover:bg-gray-100 transition">
+                                                <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                                                    <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                                                </div>
+                                                <span class="text-xs font-medium text-gray-700">Brainstorm</span>
+                                            </div>
+                                            <div class="flex flex-col items-center gap-2 p-3 bg-gray-50 rounded-2xl cursor-pointer hover:bg-gray-100 transition">
+                                                <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                                                    <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+                                                </div>
+                                                <span class="text-xs font-medium text-gray-700">Plan</span>
+                                            </div>
+                                            <div class="flex flex-col items-center gap-2 p-3 bg-gray-50 rounded-2xl cursor-pointer hover:bg-gray-100 transition">
+                                                <div class="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+                                                    <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                                                </div>
+                                                <span class="text-xs font-medium text-gray-700">Debug</span>
+                                            </div>
+                                            <div class="flex flex-col items-center gap-2 p-3 bg-gray-50 rounded-2xl cursor-pointer hover:bg-gray-100 transition">
+                                                <div class="w-12 h-12 bg-pink-100 rounded-xl flex items-center justify-center">
+                                                    <svg class="w-6 h-6 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                                </div>
+                                                <span class="text-xs font-medium text-gray-700">Review</span>
+                                            </div>
+                                            <div class="flex flex-col items-center gap-2 p-3 bg-gray-50 rounded-2xl cursor-pointer hover:bg-gray-100 transition">
+                                                <div class="w-12 h-12 bg-gray-200 rounded-xl flex items-center justify-center">
+                                                    <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01M6 12a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0zm7 0a1 1 0 11-2 0 1 1 0 012 0z"/></svg>
+                                                </div>
+                                                <span class="text-xs font-medium text-gray-700">More</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Quick Start -->
+                                    <div class="px-6 mt-6">
+                                        <div class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-4 flex items-center gap-3">
+                                            <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                                                <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                                            </div>
+                                            <div class="flex-1">
+                                                <div class="font-medium text-gray-900 text-sm">Just start typing...</div>
+                                                <div class="text-xs text-gray-500">We'll figure out the rest</div>
+                                            </div>
+                                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="iphone-home-indicator"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Alternative 4: Agent-First Picker -->
+            <section id="alt-agent-picker" class="alternative-section hidden">
+                <div class="flex gap-12 items-start">
+                    <div class="flex-1 max-w-lg">
+                        <div class="mb-2 text-indigo-400 font-medium">Alternative 4</div>
+                        <h2 class="text-3xl font-bold mb-4">Agent-First Picker</h2>
+                        <div class="space-y-4 text-gray-300">
+                            <p>Focus on WHO you're talking to, not which project. Great for users who have built relationships with specific agents.</p>
+
+                            <div class="bg-gray-800 rounded-lg p-4">
+                                <h3 class="font-semibold text-white mb-2">Key Design Decisions</h3>
+                                <ul class="space-y-2 text-sm">
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        Agents as primary navigation
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        Shows agent capabilities & specialties
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        Online status and recent activity
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        Project selection happens after agent
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div class="bg-indigo-900/30 border border-indigo-500/30 rounded-lg p-4">
+                                <h3 class="font-semibold text-indigo-300 mb-2">Best For</h3>
+                                <p class="text-sm">Users who think in terms of capabilities ("I need the debugger") rather than projects.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- iPhone Mockup -->
+                    <div class="iphone-frame">
+                        <div class="iphone-screen bg-gray-50">
+                            <div class="iphone-notch"></div>
+                            <div class="iphone-status-bar text-black">
+                                <span>9:41</span>
+                                <div class="flex items-center gap-1">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3C7.46 3 3.34 4.78.29 7.67c-.18.18-.29.43-.29.71s.11.53.29.71l10.79 10.79c.39.39 1.02.39 1.41 0l10.79-10.79c.18-.18.29-.43.29-.71s-.11-.53-.29-.71C20.66 4.78 16.54 3 12 3z"/></svg>
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M2 22h20V2z"/></svg>
+                                    <div class="w-6 h-3 border border-current rounded-sm relative">
+                                        <div class="absolute inset-0.5 bg-current rounded-sm" style="width: 80%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="iphone-content bg-gray-50">
+                                <!-- Header -->
+                                <div class="bg-white px-4 py-3 border-b flex items-center justify-between">
+                                    <button class="text-indigo-600 font-medium">Cancel</button>
+                                    <span class="font-semibold text-gray-900">Talk to an Agent</span>
+                                    <div class="w-12"></div>
+                                </div>
+
+                                <!-- Search -->
+                                <div class="p-4 bg-white border-b">
+                                    <div class="flex items-center gap-3 bg-gray-100 rounded-xl px-4 py-2.5">
+                                        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                        <input type="text" placeholder="Search agents..." class="flex-1 bg-transparent text-gray-900 placeholder-gray-400 focus:outline-none text-sm">
+                                    </div>
+                                </div>
+
+                                <!-- Agents List -->
+                                <div class="p-4 space-y-3">
+                                    <!-- PM Agent -->
+                                    <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm cursor-pointer hover:shadow-md transition">
+                                        <div class="flex items-start gap-3">
+                                            <div class="relative">
+                                                <div class="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center">
+                                                    <span class="text-white font-bold text-lg">PM</span>
+                                                </div>
+                                                <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                                            </div>
+                                            <div class="flex-1">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="font-semibold text-gray-900">Project Manager</span>
+                                                    <span class="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs">Online</span>
+                                                </div>
+                                                <p class="text-sm text-gray-600 mt-1">Coordinates tasks, manages workflows, understands the big picture</p>
+                                                <div class="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                                                    <span>All projects</span>
+                                                    <span>47 conversations</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Execution Coordinator -->
+                                    <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm cursor-pointer hover:shadow-md transition">
+                                        <div class="flex items-start gap-3">
+                                            <div class="relative">
+                                                <div class="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center">
+                                                    <span class="text-white font-bold text-lg">EC</span>
+                                                </div>
+                                                <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white"></div>
+                                            </div>
+                                            <div class="flex-1">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="font-semibold text-gray-900">Execution Coordinator</span>
+                                                    <span class="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs">Online</span>
+                                                </div>
+                                                <p class="text-sm text-gray-600 mt-1">Implements features, fixes bugs, writes and reviews code</p>
+                                                <div class="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                                                    <span>TENEX iOS</span>
+                                                    <span>Last: 5 min ago</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Debugger -->
+                                    <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm cursor-pointer hover:shadow-md transition">
+                                        <div class="flex items-start gap-3">
+                                            <div class="relative">
+                                                <div class="w-14 h-14 bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl flex items-center justify-center">
+                                                    <span class="text-white font-bold text-lg">DB</span>
+                                                </div>
+                                                <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full border-2 border-white"></div>
+                                            </div>
+                                            <div class="flex-1">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="font-semibold text-gray-900">Debugger</span>
+                                                    <span class="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs">Busy</span>
+                                                </div>
+                                                <p class="text-sm text-gray-600 mt-1">Investigates issues, traces problems, finds root causes</p>
+                                                <div class="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                                                    <span>TENEX iOS</span>
+                                                    <span>Working on task</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Researcher -->
+                                    <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm cursor-pointer hover:shadow-md transition">
+                                        <div class="flex items-start gap-3">
+                                            <div class="relative">
+                                                <div class="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center">
+                                                    <span class="text-white font-bold text-lg">RS</span>
+                                                </div>
+                                                <div class="absolute -bottom-1 -right-1 w-4 h-4 bg-gray-400 rounded-full border-2 border-white"></div>
+                                            </div>
+                                            <div class="flex-1">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="font-semibold text-gray-900">Researcher</span>
+                                                    <span class="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs">Away</span>
+                                                </div>
+                                                <p class="text-sm text-gray-600 mt-1">Deep dives into topics, analyzes codebases, gathers context</p>
+                                                <div class="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                                                    <span>All projects</span>
+                                                    <span>12 conversations</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="iphone-home-indicator"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Alternative 5: Conversation Composer -->
+            <section id="alt-conversation-composer" class="alternative-section hidden">
+                <div class="flex gap-12 items-start">
+                    <div class="flex-1 max-w-lg">
+                        <div class="mb-2 text-indigo-400 font-medium">Alternative 5</div>
+                        <h2 class="text-3xl font-bold mb-4">Conversation Composer</h2>
+                        <div class="space-y-4 text-gray-300">
+                            <p>A full composition experience like starting an email. Combines all inputs in one cohesive view with rich formatting options.</p>
+
+                            <div class="bg-gray-800 rounded-lg p-4">
+                                <h3 class="font-semibold text-white mb-2">Key Design Decisions</h3>
+                                <ul class="space-y-2 text-sm">
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        Email/iMessage compose pattern
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        To: field with agent/project tokens
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        Subject/title for thread organization
+                                    </li>
+                                    <li class="flex items-center gap-2">
+                                        <span class="text-green-400">+</span>
+                                        Attachment and context options
+                                    </li>
+                                </ul>
+                            </div>
+
+                            <div class="bg-indigo-900/30 border border-indigo-500/30 rounded-lg p-4">
+                                <h3 class="font-semibold text-indigo-300 mb-2">Best For</h3>
+                                <p class="text-sm">Complex tasks that need proper setup - detailed bug reports, feature requests, or multi-agent coordination.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- iPhone Mockup -->
+                    <div class="iphone-frame">
+                        <div class="iphone-screen bg-white">
+                            <div class="iphone-notch"></div>
+                            <div class="iphone-status-bar text-black">
+                                <span>9:41</span>
+                                <div class="flex items-center gap-1">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3C7.46 3 3.34 4.78.29 7.67c-.18.18-.29.43-.29.71s.11.53.29.71l10.79 10.79c.39.39 1.02.39 1.41 0l10.79-10.79c.18-.18.29-.43.29-.71s-.11-.53-.29-.71C20.66 4.78 16.54 3 12 3z"/></svg>
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M2 22h20V2z"/></svg>
+                                    <div class="w-6 h-3 border border-current rounded-sm relative">
+                                        <div class="absolute inset-0.5 bg-current rounded-sm" style="width: 80%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="iphone-content">
+                                <!-- Header -->
+                                <div class="px-4 py-3 border-b flex items-center justify-between bg-white">
+                                    <button class="text-indigo-600 font-medium">Cancel</button>
+                                    <span class="font-semibold text-gray-900">New Message</span>
+                                    <button class="bg-indigo-600 text-white px-4 py-1.5 rounded-full text-sm font-medium">
+                                        Send
+                                    </button>
+                                </div>
+
+                                <!-- Compose Form -->
+                                <div class="bg-white">
+                                    <!-- To Field -->
+                                    <div class="px-4 py-3 border-b flex items-center gap-3">
+                                        <span class="text-gray-400 text-sm w-8">To:</span>
+                                        <div class="flex-1 flex items-center gap-2 flex-wrap">
+                                            <span class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium flex items-center gap-1">
+                                                <span class="w-4 h-4 bg-indigo-600 rounded text-white text-xs flex items-center justify-center">E</span>
+                                                execution-coordinator
+                                                <button class="ml-1 text-indigo-400 hover:text-indigo-600">&times;</button>
+                                            </span>
+                                            <input type="text" placeholder="Add agents..." class="flex-1 text-sm focus:outline-none min-w-[100px]">
+                                        </div>
+                                    </div>
+
+                                    <!-- Project Field -->
+                                    <div class="px-4 py-3 border-b flex items-center gap-3">
+                                        <span class="text-gray-400 text-sm w-8">In:</span>
+                                        <div class="flex items-center gap-2">
+                                            <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium flex items-center gap-1">
+                                                <span class="w-4 h-4 bg-gradient-to-br from-indigo-500 to-purple-500 rounded text-white text-xs flex items-center justify-center font-bold">T</span>
+                                                TENEX iOS Client
+                                                <button class="ml-1 text-purple-400 hover:text-purple-600">&times;</button>
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Subject Field -->
+                                    <div class="px-4 py-3 border-b flex items-center gap-3">
+                                        <span class="text-gray-400 text-sm w-8">Re:</span>
+                                        <input type="text" placeholder="Subject (optional)" class="flex-1 text-sm focus:outline-none" value="Image upload crashes on iOS 17">
+                                    </div>
+
+                                    <!-- Context Tags -->
+                                    <div class="px-4 py-3 border-b">
+                                        <div class="flex items-center gap-2 flex-wrap">
+                                            <span class="text-gray-400 text-sm">Tags:</span>
+                                            <span class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs font-medium">bug</span>
+                                            <span class="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs font-medium">high-priority</span>
+                                            <button class="px-2 py-1 text-gray-400 text-xs">+ Add tag</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Message Body -->
+                                    <div class="p-4">
+                                        <textarea
+                                            class="w-full text-gray-900 placeholder-gray-400 focus:outline-none resize-none text-sm leading-relaxed"
+                                            rows="10"
+                                            placeholder="Write your message..."
+                                        >The app crashes when uploading images larger than 5MB on iOS 17 devices.
+
+Steps to reproduce:
+1. Open the chat view
+2. Tap the + button to attach an image
+3. Select a large photo from the library
+4. App crashes immediately
+
+I've checked the logs and it seems to be a memory issue. Can you investigate?</textarea>
+                                    </div>
+
+                                    <!-- Attachments -->
+                                    <div class="px-4 pb-4">
+                                        <div class="border border-gray-200 rounded-xl p-3">
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                                                    <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                </div>
+                                                <div class="flex-1">
+                                                    <div class="text-sm font-medium text-gray-900">crash_log.txt</div>
+                                                    <div class="text-xs text-gray-500">2.3 KB</div>
+                                                </div>
+                                                <button class="text-gray-400 hover:text-gray-600">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Toolbar -->
+                                    <div class="px-4 pb-4 flex items-center gap-4 border-t pt-3">
+                                        <button class="text-gray-500 hover:text-gray-700">
+                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+                                        </button>
+                                        <button class="text-gray-500 hover:text-gray-700">
+                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                        </button>
+                                        <button class="text-gray-500 hover:text-gray-700">
+                                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                                        </button>
+                                        <div class="flex-1"></div>
+                                        <button class="text-indigo-600 font-medium text-sm">
+                                            Save Draft
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="iphone-home-indicator"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        // Alternative navigation
+        function showAlternative(id) {
+            // Hide all alternatives
+            document.querySelectorAll('.alternative-section').forEach(section => {
+                section.classList.add('hidden');
+            });
+
+            // Show selected alternative
+            document.getElementById('alt-' + id).classList.remove('hidden');
+
+            // Update navigation
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.getElementById('nav-' + id).classList.add('active');
+        }
+    </script>
+</body>
+</html>

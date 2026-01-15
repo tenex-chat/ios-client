@@ -29,9 +29,9 @@ private struct ScrollOffsetPreferenceKey: PreferenceKey {
 public struct ChatView: View { // swiftlint:disable:this type_body_length
     // MARK: Lifecycle
 
-    /// Initialize the chat view
+    /// Initialize the chat view with a thread event
     /// - Parameters:
-    ///   - threadEvent: The thread event (kind:11) to display messages for, or nil for new thread mode
+    ///   - threadEvent: The thread event (kind:1) to display messages for, or nil for new thread mode
     ///   - projectReference: The project reference in format "31933:pubkey:d-tag"
     ///   - currentUserPubkey: The current user's pubkey
     ///   - initialText: Optional text to pre-populate the input field
@@ -42,6 +42,27 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
         initialText: String? = nil
     ) {
         self.threadEvent = threadEvent
+        self.threadID = nil
+        self.projectReference = projectReference
+        self.currentUserPubkey = currentUserPubkey
+        self.initialText = initialText
+    }
+
+    /// Initialize the chat view with just a thread ID (for existing threads)
+    /// This is the preferred initializer for event-based navigation - no loading required.
+    /// - Parameters:
+    ///   - threadID: The thread ID (event ID of the kind:1 thread event)
+    ///   - projectReference: The project reference in format "31933:pubkey:d-tag"
+    ///   - currentUserPubkey: The current user's pubkey
+    ///   - initialText: Optional text to pre-populate the input field
+    public init(
+        threadID: String,
+        projectReference: String,
+        currentUserPubkey: String,
+        initialText: String? = nil
+    ) {
+        self.threadEvent = nil
+        self.threadID = threadID
         self.projectReference = projectReference
         self.currentUserPubkey = currentUserPubkey
         self.initialText = initialText
@@ -80,6 +101,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     @State private var lastMessageCount = 0
 
     private let threadEvent: NDKEvent?
+    private let threadID: String?
     private let projectReference: String
     private let currentUserPubkey: String
     private let initialText: String?
@@ -92,9 +114,30 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
         self.dataStore.getProjectStatus(projectCoordinate: self.projectReference)?.agents ?? []
     }
 
-    /// Whether this is a new thread (no existing threadEvent)
+    /// Whether this is a new thread (no existing threadEvent and no threadID)
     private var isNewThread: Bool {
-        self.threadEvent == nil
+        self.threadEvent == nil && self.threadID == nil
+    }
+
+    /// Create the appropriate ChatViewModel based on how ChatView was initialized
+    private func createViewModel(ndk: NDK) -> ChatViewModel {
+        // If we have a threadID but no threadEvent, use the threadID initializer
+        if let threadID, self.threadEvent == nil {
+            return ChatViewModel(
+                ndk: ndk,
+                threadID: threadID,
+                projectReference: self.projectReference,
+                userPubkey: self.currentUserPubkey
+            )
+        } else {
+            // Use the traditional initializer with threadEvent
+            return ChatViewModel(
+                ndk: ndk,
+                threadEvent: self.threadEvent,
+                projectReference: self.projectReference,
+                userPubkey: self.currentUserPubkey
+            )
+        }
     }
 
     /// The currently focused message (nil = showing root level)
@@ -104,7 +147,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
 
     /// The ID we're currently focused on (root thread ID if not focused on anything)
     private var focusedEventID: String? {
-        self.focusedMessage?.id ?? self.threadEvent?.id
+        self.focusedMessage?.id ?? self.threadEvent?.id ?? self.threadID
     }
 
     /// Whether we're showing a focused (non-root) view
@@ -169,12 +212,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
 
     @ViewBuilder
     private func contentView(ndk: NDK) -> some View {
-        let vm = self.viewModel ?? ChatViewModel(
-            ndk: ndk,
-            threadEvent: self.threadEvent,
-            projectReference: self.projectReference,
-            userPubkey: self.currentUserPubkey
-        )
+        let vm = self.viewModel ?? self.createViewModel(ndk: ndk)
 
         self.mainContent(viewModel: vm)
             .task {
@@ -754,7 +792,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    /// Handle suggestion tap - publish a kind 1111 event with the suggestion text
+    /// Handle suggestion tap - publish a kind:1 reply event with the suggestion text
     /// Event should include:
     /// - a tag: project coordinate
     /// - e tag: the ask event ID

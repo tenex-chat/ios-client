@@ -172,8 +172,9 @@ public final class FeedTabViewModel {
             }
         }
 
-        // Check thread title (kind 11)
-        if event.kind == 11, let title = event.tagValue("title") {
+        // Check thread title (kind:1 threads have title tag)
+        // Thread roots are kind:1 with a-tag but NO e-tags
+        if event.kind == 1, let title = event.tagValue("title") {
             if title.lowercased().contains(lowerQuery) {
                 return true
             }

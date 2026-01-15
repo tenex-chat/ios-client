@@ -17,7 +17,7 @@ import TENEXCore
 public final class ChatViewModel {
     // MARK: Lifecycle
 
-    /// Initialize the chat view model
+    /// Initialize the chat view model with an existing thread event
     /// - Parameters:
     ///   - ndk: The NDK instance for fetching and publishing messages
     ///   - threadEvent: The thread event (kind:1) to reply to, or nil for new thread mode
@@ -42,6 +42,7 @@ public final class ChatViewModel {
         self.aiConfigStorage = aiConfigStorage
         self.audioService = audioService
         self.settingsStorage = settingsStorage
+        self._threadIDOverride = nil
 
         // Load saved conversation settings
         self.conversationSettings = settingsStorage.load()
@@ -72,6 +73,52 @@ public final class ChatViewModel {
             self.conversationState.onAgentMessage = { [weak self] message in
                 self?.handleAgentMessage(message)
             }
+        }
+    }
+
+    /// Initialize the chat view model with just a thread ID (for existing threads)
+    /// This initializer is for event-based navigation where we don't need to fetch the thread event first.
+    /// Messages will be loaded via subscription.
+    /// - Parameters:
+    ///   - ndk: The NDK instance for fetching and publishing messages
+    ///   - threadID: The thread ID (event ID of the kind:1 thread event)
+    ///   - projectReference: The project reference in format "31933:pubkey:d-tag"
+    ///   - userPubkey: The pubkey of the authenticated user
+    ///   - aiConfigStorage: AI configuration storage for auto-TTS settings
+    ///   - audioService: Audio service for TTS playback
+    ///   - settingsStorage: Storage for conversation settings
+    public init(
+        ndk: NDK,
+        threadID: String,
+        projectReference: String,
+        userPubkey: String,
+        aiConfigStorage: AIConfigStorage? = nil,
+        audioService: AudioService? = nil,
+        settingsStorage: ConversationSettingsStorage = UserDefaultsConversationSettingsStorage()
+    ) {
+        self.ndk = ndk
+        self.threadEvent = nil // Will be populated when subscription receives it
+        self.projectReference = projectReference
+        self.userPubkey = userPubkey
+        self.aiConfigStorage = aiConfigStorage
+        self.audioService = audioService
+        self.settingsStorage = settingsStorage
+        self._threadIDOverride = threadID
+
+        // Load saved conversation settings
+        self.conversationSettings = settingsStorage.load()
+
+        // Initialize conversation state with the thread ID
+        self.conversationState = ConversationState(rootEventID: threadID)
+
+        // Set agent message callback after initialization to avoid capture issues
+        self.conversationState.onAgentMessage = { [weak self] message in
+            self?.handleAgentMessage(message)
+        }
+
+        // Start continuous subscription in background - this will fetch all messages
+        Task {
+            await self.subscribeToAllEvents()
         }
     }
 
@@ -112,9 +159,9 @@ public final class ChatViewModel {
         self.conversationState.messages
     }
 
-    /// The thread ID derived from the thread event (nil if new thread)
+    /// The thread ID derived from the thread event or override (nil if new thread)
     public var threadID: String? {
-        self.threadEvent?.id
+        self._threadIDOverride ?? self.threadEvent?.id
     }
 
     /// Subscribe to thread metadata (kind:513) to get the most recent title
@@ -213,6 +260,7 @@ public final class ChatViewModel {
     private let aiConfigStorage: AIConfigStorage?
     private let audioService: AudioService?
     private let settingsStorage: ConversationSettingsStorage
+    private let _threadIDOverride: String?
 
     /// Handle agent message for auto-TTS
     private func handleAgentMessage(_ message: Message) {

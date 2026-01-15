@@ -11,7 +11,7 @@ import TENEXShared
 // MARK: - ConversationMetadata
 
 /// Represents conversation metadata (Nostr kind:513)
-/// These events e-tag kind:11 threads to provide title and description
+/// These events e-tag kind:1 threads to provide title and description
 public struct ConversationMetadata: Sendable, Identifiable {
     /// The thread ID this metadata belongs to (from 'e' tag)
     public let threadID: String

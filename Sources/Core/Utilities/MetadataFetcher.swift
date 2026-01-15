@@ -51,7 +51,7 @@ public final class MetadataFetcher {
 
         logger.debug("Fetching thread event: \(threadID)")
 
-        let filter = NDKFilter(ids: [threadID], kinds: [11])
+        let filter = NDKFilter(ids: [threadID], kinds: [1])
         let subscription = ndk.subscribe(filter: filter)
 
         for await events in subscription.events.prefix(1) {

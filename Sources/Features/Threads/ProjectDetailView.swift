@@ -11,6 +11,7 @@ import TENEXCore
 // MARK: - ProjectDetailView
 
 /// View displaying project details with tabbed interface
+/// Note: Conversations tab removed - use main Conversations tab with project filter instead
 public struct ProjectDetailView: View {
     // MARK: Lifecycle
 
@@ -24,45 +25,20 @@ public struct ProjectDetailView: View {
 
     public var body: some View {
         TabView(selection: self.$selectedTab) {
-            self.threadsTab
+            self.docsTab
                 .tag(0)
 
-            self.docsTab
+            self.agentsTab
                 .tag(1)
 
-            self.agentsTab
-                .tag(2)
-
             self.feedTab
-                .tag(3)
+                .tag(2)
         }
         #if os(iOS)
         .toolbar(.hidden, for: .tabBar)
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .toolbar {
-            // Show "New Thread" button only on threads tab
-            if self.selectedTab == 0, let userPubkey = authManager.activePubkey {
-                ToolbarItem(placement: .primaryAction) {
-                    NavigationLink {
-                        ChatView(
-                            threadEvent: nil,
-                            projectReference: self.project.coordinate,
-                            currentUserPubkey: userPubkey
-                        )
-                    } label: {
-                        Label("New Thread", systemImage: "plus")
-                    }
-                }
-            }
-
-            // Show filter button only on threads tab
-            if self.selectedTab == 0 {
-                ToolbarItem(placement: .secondaryAction) {
-                    self.filterMenu
-                }
-            }
-
             ToolbarItem(placement: .secondaryAction) {
                 self.settingsMenu
             }
@@ -78,23 +54,8 @@ public struct ProjectDetailView: View {
     @Environment(NDKAuthManager.self) private var authManager
     @State private var showingSettings = false
     @State private var selectedTab = 0
-    @State private var filtersStore = ThreadFiltersStore()
-    @State private var showArchived = false
 
     private let project: Project
-
-    private var threadsTab: some View {
-        ThreadListView(
-            projectID: self.project.coordinate,
-            userPubkey: self.authManager.activePubkey,
-            filtersStore: self.filtersStore,
-            showArchived: self.$showArchived
-        )
-        .navigationTitle(self.project.title)
-        .tabItem {
-            Label("Threads", systemImage: "message.fill")
-        }
-    }
 
     private var docsTab: some View {
         DocsTabView(projectID: self.project.coordinate)
@@ -142,72 +103,8 @@ public struct ProjectDetailView: View {
         }
     }
 
-    @ViewBuilder private var filterMenu: some View {
-        let activeFilter = self.filtersStore.getFilter(for: self.project.coordinate)
-
-        Menu {
-            filterMenuContent()
-        } label: {
-            Label(
-                activeFilter?.displayName ?? "Filter",
-                systemImage: activeFilter != nil
-                    ? "line.3.horizontal.decrease.circle.fill"
-                    : "line.3.horizontal.decrease.circle"
-            )
-        }
-    }
-
-    @ViewBuilder private func filterMenuContent() -> some View {
-        Button {
-            self.filtersStore.setFilter(nil, for: self.project.coordinate)
-        } label: {
-            Label("All conversations", systemImage: "circle")
-        }
-
-        Divider()
-
-        Section("Activity filters") {
-            ForEach([ThreadFilter.oneHour, .fourHours, .oneDay], id: \.self) { filter in
-                Button {
-                    self.filtersStore.setFilter(filter, for: self.project.coordinate)
-                } label: {
-                    Label(filter.displayName, systemImage: filter.systemImage)
-                }
-            }
-        }
-
-        Divider()
-
-        Section("Response filters") {
-            ForEach(
-                [ThreadFilter.needsResponseOneHour, .needsResponseFourHours, .needsResponseOneDay],
-                id: \.self
-            ) { filter in
-                Button {
-                    self.filtersStore.setFilter(filter, for: self.project.coordinate)
-                } label: {
-                    Label(filter.displayName, systemImage: filter.systemImage)
-                }
-            }
-        }
-    }
-
     @ViewBuilder private var settingsMenu: some View {
         Menu {
-            // Only show this option on threads tab
-            if self.selectedTab == 0 {
-                Button {
-                    self.showArchived.toggle()
-                } label: {
-                    Label(
-                        self.showArchived ? "Hide Archived Conversations" : "View Archived Conversations",
-                        systemImage: self.showArchived ? "archivebox.fill" : "archivebox"
-                    )
-                }
-
-                Divider()
-            }
-
             Button {
                 self.showingSettings = true
             } label: {

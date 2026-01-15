@@ -13,10 +13,11 @@ import TENEXCore
 /// A single project column in the multi-project interface
 ///
 /// This view displays a project with tabs for different content types:
-/// - Threads: List of conversation threads
 /// - Docs: Project documentation
 /// - Agents: Associated agents
 /// - Feed: Activity feed
+///
+/// Note: Threads tab removed - use main Conversations tab with project filter instead
 ///
 /// The column has a fixed width of 320pt and includes a header with:
 /// - Project title and description (if available)
@@ -55,7 +56,7 @@ public struct ProjectColumn: View {
     private let projectCoordinate: String
     private let currentUserPubkey: String?
 
-    @State private var selectedTab: ProjectTab = .threads
+    @State private var selectedTab: ProjectTab = .docs
     @Environment(OpenProjectsStore.self) private var openProjects
 
     // MARK: - Header
@@ -105,11 +106,6 @@ public struct ProjectColumn: View {
     @ViewBuilder
     private var tabContent: some View {
         switch selectedTab {
-        case .threads:
-            ThreadsTabContent(
-                projectID: projectCoordinate,
-                currentUserPubkey: currentUserPubkey
-            )
         case .docs:
             DocsTabContent(
                 projectID: projectCoordinate,
@@ -133,7 +129,6 @@ public struct ProjectColumn: View {
 
 /// Tabs available in a project column
 private enum ProjectTab: String, CaseIterable, Identifiable {
-    case threads
     case docs
     case agents
     case feed
@@ -142,8 +137,6 @@ private enum ProjectTab: String, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .threads:
-            return "Threads"
         case .docs:
             return "Docs"
         case .agents:

@@ -67,6 +67,30 @@ public struct ThreadSummary: Identifiable, Sendable {
     public var lastActivity: Date
     /// When the thread was created
     public let createdAt: Date
+    /// Parent conversation ID (from 'delegation' tag) - for thread hierarchy
+    public let parentConversationID: String?
+    /// Child conversation IDs (from 'q' tags) - delegated work
+    public let childConversationIDs: [String]
+}
+
+// MARK: - HierarchicalThread
+
+/// A thread with hierarchy information for tree display
+/// Matches the Svelte/TUI implementation pattern
+public struct HierarchicalThread: Identifiable, Sendable {
+    /// The underlying thread summary
+    public let thread: ThreadSummary
+    /// Nesting depth in hierarchy (0 = root)
+    public let depth: Int
+    /// Whether this is the last child at this level (for UI tree rendering)
+    public let isLastChild: Bool
+    /// Whether this thread has child delegations
+    public let hasChildren: Bool
+    /// Total count of descendants (recursive)
+    public let childCount: Int
+
+    /// Identifiable conformance
+    public var id: String { thread.id }
 }
 
 // MARK: - ProjectConversationStore
@@ -151,10 +175,10 @@ public final class ProjectConversationStore {
 
     // MARK: - Subscription Management
 
-    /// Subscribe to project events
+    /// Subscribe to project events (kind:1 only - metadata is handled by DataStore)
     public func subscribe() {
         let filter = NDKFilter(
-            kinds: [1, 513],
+            kinds: [1],
             tags: ["a": Set([projectCoordinate])]
         )
 

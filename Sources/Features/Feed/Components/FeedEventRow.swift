@@ -51,28 +51,12 @@ struct FeedEventRow: View {
                 title: content.count > 100 ? String(content.prefix(100)) + "..." : content
             )
 
-        case 11: // Thread
-            let title = self.event.tagValue("title") ?? "Thread"
-            return (
-                icon: "bubble.left.and.bubble.right",
-                label: "Thread",
-                title: title
-            )
-
         case 30_023: // Long-form content
             let title = self.event.tagValue("title") ?? self.event.tagValue("name") ?? "Untitled"
             return (
                 icon: "doc.text",
                 label: "Article",
                 title: title
-            )
-
-        case 1111: // Generic reply
-            let content = self.event.content.isEmpty ? "Reply" : self.event.content
-            return (
-                icon: "bubble.left",
-                label: "Reply",
-                title: content.count > 100 ? String(content.prefix(100)) + "..." : content
             )
 
         case 29_000: // Call event

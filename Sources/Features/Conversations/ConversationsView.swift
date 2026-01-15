@@ -137,62 +137,70 @@ public struct ConversationsView: View {
     @ViewBuilder
     private func filterMenu(viewModel: ConversationsViewModel) -> some View {
         Menu {
-            // Project section
-            Section("Projects") {
+            projectFilterSection(viewModel: viewModel)
+            timeFilterSection(viewModel: viewModel)
+        } label: {
+            Image(systemName: hasActiveFilter(viewModel)
+                ? "line.3.horizontal.decrease.circle.fill"
+                : "line.3.horizontal.decrease.circle")
+        }
+    }
+
+    @ViewBuilder
+    private func projectFilterSection(viewModel: ConversationsViewModel) -> some View {
+        Section("Projects") {
+            Button {
+                viewModel.clearProjectFilter()
+            } label: {
+                HStack {
+                    Text("All Projects")
+                    if !viewModel.hasProjectFilter {
+                        Spacer()
+                        Image(systemName: "checkmark")
+                    }
+                }
+            }
+
+            ForEach(viewModel.availableProjects) { project in
+                projectFilterButton(project: project, viewModel: viewModel)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func projectFilterButton(project: Project, viewModel: ConversationsViewModel) -> some View {
+        Button {
+            viewModel.toggleProject(project.coordinate)
+        } label: {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(project.color)
+                    .frame(width: 8, height: 8)
+                Text(project.title)
+                Spacer()
+                if viewModel.isProjectSelected(project.coordinate), viewModel.hasProjectFilter {
+                    Image(systemName: "checkmark")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func timeFilterSection(viewModel: ConversationsViewModel) -> some View {
+        Section("Time") {
+            ForEach(TimeFilter.allCases) { filter in
                 Button {
-                    viewModel.clearProjectFilter()
+                    viewModel.setTimeFilter(filter)
                 } label: {
                     HStack {
-                        Text("All Projects")
-                        if !viewModel.hasProjectFilter {
+                        Label(filter.displayName, systemImage: filter.systemImage)
+                        if filter == viewModel.currentTimeFilter {
                             Spacer()
                             Image(systemName: "checkmark")
                         }
                     }
                 }
-
-                ForEach(viewModel.availableProjects) { project in
-                    Button {
-                        viewModel.toggleProject(project.coordinate)
-                    } label: {
-                        HStack(spacing: 8) {
-                            Circle()
-                                .fill(project.color)
-                                .frame(width: 8, height: 8)
-
-                            Text(project.title)
-
-                            Spacer()
-
-                            if viewModel.isProjectSelected(project.coordinate), viewModel.hasProjectFilter {
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
             }
-
-            // Time section
-            Section("Time") {
-                ForEach(TimeFilter.allCases) { filter in
-                    Button {
-                        viewModel.setTimeFilter(filter)
-                    } label: {
-                        HStack {
-                            Label(filter.displayName, systemImage: filter.systemImage)
-
-                            if filter == viewModel.currentTimeFilter {
-                                Spacer()
-                                Image(systemName: "checkmark")
-                            }
-                        }
-                    }
-                }
-            }
-        } label: {
-            Image(systemName: hasActiveFilter(viewModel)
-                ? "line.3.horizontal.decrease.circle.fill"
-                : "line.3.horizontal.decrease.circle")
         }
     }
 
@@ -222,6 +230,7 @@ public struct ConversationsView: View {
     private func conversationListContent(viewModel: ConversationsViewModel) -> some View {
         ForEach(viewModel.sortedThreadIDs, id: \.self) { threadID in
             if let latestMessage = viewModel.latestMessage(for: threadID) {
+                let hierarchyInfo = viewModel.getHierarchyInfo(for: threadID)
                 NavigationLink {
                     destinationView(threadID: threadID, viewModel: viewModel)
                 } label: {
@@ -229,7 +238,10 @@ public struct ConversationsView: View {
                         threadID: threadID,
                         project: viewModel.getProject(for: threadID),
                         latestMessage: latestMessage,
-                        conversationMetadata: viewModel.getConversationMetadata(for: threadID)
+                        conversationMetadata: viewModel.getConversationMetadata(for: threadID),
+                        depth: hierarchyInfo.depth,
+                        hasChildren: hierarchyInfo.hasChildren,
+                        childCount: hierarchyInfo.childCount
                     )
                 }
                 .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
@@ -243,6 +255,7 @@ public struct ConversationsView: View {
         latestMessage: Message,
         viewModel: ConversationsViewModel
     ) -> some View {
+        let hierarchyInfo = viewModel.getHierarchyInfo(for: threadID)
         Button {
             selectedThreadID = threadID
         } label: {
@@ -250,7 +263,10 @@ public struct ConversationsView: View {
                 threadID: threadID,
                 project: viewModel.getProject(for: threadID),
                 latestMessage: latestMessage,
-                conversationMetadata: viewModel.getConversationMetadata(for: threadID)
+                conversationMetadata: viewModel.getConversationMetadata(for: threadID),
+                depth: hierarchyInfo.depth,
+                hasChildren: hierarchyInfo.hasChildren,
+                childCount: hierarchyInfo.childCount
             )
         }
         .buttonStyle(.plain)
@@ -309,25 +325,22 @@ public struct ConversationsView: View {
 
     @ViewBuilder
     private func destinationView(threadID: String, viewModel: ConversationsViewModel) -> some View {
-        if let threadEvent = viewModel.getThreadEvent(id: threadID),
-           let project = viewModel.getProject(for: threadID),
+        // Use thread ID directly - no loading state needed, event-based system shows state as-is
+        if let project = viewModel.getProject(for: threadID),
            let userPubkey = authManager.activePubkey {
             ChatView(
-                threadEvent: threadEvent,
+                threadID: threadID,
                 projectReference: project.coordinate,
                 currentUserPubkey: userPubkey
             )
         } else {
-            loadingThreadView(threadID: threadID, viewModel: viewModel)
+            // Fallback only if we can't determine the project
+            ContentUnavailableView(
+                "Thread Not Available",
+                systemImage: "exclamationmark.triangle",
+                description: Text("Unable to determine the project for this thread.")
+            )
         }
-    }
-
-    @ViewBuilder
-    private func loadingThreadView(threadID: String, viewModel: ConversationsViewModel) -> some View {
-        ProgressView("Loading thread...")
-            .task {
-                viewModel.fetchThreadEventIfNeeded(for: threadID)
-            }
     }
 }
 

@@ -5,8 +5,10 @@
 //
 
 import NDKSwiftCore
+import NDKSwiftUI
 import SwiftUI
 import TENEXCore
+import TENEXShared
 
 #if os(iOS)
     import PhotosUI
@@ -14,62 +16,6 @@ import TENEXCore
 #else
     import AppKit
 #endif
-
-// MARK: - Platform Colors
-
-private extension Color {
-    static var platformBackground: Color {
-        #if os(iOS)
-            Color(uiColor: .systemBackground)
-        #else
-            Color(nsColor: .windowBackgroundColor)
-        #endif
-    }
-
-    static var platformSecondaryBackground: Color {
-        #if os(iOS)
-            Color(uiColor: .secondarySystemBackground)
-        #else
-            Color(nsColor: .controlBackgroundColor)
-        #endif
-    }
-
-    static var platformSeparator: Color {
-        #if os(iOS)
-            Color(uiColor: .separator)
-        #else
-            Color(nsColor: .separatorColor)
-        #endif
-    }
-}
-
-// MARK: - Glass Effect Modifiers
-
-private struct GlassTextFieldModifier: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(iOS 26.0, macOS 26.0, *) {
-            content.glassEffect(.regular, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        } else {
-            content
-                .background(Color.platformSecondaryBackground)
-                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
-                )
-        }
-    }
-}
-
-private struct GlassCircleButtonModifier: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(iOS 26.0, macOS 26.0, *) {
-            content.glassEffect(.regular.interactive(), in: .circle)
-        } else {
-            content
-        }
-    }
-}
 
 // MARK: - ChatInputView
 
@@ -190,6 +136,21 @@ public struct ChatInputView: View {
         .sheet(isPresented: self.$agentSelectorVM.isPresented) {
             AgentSelectorView(viewModel: self.agentSelectorVM)
         }
+        #if os(iOS)
+        .sheet(isPresented: self.$showComposeSheet) {
+            ComposeSheetView(
+                viewModel: self.viewModel,
+                agentSelectorVM: self.agentSelectorVM,
+                dataStore: self.dataStore,
+                ndk: self.ndk,
+                projectReference: self.projectReference,
+                onlineAgents: self.onlineAgents,
+                onSend: self.onSend
+            ) {
+                self.showComposeSheet = false
+            }
+        }
+        #endif
     }
 
     // MARK: Private
@@ -200,6 +161,7 @@ public struct ChatInputView: View {
     @State private var showNudgeSelector = false
     @State private var showBranchSelector = false
     @State private var showAgentConfig = false
+    @State private var showComposeSheet = false
     @FocusState private var isInputFocused: Bool
 
     #if os(macOS)
@@ -343,6 +305,57 @@ public struct ChatInputView: View {
     }
 
     private var textInputField: some View {
+        #if os(iOS)
+        // iOS: Tappable collapsed bar that opens compose sheet
+        collapsedInputBar
+        #else
+        // macOS: Inline text editor
+        inlineTextEditor
+        #endif
+    }
+
+    #if os(iOS)
+    private var collapsedInputBar: some View {
+        Button {
+            showComposeSheet = true
+        } label: {
+            HStack(spacing: 12) {
+                // Agent avatar if selected
+                if let pubkey = agentSelectorVM.selectedAgentPubkey {
+                    NDKUIProfilePicture(ndk: ndk, pubkey: pubkey, size: 28)
+                }
+
+                // Placeholder or preview text
+                Text(viewModel.inputText.isEmpty ? placeholderText : viewModel.inputText)
+                    .font(.body)
+                    .foregroundStyle(viewModel.inputText.isEmpty ? .secondary : .primary)
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                // Attachment count badge
+                if viewModel.hasAttachments {
+                    Text("\(viewModel.pendingAttachments.count)")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(Color.accentColor))
+                }
+
+                // Send button (enabled state)
+                Image(systemName: "arrow.up.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(viewModel.canSend ? Color.accentColor : Color.gray.opacity(0.4))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+        }
+        .buttonStyle(.plain)
+        .modifier(GlassTextFieldModifier())
+    }
+    #endif
+
+    private var inlineTextEditor: some View {
         HStack(alignment: .bottom, spacing: 0) {
             ZStack(alignment: .topLeading) {
                 if self.viewModel.inputText.isEmpty {

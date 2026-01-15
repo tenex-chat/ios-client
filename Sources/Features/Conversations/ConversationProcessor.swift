@@ -7,8 +7,9 @@
 import Foundation
 import NDKSwiftCore
 
-/// Background actor for processing conversation events
+/// Background actor for processing conversation events (kind:1 only)
 /// All heavy work (parsing, sorting, deduplication) happens here
+/// Note: kind:513 metadata is handled centrally by DataStore
 public actor ConversationProcessor {
     // MARK: - Private State
 
@@ -19,10 +20,10 @@ public actor ConversationProcessor {
     private var processedMessageIDs: Set<String> = []
     /// Last reply time per author per thread (threadID -> authorPubkey -> Date)
     private var lastReplyByThreadAndAuthor: [String: [String: Date]] = [:]
-    /// Pending metadata for threads that haven't arrived yet (threadID -> metadata)
-    private var pendingMetadata: [String: (title: String, summary: String?, phase: String?)] = [:]
     /// All unique hashtags collected from threads
     private var collectedHashtags: Set<String> = []
+    /// Parent to children mapping for hierarchy (parentID -> Set of childIDs)
+    private var parentToChildren: [String: Set<String>] = [:]
 
     // MARK: - Initialization
 
@@ -45,18 +46,16 @@ public actor ConversationProcessor {
     // MARK: - Event Processing (Private)
 
     private func processEvent(_ event: NDKEvent) {
-        switch event.kind {
-        case 513:
-            processMetadataEvent(event)
-        case 1:
-            // All messages are kind:1 - threads have no e-tags, replies have e-tags
-            if event.tags(withName: "e").isEmpty {
-                processThreadEvent(event)
-            } else {
-                processMessageEvent(event)
-            }
-        default:
-            break
+        // Only process kind:1 events - metadata (kind:513) is handled by DataStore
+        guard event.kind == 1 else {
+            return
+        }
+
+        // All messages are kind:1 - threads have no e-tags, replies have e-tags
+        if event.tags(withName: "e").isEmpty {
+            processThreadEvent(event)
+        } else {
+            processMessageEvent(event)
         }
     }
 
@@ -66,16 +65,9 @@ public actor ConversationProcessor {
         else {
             return
         }
-        var title = titleTag[1]
-        var phase = event.tags(withName: "phase").first?[safe: 1]
-        var summary = parseSummary(from: event.content)
-
-        // Apply pending metadata if it arrived before the thread
-        if let pending = pendingMetadata.removeValue(forKey: event.id) {
-            title = pending.title
-            summary = pending.summary ?? summary
-            phase = pending.phase ?? phase
-        }
+        let title = titleTag[1]
+        let phase = event.tags(withName: "phase").first?[safe: 1]
+        let summary = parseSummary(from: event.content)
 
         // Extract hashtags from t-tags
         let hashtags = event.tags(withName: "t").compactMap { tag -> String? in
@@ -88,6 +80,17 @@ public actor ConversationProcessor {
         // Add to collected hashtags
         for hashtag in hashtags {
             collectedHashtags.insert(hashtag)
+        }
+
+        // Extract parent conversation ID from 'delegation' tag (for thread hierarchy)
+        let parentConversationID = event.tags(withName: "delegation").first?[safe: 1]
+
+        // Extract child conversation IDs from 'q' tags (delegated work)
+        let childConversationIDs = event.tags(withName: "q").compactMap { $0[safe: 1] }
+
+        // Track parent-child relationships for hierarchy building
+        if let parentID = parentConversationID, !parentID.isEmpty {
+            parentToChildren[parentID, default: []].insert(event.id)
         }
 
         let createdAt = Date(timeIntervalSince1970: TimeInterval(event.createdAt))
@@ -111,50 +114,13 @@ public actor ConversationProcessor {
             hashtags: hashtags,
             replyCount: existingReplyCount,
             lastActivity: existingLastActivity,
-            createdAt: createdAt
+            createdAt: createdAt,
+            parentConversationID: parentConversationID,
+            childConversationIDs: childConversationIDs
         )
 
         threadSummaries[event.id] = threadSummary
         threadEvents[event.id] = event
-    }
-
-    private func processMetadataEvent(_ event: NDKEvent) {
-        guard let eTag = event.tags(withName: "e").first,
-              eTag.count > 1
-        else {
-            return
-        }
-        let threadID = eTag[1]
-
-        guard let titleTag = event.tags(withName: "title").first,
-              titleTag.count > 1
-        else {
-            return
-        }
-        let title = titleTag[1]
-
-        let phase = event.tags(withName: "phase").first?[safe: 1]
-
-        let summary = event.tags(withName: "summary").first?[safe: 1]
-
-        // If thread exists, update it directly
-        if let existing = threadSummaries[threadID] {
-            threadSummaries[threadID] = ThreadSummary(
-                id: existing.id,
-                pubkey: existing.pubkey,
-                projectCoordinate: existing.projectCoordinate,
-                title: title,
-                summary: summary ?? existing.summary,
-                phase: phase ?? existing.phase,
-                hashtags: existing.hashtags,
-                replyCount: existing.replyCount,
-                lastActivity: existing.lastActivity,
-                createdAt: existing.createdAt
-            )
-        } else {
-            // Thread hasn't arrived yet, store metadata for later
-            pendingMetadata[threadID] = (title: title, summary: summary, phase: phase)
-        }
     }
 
     private func processMessageEvent(_ event: NDKEvent) {
@@ -210,7 +176,9 @@ public actor ConversationProcessor {
                 hashtags: existing.hashtags,
                 replyCount: existing.replyCount + 1,
                 lastActivity: max(existing.lastActivity, message.createdAt),
-                createdAt: existing.createdAt
+                createdAt: existing.createdAt,
+                parentConversationID: existing.parentConversationID,
+                childConversationIDs: existing.childConversationIDs
             )
             threadSummaries[threadID] = existing
         }
@@ -242,6 +210,9 @@ public actor ConversationProcessor {
             orphaned[threadID] = messages.count
         }
 
+        // Build hierarchical thread list
+        let hierarchicalThreads = buildHierarchicalThreads()
+
         return ConversationStoreState(
             threadSummaries: threadSummaries,
             messageCounts: messageCounts,
@@ -251,8 +222,90 @@ public actor ConversationProcessor {
             projectCoordinate: projectCoordinate,
             snapshotTimestamp: Date(),
             lastReplyByThreadAndAuthor: lastReplyByThreadAndAuthor,
-            hashtags: Array(collectedHashtags).sorted()
+            hashtags: Array(collectedHashtags).sorted(),
+            hierarchicalThreads: hierarchicalThreads,
+            parentToChildren: parentToChildren
         )
+    }
+
+    // MARK: - Hierarchy Building
+
+    /// Build hierarchical thread list for tree display
+    /// Follows the Svelte/TUI pattern: roots first, then children indented
+    private func buildHierarchicalThreads() -> [HierarchicalThread] {
+        // Find root threads (no parent or parent not in this project)
+        let rootThreads = threadSummaries.values
+            .filter { thread in
+                guard let parentID = thread.parentConversationID, !parentID.isEmpty else {
+                    return true // No parent = root
+                }
+                // If parent exists in our threads, this is not a root
+                return threadSummaries[parentID] == nil
+            }
+            .sorted { $0.lastActivity > $1.lastActivity }
+
+        var result: [HierarchicalThread] = []
+
+        for (index, rootThread) in rootThreads.enumerated() {
+            let isLast = index == rootThreads.count - 1
+            buildHierarchyRecursive(
+                thread: rootThread,
+                depth: 0,
+                isLastChild: isLast,
+                result: &result
+            )
+        }
+
+        return result
+    }
+
+    /// Recursively build hierarchy tree
+    private func buildHierarchyRecursive(
+        thread: ThreadSummary,
+        depth: Int,
+        isLastChild: Bool,
+        result: inout [HierarchicalThread]
+    ) {
+        let childIDs = parentToChildren[thread.id] ?? []
+        let children = childIDs.compactMap { threadSummaries[$0] }
+            .sorted { $0.lastActivity > $1.lastActivity }
+
+        let childCount = countDescendants(threadID: thread.id)
+
+        let hierarchicalThread = HierarchicalThread(
+            thread: thread,
+            depth: depth,
+            isLastChild: isLastChild,
+            hasChildren: !children.isEmpty,
+            childCount: childCount
+        )
+
+        result.append(hierarchicalThread)
+
+        // Recursively add children (max depth 10 to prevent infinite loops)
+        guard depth < 10 else {
+            return
+        }
+
+        for (index, child) in children.enumerated() {
+            let isLast = index == children.count - 1
+            buildHierarchyRecursive(
+                thread: child,
+                depth: depth + 1,
+                isLastChild: isLast,
+                result: &result
+            )
+        }
+    }
+
+    /// Count total descendants recursively
+    private func countDescendants(threadID: String) -> Int {
+        let childIDs = parentToChildren[threadID] ?? []
+        var count = childIDs.count
+        for childID in childIDs {
+            count += countDescendants(threadID: childID)
+        }
+        return count
     }
 
     // MARK: - Thread Management
@@ -271,10 +324,10 @@ public actor ConversationProcessor {
     public func reset() {
         threadSummaries = [:]
         threadEvents = [:]
+        parentToChildren = [:]
         messagesByThread = [:]
         processedMessageIDs = []
         lastReplyByThreadAndAuthor = [:]
-        pendingMetadata = [:]
         collectedHashtags = []
     }
 }

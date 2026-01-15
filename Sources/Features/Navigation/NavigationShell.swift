@@ -48,7 +48,6 @@ public struct NavigationShell: View {
 
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var selectedProjectID: String?
-    @State private var selectedThreadID: String?
 
     @Environment(NDKAuthManager.self) private var authManager
     @Environment(DataStore.self) private var dataStore: DataStore?
@@ -92,7 +91,11 @@ public struct NavigationShell: View {
                 .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 400)
         } detail: {
             // Detail: Chat, document detail, etc.
-            detailColumn
+            ContentUnavailableView(
+                "Select a Conversation",
+                systemImage: "bubble.left.and.bubble.right",
+                description: Text("Use the Conversations tab to view and select conversations")
+            )
         }
         .navigationSplitViewStyle(.balanced)
     }
@@ -120,34 +123,12 @@ public struct NavigationShell: View {
     @ViewBuilder private var contentColumn: some View {
         if let projectID = selectedProjectID,
            let project = dataStore?.projects.first(where: { $0.coordinate == projectID }) {
-            SplitViewProjectDetail(
-                project: project,
-                selectedThreadID: $selectedThreadID
-            )
+            SplitViewProjectDetail(project: project)
         } else {
             ContentUnavailableView(
                 "Select a Project",
                 systemImage: "folder",
-                description: Text("Choose a project from the sidebar to view its threads")
-            )
-        }
-    }
-
-    @ViewBuilder private var detailColumn: some View {
-        if let projectID = selectedProjectID,
-           let threadID = selectedThreadID,
-           ndk != nil,
-           dataStore?.projects.contains(where: { $0.coordinate == projectID }) == true {
-            SplitViewChatDetail(
-                projectID: projectID,
-                threadID: threadID,
-                userPubkey: authManager.activePubkey
-            )
-        } else {
-            ContentUnavailableView(
-                "Select a Thread",
-                systemImage: "message",
-                description: Text("Choose a thread to start chatting")
+                description: Text("Choose a project from the sidebar to view details")
             )
         }
     }
@@ -213,15 +194,28 @@ public struct NavigationShell: View {
             }
 
         case let .threadList(projectID):
-            ThreadListView(projectID: projectID, userPubkey: authManager.activePubkey)
+            // Thread list removed - redirect to project detail
+            if let project = dataStore?.projects.first(where: { $0.coordinate == projectID }) {
+                ProjectDetailView(project: project)
+            } else {
+                Text("Project not found")
+            }
 
         case let .thread(projectID, _):
-            // Deep link to specific thread - show thread list (user can select thread)
-            ThreadListView(projectID: projectID, userPubkey: authManager.activePubkey)
+            // Thread list removed - redirect to project detail
+            if let project = dataStore?.projects.first(where: { $0.coordinate == projectID }) {
+                ProjectDetailView(project: project)
+            } else {
+                Text("Project not found")
+            }
 
         case let .voiceMode(projectID, _):
-            // Voice mode must be started from within a chat
-            ThreadListView(projectID: projectID, userPubkey: authManager.activePubkey)
+            // Voice mode must be started from within a chat - redirect to project detail
+            if let project = dataStore?.projects.first(where: { $0.coordinate == projectID }) {
+                ProjectDetailView(project: project)
+            } else {
+                Text("Project not found")
+            }
 
         case let .agents(projectID):
             if let ndk {
