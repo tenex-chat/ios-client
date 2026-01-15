@@ -49,8 +49,9 @@ public final class ConversationsViewModel {
         }
     }
 
-    /// Get sorted thread IDs with all filters applied
+    /// Get sorted thread IDs with all filters applied, preserving hierarchy when available
     public var sortedThreadIDs: [String] {
+        // Get all thread IDs from messages (original working approach)
         let allThreadIDs = Array(conversationsByThread.keys)
 
         // Apply project filter
@@ -76,12 +77,61 @@ public final class ConversationsViewModel {
             return latestMessage.createdAt >= cutoff
         }
 
-        // Sort by latest activity (newest first)
-        return timeFiltered.sorted { threadID1, threadID2 in
-            let latest1 = latestMessage(for: threadID1)
-            let latest2 = latestMessage(for: threadID2)
-            return (latest1?.createdAt ?? .distantPast) > (latest2?.createdAt ?? .distantPast)
+        // Build hierarchical ordering if hierarchy info is available
+        return orderByHierarchy(timeFiltered)
+    }
+
+    // MARK: - Private Hierarchy Methods
+
+    /// Order thread IDs respecting parent-child hierarchy when available
+    /// Parents appear before their children, with children nested immediately after
+    private func orderByHierarchy(_ threadIDs: [String]) -> [String] {
+        // Use global hierarchy from DataStore (observable, updates reactively)
+        let globalParentMap = dataStore.threadParentMap
+        let threadIDSet = Set(threadIDs)
+
+        // Filter to only include relationships where both parent and child are in our list
+        var childToParent: [String: String] = [:]
+        var parentToChildren: [String: Set<String>] = [:]
+
+        for threadID in threadIDs {
+            if let parentID = globalParentMap[threadID], threadIDSet.contains(parentID) {
+                childToParent[threadID] = parentID
+                parentToChildren[parentID, default: []].insert(threadID)
+            }
         }
+
+        // Find root threads (those without parents in our filtered set)
+        let rootThreads = threadIDs.filter { childToParent[$0] == nil }
+
+        // Sort roots by latest activity
+        let sortedRoots = rootThreads.sorted { id1, id2 in
+            let activity1 = latestMessage(for: id1)?.createdAt ?? .distantPast
+            let activity2 = latestMessage(for: id2)?.createdAt ?? .distantPast
+            return activity1 > activity2
+        }
+
+        // Build final list with children nested under parents
+        var result: [String] = []
+        func addWithChildren(_ threadID: String) {
+            result.append(threadID)
+            if let children = parentToChildren[threadID] {
+                let sortedChildren = children.sorted { id1, id2 in
+                    let activity1 = latestMessage(for: id1)?.createdAt ?? .distantPast
+                    let activity2 = latestMessage(for: id2)?.createdAt ?? .distantPast
+                    return activity1 > activity2
+                }
+                for child in sortedChildren {
+                    addWithChildren(child)
+                }
+            }
+        }
+
+        for root in sortedRoots {
+            addWithChildren(root)
+        }
+
+        return result
     }
 
     /// Current time filter
@@ -149,7 +199,20 @@ public final class ConversationsViewModel {
     /// - Parameter threadID: The thread ID
     /// - Returns: The project coordinate if found
     public func getProjectCoordinate(for threadID: String) -> String? {
-        conversationsByThread[threadID]?.first?.projectCoordinate
+        // First check messages
+        if let coordinate = conversationsByThread[threadID]?.first?.projectCoordinate {
+            return coordinate
+        }
+
+        // Fallback: check thread summaries in project stores
+        for project in availableProjects {
+            if let store = dataStore.conversationStore(for: project.coordinate),
+               store.state.threadSummaries[threadID] != nil {
+                return project.coordinate
+            }
+        }
+
+        return nil
     }
 
     /// Get latest message for a thread
@@ -167,25 +230,44 @@ public final class ConversationsViewModel {
         dataStore.getConversationMetadata(for: threadID)
     }
 
-    /// Get hierarchy info for a thread
+    /// Get hierarchy info for a thread using global DataStore hierarchy
     /// - Parameter threadID: The thread ID
     /// - Returns: Tuple of (depth, hasChildren, childCount)
     public func getHierarchyInfo(for threadID: String) -> (depth: Int, hasChildren: Bool, childCount: Int) {
-        // Look up hierarchy info from conversation stores
-        guard let projectCoordinate = getProjectCoordinate(for: threadID),
-              let store = dataStore.conversationStore(for: projectCoordinate)
-        else {
-            return (0, false, 0)
-        }
+        // Use global hierarchy from DataStore (observable, updates reactively)
+        let hasParent = dataStore.threadParentMap[threadID] != nil
+        let depth = hasParent ? computeDepth(for: threadID) : 0
+        let children = dataStore.threadChildrenMap[threadID] ?? []
+        let childCount = countAllDescendants(for: threadID)
 
-        // Find the hierarchical thread in the store's state
-        if let hierarchicalThread = store.state.hierarchicalThreads.first(where: { $0.id == threadID }) {
-            return (hierarchicalThread.depth, hierarchicalThread.hasChildren, hierarchicalThread.childCount)
-        }
+        return (depth, !children.isEmpty, childCount)
+    }
 
-        // Fallback: check if this thread has children in the parent-to-children map
-        let children = store.state.parentToChildren[threadID] ?? []
-        return (0, !children.isEmpty, children.count)
+    /// Compute depth by tracing parent chain using global DataStore hierarchy
+    private func computeDepth(for threadID: String) -> Int {
+        var depth = 0
+        var currentID = threadID
+        while let parentID = dataStore.threadParentMap[currentID] {
+            depth += 1
+            currentID = parentID
+            // Prevent infinite loops
+            if depth > 10 {
+                break
+            }
+        }
+        return depth
+    }
+
+    /// Count all descendants recursively using global DataStore hierarchy
+    private func countAllDescendants(for threadID: String) -> Int {
+        guard let children = dataStore.threadChildrenMap[threadID] else {
+            return 0
+        }
+        var count = children.count
+        for child in children {
+            count += countAllDescendants(for: child)
+        }
+        return count
     }
 
     /// Fetch thread event if not cached

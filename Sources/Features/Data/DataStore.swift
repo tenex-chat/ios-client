@@ -59,7 +59,15 @@ public final class DataStore {
     /// Conversation metadata (kind:513) keyed by thread ID - SINGLE SOURCE OF TRUTH
     public private(set) var conversationMetadata: [String: ConversationMetadata] = [:]
 
+    /// Thread hierarchy: child thread ID -> parent thread ID (from delegation tag)
+    public private(set) var threadParentMap: [String: String] = [:]
+
+    /// Thread hierarchy: parent thread ID -> child thread IDs
+    public private(set) var threadChildrenMap: [String: Set<String>] = [:]
+
     /// Conversation stores keyed by project coordinate
+    /// @ObservationIgnored to prevent infinite render loops when stores are created during view rendering
+    @ObservationIgnored
     private var conversationStores: [String: ProjectConversationStore] = [:]
 
     /// Get or create a conversation store for a project
@@ -112,6 +120,7 @@ public final class DataStore {
         self.inboxTask = Task { await self.subscribeToInbox(userPubkey: userPubkey) }
         self.operationsTask = Task { await self.subscribeToOperationsStatus(userPubkey: userPubkey) }
         self.metadataTask = Task { await self.subscribeToConversationMetadata() }
+        self.threadHierarchyTask = Task { await self.subscribeToThreadHierarchy() }
 
         self.logger.info("All subscriptions started")
     }
@@ -129,6 +138,7 @@ public final class DataStore {
         self.inboxTask?.cancel()
         self.operationsTask?.cancel()
         self.metadataTask?.cancel()
+        self.threadHierarchyTask?.cancel()
 
         self.projectsTask = nil
         self.agentsTask = nil
@@ -139,6 +149,7 @@ public final class DataStore {
         self.inboxTask = nil
         self.operationsTask = nil
         self.metadataTask = nil
+        self.threadHierarchyTask = nil
 
         // Clear state
         self.projects = []
@@ -151,6 +162,8 @@ public final class DataStore {
         self.inboxUnreadCount = 0
         self.activeOperations = [:]
         self.conversationMetadata = [:]
+        self.threadParentMap = [:]
+        self.threadChildrenMap = [:]
         self.conversationStores = [:]
         self.userPubkey = nil
 
@@ -239,6 +252,7 @@ public final class DataStore {
     private var inboxTask: Task<Void, Never>?
     private var operationsTask: Task<Void, Never>?
     private var metadataTask: Task<Void, Never>?
+    private var threadHierarchyTask: Task<Void, Never>?
 }
 
 // MARK: - Conversation Metadata Access (Single Source of Truth)
@@ -651,6 +665,70 @@ extension DataStore {
                     }
                 }
             }
+        }
+    }
+
+    /// Subscribe to thread events (kind:1 with title tag) to build hierarchy from delegation tags
+    /// This provides global parent-child tracking independent of per-project stores
+    private func subscribeToThreadHierarchy() async {
+        var currentProjectCoordinates: [String] = []
+
+        while !Task.isCancelled {
+            let projectCoordinates = self.projects.map(\.coordinate)
+
+            guard !projectCoordinates.isEmpty else {
+                try? await Task.sleep(for: .seconds(1))
+                continue
+            }
+
+            guard projectCoordinates != currentProjectCoordinates else {
+                try? await Task.sleep(for: .seconds(1))
+                continue
+            }
+
+            currentProjectCoordinates = projectCoordinates
+            self.logger.info("Starting thread hierarchy subscription for \(projectCoordinates.count) projects")
+
+            let filter = NDKFilter(kinds: [1], limit: 500, tags: ["a": Set(projectCoordinates)])
+            let subscription = self.ndk.subscribe(filter: filter)
+
+            for await events in subscription.events {
+                if self.projects.map(\.coordinate) != currentProjectCoordinates { break }
+                processThreadHierarchyEvents(events)
+            }
+        }
+    }
+
+    /// Process thread events to extract delegation hierarchy
+    private func processThreadHierarchyEvents(_ events: [NDKEvent]) {
+        var hierarchyChanged = false
+        var threadCount = 0
+
+        for event in events {
+            guard event.tags(withName: "e").isEmpty,
+                  let titleTag = event.tags(withName: "title").first,
+                  titleTag.count > 1 else { continue }
+
+            threadCount += 1
+
+            if let delegationTag = event.tags(withName: "delegation").first,
+               delegationTag.count > 1 {
+                let parentID = delegationTag[1]
+                if !parentID.isEmpty, self.threadParentMap[event.id] != parentID {
+                    self.threadParentMap[event.id] = parentID
+                    self.threadChildrenMap[parentID, default: []].insert(event.id)
+                    hierarchyChanged = true
+                    self.logger.info("Found delegation: Thread \(event.id.prefix(8)) -> parent \(parentID.prefix(8))")
+                }
+            }
+        }
+
+        if threadCount > 0 {
+            self.logger.info("Processed \(threadCount) thread events, \(self.threadParentMap.count) with delegation tags")
+        }
+
+        if hierarchyChanged {
+            self.logger.info("Thread hierarchy updated: \(self.threadParentMap.count) child threads")
         }
     }
 }
