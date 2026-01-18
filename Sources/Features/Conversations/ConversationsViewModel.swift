@@ -42,24 +42,68 @@ public final class ConversationsViewModel {
         return dataStore.projects.filter { !archivedIDs.contains($0.id) }
     }
 
-    /// Group messages by thread ID (extracted from 'E' tag)
+    /// Group messages by thread ID - cached to avoid O(n) recomputation on every access
     public var conversationsByThread: [String: [Message]] {
-        Dictionary(grouping: dataStore.recentConversationReplies) { message in
-            message.threadID
-        }
+        rebuildCacheIfNeeded()
+        return cachedConversationsByThread
     }
 
     /// Get sorted thread IDs with all filters applied, preserving hierarchy when available
     public var sortedThreadIDs: [String] {
-        // Get all thread IDs from messages (original working approach)
-        let allThreadIDs = Array(conversationsByThread.keys)
+        rebuildCacheIfNeeded()
+
+        // Check if we need to rebuild sorted IDs (filter or hierarchy changed)
+        let currentFilterVersion = filterStore.hasProjectFilter ? filterStore.selectedProjectCount : -1
+        let currentTimeFilter = filterStore.timeFilter
+        let currentHierarchyVersion = dataStore.threadParentMap.count
+
+        if cachedSortedThreadIDs == nil ||
+            lastFilterVersion != currentFilterVersion ||
+            lastTimeFilter != currentTimeFilter ||
+            lastHierarchyVersion != currentHierarchyVersion {
+            rebuildSortedThreadIDs()
+            lastFilterVersion = currentFilterVersion
+            lastTimeFilter = currentTimeFilter
+            lastHierarchyVersion = currentHierarchyVersion
+        }
+
+        return cachedSortedThreadIDs ?? []
+    }
+
+    // MARK: - Cache Management
+
+    private var cachedConversationsByThread: [String: [Message]] = [:]
+    private var cachedSortedThreadIDs: [String]?
+    private var lastMessageCount: Int = -1
+    private var lastFilterVersion: Int = -1
+    private var lastTimeFilter: TimeFilter = .all
+    private var lastHierarchyVersion: Int = -1
+
+    private func rebuildCacheIfNeeded() {
+        let currentMessages = dataStore.recentConversationReplies
+        let currentCount = currentMessages.count
+
+        // Only rebuild if message count changed (cheap check for data changes)
+        guard currentCount != lastMessageCount else {
+            return
+        }
+
+        cachedConversationsByThread = Dictionary(grouping: currentMessages) { $0.threadID }
+        lastMessageCount = currentCount
+
+        // Invalidate sorted thread IDs cache since underlying data changed
+        cachedSortedThreadIDs = nil
+    }
+
+    private func rebuildSortedThreadIDs() {
+        let allThreadIDs = Array(cachedConversationsByThread.keys)
 
         // Apply project filter
         let projectFiltered = allThreadIDs.filter { threadID in
             guard filterStore.hasProjectFilter else {
                 return true
             }
-            guard let projectCoordinate = getProjectCoordinate(for: threadID) else {
+            guard let projectCoordinate = getProjectCoordinateCached(for: threadID) else {
                 return false
             }
             return filterStore.isProjectSelected(projectCoordinate)
@@ -70,27 +114,43 @@ public final class ConversationsViewModel {
             guard let threshold = filterStore.timeFilter.thresholdSeconds else {
                 return true
             }
-            guard let latestMessage = latestMessage(for: threadID) else {
+            guard let latestMsg = latestMessageCached(for: threadID) else {
                 return false
             }
             let cutoff = Date().addingTimeInterval(-threshold)
-            return latestMessage.createdAt >= cutoff
+            return latestMsg.createdAt >= cutoff
         }
 
-        // Build hierarchical ordering if hierarchy info is available
-        return orderByHierarchy(timeFiltered)
+        // Build hierarchical ordering
+        cachedSortedThreadIDs = orderByHierarchyCached(timeFiltered)
     }
 
-    // MARK: - Private Hierarchy Methods
+    // MARK: - Cached Helper Methods (use cache directly, no recomputation)
 
-    /// Order thread IDs respecting parent-child hierarchy when available
-    /// Parents appear before their children, with children nested immediately after
-    private func orderByHierarchy(_ threadIDs: [String]) -> [String] {
-        // Use global hierarchy from DataStore (observable, updates reactively)
+    /// Get latest message using cached data
+    private func latestMessageCached(for threadID: String) -> Message? {
+        cachedConversationsByThread[threadID]?.max { $0.createdAt < $1.createdAt }
+    }
+
+    /// Get project coordinate using cached data
+    private func getProjectCoordinateCached(for threadID: String) -> String? {
+        if let coordinate = cachedConversationsByThread[threadID]?.first?.projectCoordinate {
+            return coordinate
+        }
+        for project in availableProjects {
+            if let store = dataStore.conversationStore(for: project.coordinate),
+               store.state.threadSummaries[threadID] != nil {
+                return project.coordinate
+            }
+        }
+        return nil
+    }
+
+    /// Order thread IDs using cached data
+    private func orderByHierarchyCached(_ threadIDs: [String]) -> [String] {
         let globalParentMap = dataStore.threadParentMap
         let threadIDSet = Set(threadIDs)
 
-        // Filter to only include relationships where both parent and child are in our list
         var childToParent: [String: String] = [:]
         var parentToChildren: [String: Set<String>] = [:]
 
@@ -101,24 +161,22 @@ public final class ConversationsViewModel {
             }
         }
 
-        // Find root threads (those without parents in our filtered set)
         let rootThreads = threadIDs.filter { childToParent[$0] == nil }
 
-        // Sort roots by latest activity
+        // Sort using cached data
         let sortedRoots = rootThreads.sorted { id1, id2 in
-            let activity1 = latestMessage(for: id1)?.createdAt ?? .distantPast
-            let activity2 = latestMessage(for: id2)?.createdAt ?? .distantPast
+            let activity1 = latestMessageCached(for: id1)?.createdAt ?? .distantPast
+            let activity2 = latestMessageCached(for: id2)?.createdAt ?? .distantPast
             return activity1 > activity2
         }
 
-        // Build final list with children nested under parents
         var result: [String] = []
         func addWithChildren(_ threadID: String) {
             result.append(threadID)
             if let children = parentToChildren[threadID] {
                 let sortedChildren = children.sorted { id1, id2 in
-                    let activity1 = latestMessage(for: id1)?.createdAt ?? .distantPast
-                    let activity2 = latestMessage(for: id2)?.createdAt ?? .distantPast
+                    let activity1 = latestMessageCached(for: id1)?.createdAt ?? .distantPast
+                    let activity2 = latestMessageCached(for: id2)?.createdAt ?? .distantPast
                     return activity1 > activity2
                 }
                 for child in sortedChildren {
@@ -133,6 +191,8 @@ public final class ConversationsViewModel {
 
         return result
     }
+
+    // MARK: - Private Hierarchy Methods (kept for compatibility but now unused)
 
     /// Current time filter
     public var currentTimeFilter: TimeFilter {
@@ -199,27 +259,16 @@ public final class ConversationsViewModel {
     /// - Parameter threadID: The thread ID
     /// - Returns: The project coordinate if found
     public func getProjectCoordinate(for threadID: String) -> String? {
-        // First check messages
-        if let coordinate = conversationsByThread[threadID]?.first?.projectCoordinate {
-            return coordinate
-        }
-
-        // Fallback: check thread summaries in project stores
-        for project in availableProjects {
-            if let store = dataStore.conversationStore(for: project.coordinate),
-               store.state.threadSummaries[threadID] != nil {
-                return project.coordinate
-            }
-        }
-
-        return nil
+        rebuildCacheIfNeeded()
+        return getProjectCoordinateCached(for: threadID)
     }
 
     /// Get latest message for a thread
     /// - Parameter threadID: The thread ID
     /// - Returns: The most recent message in the thread
     public func latestMessage(for threadID: String) -> Message? {
-        conversationsByThread[threadID]?.max { $0.createdAt < $1.createdAt }
+        rebuildCacheIfNeeded()
+        return latestMessageCached(for: threadID)
     }
 
     /// Get conversation metadata (kind 513) for a thread from DataStore

@@ -47,6 +47,8 @@ public struct ConversationsView: View {
     @State private var selectedThreadID: String?
     @State private var filterStore = ConversationsFilterStore()
     @State private var showingProjectPicker = false
+    /// Visibility tracking to prevent expensive re-computation when not visible
+    @State private var isVisible = true
 
     // MARK: - macOS Body
 
@@ -88,13 +90,22 @@ public struct ConversationsView: View {
         )
 
         List {
-            if vm.sortedThreadIDs.isEmpty {
-                emptyListContent(viewModel: vm)
+            // Only access observable properties when visible to prevent
+            // expensive re-computation when navigated away from this view
+            if isVisible {
+                if vm.sortedThreadIDs.isEmpty {
+                    emptyListContent(viewModel: vm)
+                } else {
+                    conversationListContent(viewModel: vm)
+                }
             } else {
-                conversationListContent(viewModel: vm)
+                // Placeholder when not visible - breaks observation chain
+                Color.clear
             }
         }
         .listStyle(.plain)
+        .onAppear { isVisible = true }
+        .onDisappear { isVisible = false }
         .task {
             if self.viewModel == nil {
                 self.viewModel = vm
