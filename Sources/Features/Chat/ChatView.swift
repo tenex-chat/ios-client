@@ -123,11 +123,14 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     private func createViewModel(ndk: NDK) -> ChatViewModel {
         // If we have a threadID but no threadEvent, use the threadID initializer
         if let threadID, self.threadEvent == nil {
+            // Get cached messages from DataStore for instant display
+            let cachedMessages = dataStore.recentConversationReplies.filter { $0.threadID == threadID }
             return ChatViewModel(
                 ndk: ndk,
                 threadID: threadID,
                 projectReference: self.projectReference,
-                userPubkey: self.currentUserPubkey
+                userPubkey: self.currentUserPubkey,
+                cachedMessages: cachedMessages
             )
         } else {
             // Use the traditional initializer with threadEvent
@@ -444,7 +447,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                     self.handleScrollViewAppear(proxy: proxy, messageCount: messages.count)
                 }
                 .onChange(of: messages.count) { _, newCount in
-                    self.handleMessageCountChange(proxy: proxy, newCount: newCount)
+                    self.handleMessageCountChange(proxy: proxy, newCount: newCount, viewModel: viewModel)
                 }
         }
     }
@@ -457,6 +460,7 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
             }
             .padding(.vertical, 16)
         }
+        .defaultScrollAnchor(.bottom)
     }
 
     /// Filter messages based on conversation settings
@@ -684,14 +688,23 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
     }
 
     private func handleScrollViewAppear(proxy: ScrollViewProxy, messageCount: Int) {
-        withAnimation {
-            proxy.scrollTo("bottom", anchor: .bottom)
-        }
+        // With .defaultScrollAnchor(.bottom), no need to manually scroll on appear
+        // Just track the message count for change detection
         self.lastMessageCount = messageCount
     }
 
-    private func handleMessageCountChange(proxy: ScrollViewProxy, newCount: Int) {
-        // Only auto-scroll if user is near bottom and new messages were added
+    private func handleMessageCountChange(proxy: ScrollViewProxy, newCount: Int, viewModel: ChatViewModel) {
+        // Only auto-scroll if:
+        // 1. Initial load is complete (don't animate during cache priming)
+        // 2. User is near bottom
+        // 3. New messages were added
+        guard viewModel.conversationState.isInitialLoadComplete else {
+            // During initial load, just track count without scrolling
+            // .defaultScrollAnchor(.bottom) handles initial positioning
+            self.lastMessageCount = newCount
+            return
+        }
+
         if self.shouldAutoScroll, newCount > self.lastMessageCount {
             withAnimation {
                 proxy.scrollTo("bottom", anchor: .bottom)

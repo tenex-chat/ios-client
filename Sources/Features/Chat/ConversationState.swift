@@ -45,6 +45,23 @@ public final class ConversationState {
     /// Maintained in sorted order to avoid expensive sorting on every access
     public private(set) var displayMessages: [Message] = []
 
+    /// Whether initial loading is complete (used to defer scroll animations)
+    public private(set) var isInitialLoadComplete = false
+
+    /// Mark initial load as complete (call after priming with cached data)
+    public func markInitialLoadComplete() {
+        isInitialLoadComplete = true
+    }
+
+    /// Load multiple messages at once (for priming from cache)
+    /// - Parameter newMessages: Array of messages to load
+    public func loadMessages(_ newMessages: [Message]) {
+        for message in newMessages {
+            messages[message.id] = message
+        }
+        rebuildDisplayMessages()
+    }
+
     /// Process an incoming event and update state accordingly.
     /// - Parameter event: The NDKEvent to process
     public func processEvent(_ event: NDKEvent) {

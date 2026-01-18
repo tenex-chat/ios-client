@@ -84,6 +84,7 @@ public final class ChatViewModel {
     ///   - threadID: The thread ID (event ID of the kind:1 thread event)
     ///   - projectReference: The project reference in format "31933:pubkey:d-tag"
     ///   - userPubkey: The pubkey of the authenticated user
+    ///   - cachedMessages: Optional pre-loaded messages from DataStore cache
     ///   - aiConfigStorage: AI configuration storage for auto-TTS settings
     ///   - audioService: Audio service for TTS playback
     ///   - settingsStorage: Storage for conversation settings
@@ -92,6 +93,7 @@ public final class ChatViewModel {
         threadID: String,
         projectReference: String,
         userPubkey: String,
+        cachedMessages: [Message] = [],
         aiConfigStorage: AIConfigStorage? = nil,
         audioService: AudioService? = nil,
         settingsStorage: ConversationSettingsStorage = UserDefaultsConversationSettingsStorage()
@@ -116,7 +118,13 @@ public final class ChatViewModel {
             self?.handleAgentMessage(message)
         }
 
-        // Start continuous subscription in background - this will fetch all messages
+        // Prime with cached messages immediately (shows content without waiting for subscription)
+        if !cachedMessages.isEmpty {
+            self.conversationState.loadMessages(cachedMessages)
+            self.conversationState.markInitialLoadComplete()
+        }
+
+        // Start continuous subscription in background for new messages
         Task {
             await self.subscribeToAllEvents()
         }
@@ -391,6 +399,10 @@ public final class ChatViewModel {
                         self.threadEvent = event
                         self.conversationState.processEvent(event)
                     }
+                    // Mark initial load complete after first batch (if not already primed from cache)
+                    if !self.conversationState.isInitialLoadComplete {
+                        self.conversationState.markInitialLoadComplete()
+                    }
                 }
             }
 
@@ -398,6 +410,10 @@ public final class ChatViewModel {
                 for await events in repliesSubscription.events {
                     for event in events {
                         self.conversationState.processEvent(event)
+                    }
+                    // Mark initial load complete after first batch (if not already primed from cache)
+                    if !self.conversationState.isInitialLoadComplete {
+                        self.conversationState.markInitialLoadComplete()
                     }
                 }
             }
