@@ -27,23 +27,12 @@ struct ConversationRow: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            activityBar
             hierarchyIndicator
             contentStack
         }
     }
 
     // MARK: Private
-
-    @ViewBuilder
-    private var activityBar: some View {
-        if hasActivity {
-            Rectangle()
-                .fill(Color.green)
-                .frame(width: 3)
-                .shadow(color: .green.opacity(0.6), radius: 4, x: 0, y: 0)
-        }
-    }
 
     /// Visual hierarchy indicator for nested delegations
     @ViewBuilder
@@ -162,9 +151,5 @@ struct ConversationRow: View {
             return title
         }
         return "Conversation"
-    }
-
-    private var hasActivity: Bool {
-        conversationMetadata?.hasActivity ?? false
     }
 }
