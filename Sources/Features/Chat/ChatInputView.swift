@@ -11,7 +11,6 @@ import TENEXCore
 import TENEXShared
 
 #if os(iOS)
-    import PhotosUI
     import UIKit
 #else
     import AppKit
@@ -31,7 +30,6 @@ public struct ChatInputView: View {
     ///   - ndk: The NDK instance for profile pictures
     ///   - projectReference: The project reference for agent config
     ///   - defaultAgentPubkey: Optional default agent pubkey (e.g., most recent message author)
-    ///   - eventId: Optional event ID to track active agents for
     ///   - onlineAgents: List of online agents in the project
     ///   - availableHashtags: List of available hashtags for routing
     ///   - lastAgentPubkey: The last agent that spoke (for auto-updating selection)
@@ -42,7 +40,6 @@ public struct ChatInputView: View {
         ndk: NDK,
         projectReference: String,
         defaultAgentPubkey: String? = nil,
-        eventId: String? = nil,
         onlineAgents: [ProjectAgent] = [],
         availableHashtags: [String] = [],
         lastAgentPubkey: String? = nil,
@@ -51,7 +48,6 @@ public struct ChatInputView: View {
         self.ndk = ndk
         self.dataStore = dataStore
         self.projectReference = projectReference
-        self.eventId = eventId
         self.onlineAgents = onlineAgents
         self.availableHashtags = availableHashtags
         self.lastAgentPubkey = lastAgentPubkey
@@ -106,33 +102,6 @@ public struct ChatInputView: View {
             // Auto-update the selected agent when the last speaking agent changes
             self.agentSelectorVM.updateDefaultAgent(newAgentPubkey)
         }
-        .sheet(isPresented: self.$showNudgeSelector) {
-            NudgeSelectorSheet(
-                selectedNudges: self.$viewModel.selectedNudges,
-                availableNudges: self.dataStore.nudges
-            )
-        }
-        .sheet(isPresented: self.$showBranchSelector) {
-            BranchSelectorSheet(
-                selectedBranch: self.$viewModel.selectedBranch,
-                availableBranches: self.availableBranches,
-                defaultBranch: self.defaultBranch
-            )
-        }
-        .sheet(isPresented: self.$showAgentConfig) {
-            if let agent = agentSelectorVM.selectedAgentPubkey.flatMap({ pubkey in
-                agentSelectorVM.agents.first(where: { $0.pubkey == pubkey })
-            }) {
-                AgentConfigSheet(
-                    isPresented: self.$showAgentConfig,
-                    agent: agent,
-                    availableModels: self.availableModels,
-                    availableTools: self.availableTools,
-                    projectReference: self.projectReference,
-                    ndk: self.ndk
-                )
-            }
-        }
         .sheet(isPresented: self.$agentSelectorVM.isPresented) {
             AgentSelectorView(viewModel: self.agentSelectorVM)
         }
@@ -158,9 +127,6 @@ public struct ChatInputView: View {
     @State private var viewModel: ChatInputViewModel
     @State private var agentSelectorVM: AgentSelectorViewModel
     @State private var mentionVM: MentionAutocompleteViewModel
-    @State private var showNudgeSelector = false
-    @State private var showBranchSelector = false
-    @State private var showAgentConfig = false
     @State private var showComposeSheet = false
     @FocusState private var isInputFocused: Bool
 
@@ -168,52 +134,16 @@ public struct ChatInputView: View {
     @State private var isDropTargeted = false
     #endif
 
-    // Pulsing animation state for active agents indicator
-    @State private var pulseScale: CGFloat = 1.0
-    @State private var pulseOpacity: Double = 0.5
-
-    /// Dynamic Type scaling for send button
-    @ScaledMetric(relativeTo: .body) private var sendButtonSize: CGFloat = 32
-    @ScaledMetric(relativeTo: .body) private var sendIconSize: CGFloat = 14
-
     /// Reduce Motion accessibility setting
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let ndk: NDK
     private let dataStore: DataStore
     private let projectReference: String
-    private let eventId: String?
     private let onlineAgents: [ProjectAgent]
     private let availableHashtags: [String]
     private let lastAgentPubkey: String?
     private let onSend: (String, String?, [String], String?, [String]) -> Void
-
-    /// Available models from project status
-    private var availableModels: [String] {
-        self.dataStore.getProjectStatus(projectCoordinate: self.projectReference)?
-            .models ?? []
-    }
-
-    /// Available tools from project status
-    private var availableTools: [String] {
-        self.dataStore.getProjectStatus(projectCoordinate: self.projectReference)?
-            .tools ?? []
-    }
-
-    /// Available branches from project status
-    private var availableBranches: [String] {
-        self.dataStore.getProjectStatus(projectCoordinate: self.projectReference)?.branches.sorted() ?? []
-    }
-
-    /// Default branch from project status (first branch in array)
-    private var defaultBranch: String? {
-        self.dataStore.getProjectStatus(projectCoordinate: self.projectReference)?.defaultBranch
-    }
-
-    /// The branch to display (selected branch or default branch)
-    private var displayBranch: String? {
-        self.viewModel.selectedBranch ?? self.defaultBranch
-    }
 
     /// Dynamic placeholder text showing selected agent or hashtag
     private var placeholderText: String {
@@ -225,24 +155,6 @@ public struct ChatInputView: View {
             return "Message @\(agent.name)"
         }
         return "Message @agent"
-    }
-
-    /// Get active agent pubkeys for this event from DataStore
-    private var activeAgentPubkeys: Set<String> {
-        guard let eventId else {
-            return []
-        }
-        return self.dataStore.activeOperations[eventId] ?? []
-    }
-
-    /// Filter online agents to only those currently active
-    private var activeAgents: [ProjectAgent] {
-        self.onlineAgents.filter { self.activeAgentPubkeys.contains($0.pubkey) }
-    }
-
-    /// Whether any agents are currently working
-    private var hasActiveAgents: Bool {
-        !self.activeAgents.isEmpty
     }
 
     // MARK: - View Components
@@ -294,14 +206,7 @@ public struct ChatInputView: View {
     // MARK: - Input Bar
 
     private var compactInputBar: some View {
-        HStack(alignment: .bottom, spacing: 6) {
-            self.atButton
-            #if os(iOS)
-            self.imageButton
-            #endif
-            self.textInputField
-            self.plusMenuButton
-        }
+        self.textInputField
     }
 
     private var textInputField: some View {
@@ -383,162 +288,6 @@ public struct ChatInputView: View {
         .modifier(GlassTextFieldModifier())
     }
 
-    private var atButton: some View {
-        Button {
-            self.agentSelectorVM.presentSelector()
-        } label: {
-            Text("@")
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(
-                    self.agentSelectorVM.selectedAgentPubkey != nil
-                        ? Color.primary
-                        : .secondary
-                )
-                .frame(width: 36, height: 36)
-                .modifier(GlassCircleButtonModifier())
-        }
-        .buttonStyle(.plain)
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: 0.5)
-                .onEnded { _ in
-                    if self.agentSelectorVM.selectedAgentPubkey != nil {
-                        self.showAgentConfig = true
-                    }
-                }
-        )
-        .padding(.bottom, 2)
-    }
-
-    #if os(iOS)
-    private var imageButton: some View {
-        PhotosPicker(
-            selection: self.$viewModel.selectedPhotoItems,
-            maxSelectionCount: 4,
-            matching: .images,
-            photoLibrary: .shared()
-        ) {
-            Image(systemName: "photo")
-                .font(.system(size: 18, weight: .medium))
-                .foregroundStyle(
-                    self.viewModel.hasAttachments
-                        ? Color.primary
-                        : .secondary
-                )
-                .frame(width: 36, height: 36)
-                .modifier(GlassCircleButtonModifier())
-        }
-        .buttonStyle(.plain)
-        .padding(.bottom, 2)
-        .onChange(of: self.viewModel.pendingAttachments) { _, attachments in
-            // Auto-upload attachments when added
-            Task {
-                for attachment in attachments where attachment.uploadState == .pending {
-                    await attachment.upload(ndk: self.ndk)
-                }
-            }
-        }
-    }
-    #endif
-
-    private var plusMenuButton: some View {
-        Menu {
-            // Show stop options first if agents are active
-            if self.hasActiveAgents {
-                self.stopAgentsSection
-                Divider()
-            }
-
-            self.nudgesMenuItem
-            self.branchMenuItem
-            Divider()
-            self.agentSettingsMenuItem
-        } label: {
-            ZStack {
-                // Icon changes based on active agents
-                Image(systemName: self.hasActiveAgents ? "xmark" : "plus")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(self.hasActiveAgents ? .red : .secondary)
-                    .frame(width: 36, height: 36)
-                    .modifier(GlassCircleButtonModifier())
-
-                // Pulsing indicator when agents are active
-                if self.hasActiveAgents {
-                    Circle()
-                        .fill(Color.red.opacity(0.3))
-                        .frame(width: 36, height: 36)
-                        .scaleEffect(self.pulseScale)
-                        .opacity(self.pulseOpacity)
-                        .onAppear {
-                            withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
-                                self.pulseScale = 1.3
-                                self.pulseOpacity = 0.1
-                            }
-                        }
-                        .onDisappear {
-                            // Reset state for next time
-                            self.pulseScale = 1.0
-                            self.pulseOpacity = 0.5
-                        }
-                }
-            }
-        }
-        .padding(.bottom, 2)
-        .accessibilityLabel(self.hasActiveAgents ? "Stop active agents or more options" : "More options")
-    }
-
-    @ViewBuilder
-    private var stopAgentsSection: some View {
-        if self.activeAgents.count > 1 {
-            Button(role: .destructive) {
-                Task { await self.stopAllAgents() }
-            } label: {
-                Label("Cancel All", systemImage: "stop.circle.fill")
-            }
-            Divider()
-        }
-
-        ForEach(self.activeAgents, id: \.pubkey) { agent in
-            Button(role: .destructive) {
-                Task { await self.stopAgent(agent.pubkey) }
-            } label: {
-                Label("Cancel \(agent.name)", systemImage: "stop.circle")
-            }
-        }
-    }
-
-    private var nudgesMenuItem: some View {
-        Button {
-            self.showNudgeSelector = true
-        } label: {
-            Label(self.nudgesMenuLabel, systemImage: "square.slash")
-        }
-    }
-
-    private var nudgesMenuLabel: String {
-        self.viewModel.selectedNudges.isEmpty ? "Nudges" : "Nudges (\(self.viewModel.selectedNudges.count))"
-    }
-
-    private var branchMenuItem: some View {
-        Button {
-            self.showBranchSelector = true
-        } label: {
-            Label(self.branchMenuLabel, systemImage: "arrow.branch")
-        }
-    }
-
-    private var branchMenuLabel: String {
-        displayBranch.map { "Branch (\($0))" } ?? "Branch"
-    }
-
-    private var agentSettingsMenuItem: some View {
-        Button {
-            self.showAgentConfig = true
-        } label: {
-            Label("Agent Settings", systemImage: "gearshape")
-        }
-        .disabled(self.agentSelectorVM.selectedAgentPubkey == nil)
-    }
-
     private var sendButton: some View {
         Button {
             self.sendMessage()
@@ -589,36 +338,6 @@ public struct ChatInputView: View {
     private func handleMentionSelection(replacement: String, pubkey: String) {
         self.viewModel.insertMention(replacement: replacement, pubkey: pubkey)
         self.mentionVM.hide()
-    }
-
-    // MARK: - Active Agents Management
-
-    /// Stop a specific agent
-    private func stopAgent(_ pubkey: String) async {
-        guard let eventId else {
-            return
-        }
-        // Stop commands are best-effort - silently ignore errors
-        try? await MessagePublisher().publishStopCommand(
-            ndk: self.ndk,
-            projectRef: self.projectReference,
-            eventId: eventId,
-            agentPubkey: pubkey
-        )
-    }
-
-    /// Stop all active agents
-    private func stopAllAgents() async {
-        guard let eventId else {
-            return
-        }
-        // Stop commands are best-effort - silently ignore errors
-        try? await MessagePublisher().publishStopCommand(
-            ndk: self.ndk,
-            projectRef: self.projectReference,
-            eventId: eventId,
-            agentPubkey: nil // nil means stop all
-        )
     }
 
     #if os(macOS)

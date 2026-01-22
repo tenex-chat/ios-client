@@ -403,7 +403,6 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
                 ndk: ndk,
                 projectReference: self.projectReference,
                 defaultAgentPubkey: self.mostRecentAgentPubkey(from: viewModel.displayMessages),
-                eventId: viewModel.threadID,
                 onlineAgents: self.onlineAgents,
                 availableHashtags: self.availableHashtags,
                 lastAgentPubkey: self.mostRecentAgentPubkey(from: viewModel.displayMessages)
