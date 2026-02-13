@@ -81,7 +81,14 @@ public final class ConversationState {
         )
 
         // Check if this is a new message or an update
-        let isNewMessage = messages[event.id] == nil
+        let existingMessage = messages[event.id]
+        let isNewMessage = existingMessage == nil
+
+        // Skip if message already exists with same content (duplicate from relay)
+        if let existing = existingMessage, existing.content == message.content {
+            return
+        }
+
         messages[event.id] = message
 
         if isNewMessage {

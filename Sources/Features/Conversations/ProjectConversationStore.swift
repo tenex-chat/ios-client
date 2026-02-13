@@ -192,8 +192,11 @@ public final class ProjectConversationStore {
                 // Process batch in background actor
                 let newState = await self.processor.processBatch(batch)
 
-                // Single UI update per batch
-                self.state = newState
+                // Only update state if it actually changed (avoid triggering observation for duplicate events)
+                if newState.totalMessageCount != self.state.totalMessageCount ||
+                    newState.threadSummaries.count != self.state.threadSummaries.count {
+                    self.state = newState
+                }
 
                 // Update active thread messages if needed
                 if let activeID = self.activeThreadID {
@@ -244,9 +247,14 @@ public final class ProjectConversationStore {
 
     private func refreshActiveThreadMessages(_ threadID: String) async {
         let processedMessages = await processor.getMessages(for: threadID)
-        activeThreadMessages = processedMessages
+        let newMessages = processedMessages
             .map { Message.from(processed: $0) }
             .sorted { $0.createdAt < $1.createdAt }
+
+        // Only update if message count changed (avoid triggering observation for duplicates)
+        if newMessages.count != activeThreadMessages.count {
+            activeThreadMessages = newMessages
+        }
     }
 }
 

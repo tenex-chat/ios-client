@@ -14,6 +14,7 @@ private enum Tab: Int, Hashable {
     case conversations = 0
     case projects = 1
     case inbox = 2
+    case newThread = 3
 
     var title: String {
         switch self {
@@ -23,6 +24,8 @@ private enum Tab: Int, Hashable {
             "Projects"
         case .inbox:
             "Inbox"
+        case .newThread:
+            "New Thread"
         }
     }
 
@@ -34,6 +37,8 @@ private enum Tab: Int, Hashable {
             "folder"
         case .inbox:
             "tray"
+        case .newThread:
+            "plus"
         }
     }
 }
@@ -57,6 +62,9 @@ public struct MainTabView: View {
 
     @Environment(DataStore.self) private var dataStore
     @State private var selectedTab: Tab = .conversations
+    @State private var previousTab: Tab = .conversations
+    @State private var showingProjectPicker = false
+    private let archiveStorage: ArchiveStorage = UserDefaultsArchiveStorage()
 
     #if os(macOS)
     // macOS: Apple Mail-style segmented control in toolbar
@@ -82,20 +90,20 @@ public struct MainTabView: View {
     }
     #endif
 
-    // iOS: Standard TabView with bottom tabs
+    // iOS: Standard TabView with bottom tabs (icons only)
     private var iOSBody: some View {
         TabView(selection: $selectedTab) {
             NavigationStack {
                 ConversationsView()
             }
             .tabItem {
-                Label("Conversations", systemImage: "bubble.left.and.bubble.right")
+                Image(systemName: "bubble.left.and.bubble.right")
             }
             .tag(Tab.conversations)
 
             NavigationShell()
                 .tabItem {
-                    Label("Projects", systemImage: "folder")
+                    Image(systemName: "folder")
                 }
                 .tag(Tab.projects)
 
@@ -103,11 +111,33 @@ public struct MainTabView: View {
                 InboxView()
             }
             .tabItem {
-                Label("Inbox", systemImage: "tray")
+                Image(systemName: "tray")
             }
             .badge(dataStore.inboxUnreadCount)
             .tag(Tab.inbox)
+
+            Color.clear
+                .tabItem {
+                    Image(systemName: "plus")
+                }
+                .tag(Tab.newThread)
         }
+        .onChange(of: selectedTab) { _, newValue in
+            if newValue == .newThread {
+                selectedTab = previousTab
+                showingProjectPicker = true
+            } else {
+                previousTab = newValue
+            }
+        }
+        .sheet(isPresented: $showingProjectPicker) {
+            NewThreadProjectPickerSheet(projects: availableProjects)
+        }
+    }
+
+    private var availableProjects: [Project] {
+        let archivedIDs = archiveStorage.archivedProjectIDs()
+        return dataStore.projects.filter { !archivedIDs.contains($0.id) }
     }
 
     @ViewBuilder
@@ -119,6 +149,8 @@ public struct MainTabView: View {
             NavigationShell()
         case .inbox:
             InboxView()
+        case .newThread:
+            ConversationsView()
         }
     }
 

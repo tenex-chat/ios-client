@@ -140,7 +140,7 @@ public struct DocumentDetailView: View {
 
     private var documentContent: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            LazyVStack(alignment: .leading, spacing: 16) {
                 headerSection
                 versionIndicator
                 Divider()

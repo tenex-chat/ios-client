@@ -293,16 +293,20 @@ extension DataStore {
         let subscription = self.ndk.subscribe(filter: Project.filter(for: userPubkey))
 
         for await events in subscription.events {
+            var hasChanges = false
             for event in events {
                 if let project = Project.from(event: event) {
                     if projectsByID[project.id] == nil {
                         projectOrder.append(project.id)
+                        hasChanges = true
                     }
                     projectsByID[project.id] = project
                 }
             }
-            // Update UI once per batch, not per event
-            self.projects = projectOrder.compactMap { projectsByID[$0] }
+            // Only update UI if there were changes
+            if hasChanges {
+                self.projects = projectOrder.compactMap { projectsByID[$0] }
+            }
         }
     }
 
@@ -315,13 +319,19 @@ extension DataStore {
         var agentsByID: [String: AgentDefinition] = [:]
 
         for await events in subscription.events {
+            var hasChanges = false
             for event in events {
                 if let agent = AgentDefinition.from(event: event) {
+                    if agentsByID[agent.id] == nil {
+                        hasChanges = true
+                    }
                     agentsByID[agent.id] = agent
                 }
             }
-            // Update UI once per batch, not per event
-            self.agents = Array(agentsByID.values)
+            // Only update UI if there were changes
+            if hasChanges {
+                self.agents = Array(agentsByID.values)
+            }
         }
     }
 
@@ -334,13 +344,19 @@ extension DataStore {
         var toolsByID: [String: MCPTool] = [:]
 
         for await events in subscription.events {
+            var hasChanges = false
             for event in events {
                 if let tool = MCPTool.from(event: event) {
+                    if toolsByID[tool.id] == nil {
+                        hasChanges = true
+                    }
                     toolsByID[tool.id] = tool
                 }
             }
-            // Update UI once per batch, not per event
-            self.tools = Array(toolsByID.values)
+            // Only update UI if there were changes
+            if hasChanges {
+                self.tools = Array(toolsByID.values)
+            }
         }
     }
 
@@ -348,17 +364,26 @@ extension DataStore {
         let filter = ProjectStatus.filter(for: userPubkey)
         let subscription = self.ndk.subscribe(filter: filter)
 
+        // Track statuses locally, only update observable when batch has changes
+        var localStatuses: [String: ProjectStatus] = [:]
+
         for await events in subscription.events {
+            var hasChanges = false
             for event in events {
                 if let status = ProjectStatus.from(event: event) {
-                    // Only keep if newer than existing
-                    if let existing = projectStatuses[status.projectCoordinate] {
+                    // Only keep if newer than existing (check local copy)
+                    if let existing = localStatuses[status.projectCoordinate] {
                         guard status.createdAt > existing.createdAt else {
                             continue
                         }
                     }
-                    self.projectStatuses[status.projectCoordinate] = status
+                    localStatuses[status.projectCoordinate] = status
+                    hasChanges = true
                 }
+            }
+            // Only update observable if there were actual changes
+            if hasChanges {
+                self.projectStatuses = localStatuses
             }
         }
     }
@@ -372,13 +397,19 @@ extension DataStore {
         var nudgesByID: [String: Nudge] = [:]
 
         for await events in subscription.events {
+            var hasNewNudges = false
             for event in events {
                 if let nudge = Nudge.from(event: event) {
-                    nudgesByID[nudge.id] = nudge
+                    if nudgesByID[nudge.id] == nil {
+                        nudgesByID[nudge.id] = nudge
+                        hasNewNudges = true
+                    }
                 }
             }
-            // Update UI once per batch, not per event
-            self.nudges = Array(nudgesByID.values).sorted { $0.createdAt > $1.createdAt }
+            // Only update UI if there were actually new nudges
+            if hasNewNudges {
+                self.nudges = Array(nudgesByID.values).sorted { $0.createdAt > $1.createdAt }
+            }
         }
     }
 
@@ -421,14 +452,21 @@ extension DataStore {
                     break
                 }
 
+                var hasNewMessages = false
                 for event in events {
                     if let message = Message.from(event: event) {
-                        messagesByID[message.id] = message
+                        // Only count as new if not already present
+                        if messagesByID[message.id] == nil {
+                            messagesByID[message.id] = message
+                            hasNewMessages = true
+                        }
                     }
                 }
-                // Update UI once per batch, not per event
-                self.recentConversationReplies = Array(messagesByID.values)
-                    .sorted { $0.createdAt > $1.createdAt }
+                // Only update UI if there were actually new messages
+                if hasNewMessages {
+                    self.recentConversationReplies = Array(messagesByID.values)
+                        .sorted { $0.createdAt > $1.createdAt }
+                }
             }
 
             // No sleep here - restart immediately when projects change
@@ -580,17 +618,37 @@ extension DataStore {
 
         let subscription = self.ndk.subscribe(filter: filter)
 
+        // Track operations locally, only update observable when batch has changes
+        var localOperations: [String: Set<String>] = [:]
+
         for await events in subscription.events {
+            var hasChanges = false
             for event in events {
-                self.handleOperationsStatus(event)
+                if let (eventId, agentPubkeys, changed) = parseOperationsEvent(event, current: localOperations) {
+                    if changed {
+                        if agentPubkeys.isEmpty {
+                            localOperations.removeValue(forKey: eventId)
+                        } else {
+                            localOperations[eventId] = agentPubkeys
+                        }
+                        hasChanges = true
+                    }
+                }
+            }
+            // Only update observable if there were actual changes
+            if hasChanges {
+                self.activeOperations = localOperations
             }
         }
     }
 
-    private func handleOperationsStatus(_ event: NDKEvent) {
+    private func parseOperationsEvent(
+        _ event: NDKEvent,
+        current: [String: Set<String>]
+    ) -> (eventId: String, agents: Set<String>, changed: Bool)? {
         // Get the event ID this operation status is about
         guard let eventId = event.tagValue("e") else {
-            return
+            return nil
         }
 
         // Collect all agent pubkeys from p tags (lowercase)
@@ -603,21 +661,23 @@ extension DataStore {
             }
         )
 
-        // Update the active operations map
-        // Remove entry if no agents are working, otherwise update
+        // Check if this is actually a change from current state
+        let currentAgents = current[eventId]
+        let isChange: Bool
         if agentPubkeys.isEmpty {
-            self.activeOperations.removeValue(forKey: eventId)
-            self.logger.debug("Operations cleared for event \(eventId)")
+            isChange = currentAgents != nil
         } else {
-            self.activeOperations[eventId] = agentPubkeys
-            self.logger.debug("Operations status updated for event \(eventId): \(agentPubkeys.count) agents")
+            isChange = currentAgents != agentPubkeys
         }
+
+        return (eventId, agentPubkeys, isChange)
     }
 
     /// Subscribe to conversation metadata (kind:513) for all projects
     /// This is the SINGLE SOURCE OF TRUTH for conversation metadata
     private func subscribeToConversationMetadata() async {
         var currentProjectCoordinates: [String] = []
+        var localMetadata: [String: ConversationMetadata] = [:]
 
         while !Task.isCancelled {
             // Get current project coordinates
@@ -636,6 +696,7 @@ extension DataStore {
             }
 
             currentProjectCoordinates = projectCoordinates
+            localMetadata = [:] // Reset local cache when projects change
             self.logger.info("Starting conversation metadata subscription for \(projectCoordinates.count) projects")
 
             // Subscribe to kind:513 for all our projects
@@ -652,17 +713,23 @@ extension DataStore {
                     break
                 }
 
+                var hasChanges = false
                 for event in events {
                     if let metadata = ConversationMetadata.from(event: event) {
                         // Only update if newer than existing
-                        if let existing = self.conversationMetadata[metadata.threadID] {
+                        if let existing = localMetadata[metadata.threadID] {
                             guard metadata.createdAt > existing.createdAt else {
                                 continue
                             }
                         }
-                        self.conversationMetadata[metadata.threadID] = metadata
+                        localMetadata[metadata.threadID] = metadata
+                        hasChanges = true
                         self.logger.debug("Updated metadata for thread: \(metadata.threadID)")
                     }
+                }
+                // Only update observable if there were actual changes
+                if hasChanges {
+                    self.conversationMetadata = localMetadata
                 }
             }
         }
@@ -672,6 +739,8 @@ extension DataStore {
     /// This provides global parent-child tracking independent of per-project stores
     private func subscribeToThreadHierarchy() async {
         var currentProjectCoordinates: [String] = []
+        var localParentMap: [String: String] = [:]
+        var localChildrenMap: [String: Set<String>] = [:]
 
         while !Task.isCancelled {
             let projectCoordinates = self.projects.map(\.coordinate)
@@ -687,6 +756,8 @@ extension DataStore {
             }
 
             currentProjectCoordinates = projectCoordinates
+            localParentMap = [:] // Reset when projects change
+            localChildrenMap = [:]
             self.logger.info("Starting thread hierarchy subscription for \(projectCoordinates.count) projects")
 
             let filter = NDKFilter(kinds: [1], limit: 500, tags: ["a": Set(projectCoordinates)])
@@ -694,13 +765,26 @@ extension DataStore {
 
             for await events in subscription.events {
                 if self.projects.map(\.coordinate) != currentProjectCoordinates { break }
-                processThreadHierarchyEvents(events)
+                let changed = processThreadHierarchyEvents(
+                    events,
+                    parentMap: &localParentMap,
+                    childrenMap: &localChildrenMap
+                )
+                if changed {
+                    self.threadParentMap = localParentMap
+                    self.threadChildrenMap = localChildrenMap
+                }
             }
         }
     }
 
     /// Process thread events to extract delegation hierarchy
-    private func processThreadHierarchyEvents(_ events: [NDKEvent]) {
+    /// - Returns: true if hierarchy was changed
+    private func processThreadHierarchyEvents(
+        _ events: [NDKEvent],
+        parentMap: inout [String: String],
+        childrenMap: inout [String: Set<String>]
+    ) -> Bool {
         var hierarchyChanged = false
         var threadCount = 0
 
@@ -714,21 +798,26 @@ extension DataStore {
             if let delegationTag = event.tags(withName: "delegation").first,
                delegationTag.count > 1 {
                 let parentID = delegationTag[1]
-                if !parentID.isEmpty, self.threadParentMap[event.id] != parentID {
-                    self.threadParentMap[event.id] = parentID
-                    self.threadChildrenMap[parentID, default: []].insert(event.id)
+                if !parentID.isEmpty, parentMap[event.id] != parentID {
+                    parentMap[event.id] = parentID
+                    childrenMap[parentID, default: []].insert(event.id)
                     hierarchyChanged = true
                     self.logger.info("Found delegation: Thread \(event.id.prefix(8)) -> parent \(parentID.prefix(8))")
                 }
             }
         }
 
+        // Capture counts before logging to avoid autoclosure capturing inout parameters
+        let parentCount = parentMap.count
+
         if threadCount > 0 {
-            self.logger.info("Processed \(threadCount) thread events, \(self.threadParentMap.count) with delegation tags")
+            self.logger.info("Processed \(threadCount) thread events, \(parentCount) with delegation tags")
         }
 
         if hierarchyChanged {
-            self.logger.info("Thread hierarchy updated: \(self.threadParentMap.count) child threads")
+            self.logger.info("Thread hierarchy updated: \(parentCount) child threads")
         }
+
+        return hierarchyChanged
     }
 }

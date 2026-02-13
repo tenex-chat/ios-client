@@ -394,28 +394,45 @@ public final class ChatViewModel {
 
         await withTaskGroup(of: Void.self) { group in
             group.addTask { @MainActor in
-                for await events in rootSubscription.events {
-                    for event in events {
-                        self.threadEvent = event
-                        self.conversationState.processEvent(event)
-                    }
-                    // Mark initial load complete after first batch (if not already primed from cache)
-                    if !self.conversationState.isInitialLoadComplete {
-                        self.conversationState.markInitialLoadComplete()
-                    }
-                }
+                await self.processRootSubscription(rootSubscription)
             }
 
             group.addTask { @MainActor in
-                for await events in repliesSubscription.events {
-                    for event in events {
-                        self.conversationState.processEvent(event)
-                    }
-                    // Mark initial load complete after first batch (if not already primed from cache)
-                    if !self.conversationState.isInitialLoadComplete {
-                        self.conversationState.markInitialLoadComplete()
-                    }
+                await self.processRepliesSubscription(repliesSubscription)
+            }
+        }
+    }
+
+    /// Process root event subscription
+    private func processRootSubscription(_ subscription: NDKSubscription<NDKEvent>) async {
+        var seenEventIDs = Set<String>()
+
+        for await events in subscription.events {
+            for event in events {
+                guard seenEventIDs.insert(event.id).inserted else { continue }
+
+                if self.threadEvent?.id != event.id {
+                    self.threadEvent = event
                 }
+                self.conversationState.processEvent(event)
+            }
+            if !self.conversationState.isInitialLoadComplete {
+                self.conversationState.markInitialLoadComplete()
+            }
+        }
+    }
+
+    /// Process replies subscription
+    private func processRepliesSubscription(_ subscription: NDKSubscription<NDKEvent>) async {
+        var seenEventIDs = Set<String>()
+
+        for await events in subscription.events {
+            for event in events {
+                guard seenEventIDs.insert(event.id).inserted else { continue }
+                self.conversationState.processEvent(event)
+            }
+            if !self.conversationState.isInitialLoadComplete {
+                self.conversationState.markInitialLoadComplete()
             }
         }
     }

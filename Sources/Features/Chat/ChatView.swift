@@ -683,7 +683,11 @@ public struct ChatView: View { // swiftlint:disable:this type_body_length
 
     private func handleScrollOffsetChange(_ offset: CGFloat) {
         // User is at bottom if offset is small (within 100 points)
-        self.shouldAutoScroll = offset < 100
+        // Only update state when it changes to avoid triggering re-renders on every scroll frame
+        let isAtBottom = offset < 100
+        if shouldAutoScroll != isAtBottom {
+            shouldAutoScroll = isAtBottom
+        }
     }
 
     private func handleScrollViewAppear(proxy: ScrollViewProxy, messageCount: Int) {

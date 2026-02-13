@@ -47,8 +47,6 @@ public struct ConversationsView: View {
     @State private var selectedThreadID: String?
     @State private var filterStore = ConversationsFilterStore()
     @State private var showingProjectPicker = false
-    /// Visibility tracking to prevent expensive re-computation when not visible
-    @State private var isVisible = true
 
     // MARK: - macOS Body
 
@@ -73,6 +71,13 @@ public struct ConversationsView: View {
             if self.viewModel == nil {
                 self.viewModel = vm
             }
+            vm.recompute()
+        }
+        .onChange(of: dataStore.recentConversationReplies.count) {
+            vm.recompute()
+        }
+        .onChange(of: dataStore.threadParentMap.count) {
+            vm.recompute()
         }
         .sheet(isPresented: $showingProjectPicker) {
             NewThreadProjectPickerSheet(projects: vm.availableProjects)
@@ -90,26 +95,24 @@ public struct ConversationsView: View {
         )
 
         List {
-            // Only access observable properties when visible to prevent
-            // expensive re-computation when navigated away from this view
-            if isVisible {
-                if vm.sortedThreadIDs.isEmpty {
-                    emptyListContent(viewModel: vm)
-                } else {
-                    conversationListContent(viewModel: vm)
-                }
+            if vm.sortedThreadIDs.isEmpty {
+                emptyListContent(viewModel: vm)
             } else {
-                // Placeholder when not visible - breaks observation chain
-                Color.clear
+                conversationListContent(viewModel: vm)
             }
         }
         .listStyle(.plain)
-        .onAppear { isVisible = true }
-        .onDisappear { isVisible = false }
         .task {
             if self.viewModel == nil {
                 self.viewModel = vm
             }
+            vm.recompute()
+        }
+        .onChange(of: dataStore.recentConversationReplies.count) {
+            vm.recompute()
+        }
+        .onChange(of: dataStore.threadParentMap.count) {
+            vm.recompute()
         }
         .sheet(isPresented: $showingProjectPicker) {
             NewThreadProjectPickerSheet(projects: vm.availableProjects)
