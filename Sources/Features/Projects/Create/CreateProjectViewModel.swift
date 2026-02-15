@@ -173,7 +173,7 @@ public final class CreateProjectViewModel {
                 .kind(31_933)
                 .setTags(tags)
                 .content(content)
-                .build()
+                .build(signer: ndk.signer)
 
             try await ndk.publish(event)
             return true

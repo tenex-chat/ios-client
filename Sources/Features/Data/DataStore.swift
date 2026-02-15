@@ -198,7 +198,7 @@ public final class DataStore {
             .kind(24_000)
             .content("")
             .tag(["a", project.coordinate])
-            .build()
+            .build(signer: ndk.signer)
         try await self.ndk.publish(event)
     }
 

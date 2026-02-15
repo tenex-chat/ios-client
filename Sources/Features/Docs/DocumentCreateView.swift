@@ -308,7 +308,7 @@ public struct DocumentCreateView: View {
                 .kind(30_023)
                 .setTags(tags)
                 .content(self.content)
-                .build()
+                .build(signer: ndk.signer)
 
             try await self.ndk.publish(event)
             self.clearDraft()

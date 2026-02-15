@@ -99,7 +99,7 @@ public struct AgentEditorView: View {
                 .kind(4199)
                 .setTags(tags)
                 .content(content)
-                .build()
+                .build(signer: ndk.signer)
 
             try await ndk.publish(event)
             dismiss()

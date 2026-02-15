@@ -100,7 +100,7 @@ public final class ProjectSettingsViewModel {
             .kind(5)
             .setTags(tags)
             .content("")
-            .build()
+            .build(signer: ndk.signer)
         try await ndk.publish(event)
     }
 
@@ -148,7 +148,7 @@ public final class ProjectSettingsViewModel {
             .kind(31_933)
             .setTags(tags)
             .content(content)
-            .build()
+            .build(signer: ndk.signer)
         try await ndk.publish(event)
     }
 }

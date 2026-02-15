@@ -230,7 +230,7 @@ public final class BlossomClient: NSObject, Sendable {
             .tag(["t", "upload"])
             .tag(["x", sha256])
             .tag(["expiration", String(expiration)])
-            .build()
+            .build(signer: ndk.signer)
 
         // Serialize event to JSON
         let eventJSON = try event.serialize()

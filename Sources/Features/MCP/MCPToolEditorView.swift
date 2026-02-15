@@ -93,7 +93,7 @@ public struct MCPToolEditorView: View {
                 .kind(4200)
                 .setTags(tags)
                 .content(content)
-                .build()
+                .build(signer: ndk.signer)
 
             try await ndk.publish(event)
             dismiss()

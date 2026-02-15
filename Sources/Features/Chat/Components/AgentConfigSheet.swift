@@ -238,7 +238,7 @@ public struct AgentConfigSheet: View {
                     .kind(24_020)
                     .setTags(tags)
                     .content("")
-                    .build()
+                    .build(signer: ndk.signer)
 
                 try await self.ndk.publish(event)
             } catch {
