@@ -44,6 +44,9 @@ public final class DataStore {
     /// All nudges (system prompt modifiers)
     public private(set) var nudges: [Nudge] = []
 
+    /// All skills (capability enhancements)
+    public private(set) var skills: [Skill] = []
+
     /// Recent conversation replies (kind:1 with e-tag) across all projects
     public private(set) var recentConversationReplies: [Message] = []
 
@@ -95,6 +98,9 @@ public final class DataStore {
     /// Whether nudges are currently loading
     public private(set) var isLoadingNudges = false
 
+    /// Whether skills are currently loading
+    public private(set) var isLoadingSkills = false
+
     /// Start subscriptions after authentication
     /// - Parameter userPubkey: The authenticated user's pubkey
     public func startSubscriptions(for userPubkey: String) {
@@ -116,6 +122,7 @@ public final class DataStore {
         self.toolsTask = Task { await self.subscribeToTools() }
         self.statusTask = Task { await self.subscribeToProjectStatuses(userPubkey: userPubkey) }
         self.nudgesTask = Task { await self.subscribeToNudges() }
+        self.skillsTask = Task { await self.subscribeToSkills() }
         self.recentConversationsTask = Task { await self.subscribeToRecentConversations() }
         self.inboxTask = Task { await self.subscribeToInbox(userPubkey: userPubkey) }
         self.operationsTask = Task { await self.subscribeToOperationsStatus(userPubkey: userPubkey) }
@@ -134,6 +141,7 @@ public final class DataStore {
         self.toolsTask?.cancel()
         self.statusTask?.cancel()
         self.nudgesTask?.cancel()
+        self.skillsTask?.cancel()
         self.recentConversationsTask?.cancel()
         self.inboxTask?.cancel()
         self.operationsTask?.cancel()
@@ -145,6 +153,7 @@ public final class DataStore {
         self.toolsTask = nil
         self.statusTask = nil
         self.nudgesTask = nil
+        self.skillsTask = nil
         self.recentConversationsTask = nil
         self.inboxTask = nil
         self.operationsTask = nil
@@ -157,6 +166,7 @@ public final class DataStore {
         self.tools = []
         self.projectStatuses = [:]
         self.nudges = []
+        self.skills = []
         self.recentConversationReplies = []
         self.inboxMessages = []
         self.inboxUnreadCount = 0
@@ -248,6 +258,7 @@ public final class DataStore {
     private var toolsTask: Task<Void, Never>?
     private var statusTask: Task<Void, Never>?
     private var nudgesTask: Task<Void, Never>?
+    private var skillsTask: Task<Void, Never>?
     private var recentConversationsTask: Task<Void, Never>?
     private var inboxTask: Task<Void, Never>?
     private var operationsTask: Task<Void, Never>?
@@ -409,6 +420,31 @@ extension DataStore {
             // Only update UI if there were actually new nudges
             if hasNewNudges {
                 self.nudges = Array(nudgesByID.values).sorted { $0.createdAt > $1.createdAt }
+            }
+        }
+    }
+
+    private func subscribeToSkills() async {
+        self.isLoadingSkills = true
+        defer { isLoadingSkills = false }
+
+        let filter = NDKFilter(kinds: [4202], limit: 100)
+        let subscription = self.ndk.subscribe(filter: filter)
+        var skillsByID: [String: Skill] = [:]
+
+        for await events in subscription.events {
+            var hasNewSkills = false
+            for event in events {
+                if let skill = Skill.from(event: event) {
+                    if skillsByID[skill.id] == nil {
+                        skillsByID[skill.id] = skill
+                        hasNewSkills = true
+                    }
+                }
+            }
+            // Only update UI if there were actually new skills
+            if hasNewSkills {
+                self.skills = Array(skillsByID.values).sorted { $0.createdAt > $1.createdAt }
             }
         }
     }
