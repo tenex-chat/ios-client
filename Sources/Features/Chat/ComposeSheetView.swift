@@ -80,6 +80,18 @@ public struct ComposeSheetView: View {
         .sheet(isPresented: $showAgentSelector) {
             AgentSelectorView(viewModel: agentSelectorVM)
         }
+        .sheet(isPresented: $showNudgeSelector) {
+            NudgeSelectorSheet(
+                selectedNudges: $viewModel.selectedNudges,
+                availableNudges: dataStore.nudges
+            )
+        }
+        .sheet(isPresented: $showSkillSelector) {
+            SkillsSelectorSheet(
+                selectedSkills: $viewModel.selectedSkills,
+                availableSkills: dataStore.skills
+            )
+        }
         .onChange(of: agentSelectorVM.selectedAgentPubkey) { _, newPubkey in
             if let newPubkey {
                 viewModel.selectAgent(newPubkey)
@@ -92,6 +104,8 @@ public struct ComposeSheetView: View {
     @State private var viewModel: ChatInputViewModel
     @State private var agentSelectorVM: AgentSelectorViewModel
     @State private var showAgentSelector = false
+    @State private var showNudgeSelector = false
+    @State private var showSkillSelector = false
     @FocusState private var isTextFocused: Bool
 
     private let ndk: NDK
@@ -313,9 +327,15 @@ public struct ComposeSheetView: View {
             }
 
             Button {
-                // Nudges selector would go here
+                showNudgeSelector = true
             } label: {
                 Label("Nudges", systemImage: "square.slash")
+            }
+
+            Button {
+                showSkillSelector = true
+            } label: {
+                Label("Skills", systemImage: "bolt.fill")
             }
         } label: {
             Image(systemName: "ellipsis.circle")
@@ -326,12 +346,27 @@ public struct ComposeSheetView: View {
 
     @ViewBuilder
     private var nudgesBadge: some View {
-        if !viewModel.selectedNudges.isEmpty {
-            Text("\(viewModel.selectedNudges.count) nudges")
+        HStack(spacing: 8) {
+            if !viewModel.selectedNudges.isEmpty {
+                Text("\(viewModel.selectedNudges.count) nudges")
+                    .font(.caption)
+                    .foregroundStyle(.blue)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.blue.opacity(0.1)))
+            }
+            if !viewModel.selectedSkills.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "bolt.fill")
+                        .font(.caption2)
+                    Text("\(viewModel.selectedSkills.count)")
+                }
                 .font(.caption)
+                .foregroundStyle(.orange)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 4)
-                .background(Capsule().fill(Color.accentColor.opacity(0.2)))
+                .background(Capsule().fill(Color.orange.opacity(0.1)))
+            }
         }
     }
 

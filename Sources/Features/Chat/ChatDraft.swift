@@ -20,6 +20,7 @@ public struct ChatDraft: Codable, Equatable, Sendable {
     ///   - selectedAgent: The selected agent pubkey, if any
     ///   - selectedBranch: The selected git branch, if any
     ///   - selectedNudges: Selected nudge IDs
+    ///   - selectedSkills: Selected skill IDs
     ///   - mentionedPubkeys: Pubkeys mentioned in the message
     ///   - lastModified: Timestamp of last modification
     public init(
@@ -28,6 +29,7 @@ public struct ChatDraft: Codable, Equatable, Sendable {
         selectedAgent: String? = nil,
         selectedBranch: String? = nil,
         selectedNudges: [String] = [],
+        selectedSkills: [String] = [],
         mentionedPubkeys: [String] = [],
         lastModified: Date = Date()
     ) {
@@ -36,6 +38,7 @@ public struct ChatDraft: Codable, Equatable, Sendable {
         self.selectedAgent = selectedAgent
         self.selectedBranch = selectedBranch
         self.selectedNudges = selectedNudges
+        self.selectedSkills = selectedSkills
         self.mentionedPubkeys = mentionedPubkeys
         self.lastModified = lastModified
     }
@@ -56,6 +59,9 @@ public struct ChatDraft: Codable, Equatable, Sendable {
 
     /// Selected nudge IDs
     public let selectedNudges: [String]
+
+    /// Selected skill IDs
+    public let selectedSkills: [String]
 
     /// Pubkeys mentioned in the message
     public let mentionedPubkeys: [String]

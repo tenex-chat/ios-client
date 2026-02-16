@@ -72,6 +72,7 @@ public struct ChatInputView: View {
             self.replyContextView
             self.attachmentPreviewView
             self.nudgesPillsView
+            self.skillsPillsView
             self.mentionAutocompleteView
             self.mainInputArea
         }
@@ -183,6 +184,16 @@ public struct ChatInputView: View {
                 selectedNudges: self.viewModel.selectedNudges,
                 availableNudges: self.dataStore.nudges
             ) { self.viewModel.toggleNudge($0) }
+                .padding(.vertical, 8)
+        }
+    }
+
+    @ViewBuilder private var skillsPillsView: some View {
+        if !self.viewModel.selectedSkills.isEmpty {
+            SelectedSkillsPills(
+                selectedSkills: self.viewModel.selectedSkills,
+                availableSkills: self.dataStore.skills
+            ) { self.viewModel.toggleSkill($0) }
                 .padding(.vertical, 8)
         }
     }

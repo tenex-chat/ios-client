@@ -60,6 +60,9 @@ public final class ChatInputViewModel {
     /// Selected nudge IDs
     public var selectedNudges: [String] = []
 
+    /// Selected skill IDs
+    public var selectedSkills: [String] = []
+
     /// Message we're replying to (for swipe-to-reply)
     public private(set) var replyToMessage: Message?
 
@@ -193,6 +196,16 @@ public final class ChatInputViewModel {
         }
     }
 
+    /// Toggle a skill selection
+    /// - Parameter skillId: The skill ID to toggle
+    public func toggleSkill(_ skillID: String) {
+        if self.selectedSkills.contains(skillID) {
+            self.selectedSkills.removeAll { $0 == skillID }
+        } else {
+            self.selectedSkills.append(skillID)
+        }
+    }
+
     /// Set the message to reply to
     /// - Parameter message: The message to reply to, or nil to clear
     public func setReplyTo(_ message: Message?) {
@@ -204,11 +217,12 @@ public final class ChatInputViewModel {
         self.replyToMessage = nil
     }
 
-    /// Clear the input text, mentions, nudges, hashtag, reply context, and attachments
+    /// Clear the input text, mentions, nudges, skills, hashtag, reply context, and attachments
     public func clearInput() {
         self.inputText = ""
         self.mentionedPubkeys = []
         self.selectedNudges = []
+        self.selectedSkills = []
         self.selectedHashtag = nil
         self.replyToMessage = nil
         self.pendingAttachments = []
@@ -260,6 +274,7 @@ public final class ChatInputViewModel {
             selectedAgent: selectedAgent,
             selectedBranch: selectedBranch,
             selectedNudges: selectedNudges,
+            selectedSkills: selectedSkills,
             mentionedPubkeys: mentionedPubkeys,
             lastModified: Date()
         )
@@ -285,6 +300,7 @@ public final class ChatInputViewModel {
                     self.selectedAgent = draft.selectedAgent
                     self.selectedBranch = draft.selectedBranch
                     self.selectedNudges = draft.selectedNudges
+                    self.selectedSkills = draft.selectedSkills
                     self.mentionedPubkeys = draft.mentionedPubkeys
                     // Clear any previous errors
                     self.draftSaveError = nil
